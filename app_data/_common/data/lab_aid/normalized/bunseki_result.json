@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "command": "build",
+  "error_code": 2,
+  "message": "PermissionError",
+  "details": "File is locked. Close the file and retry. ([Errno 13] Permission denied: 'C:\\\\Users\\\\12414\\\\トクヤマグループ\\\\環境分析課 - ドキュメント\\\\app_data\\\\_common\\\\data\\\\lab_aid\\\\normalized\\\\bunseki.csv')",
+  "execution_time_ms": 7268
+}

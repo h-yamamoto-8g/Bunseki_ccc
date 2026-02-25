@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "command": "build",
+  "error_code": 2,
+  "message": "InputError",
+  "details": "profile not found: _common\\master_data\\views\\bunseki.json",
+  "execution_time_ms": 0
+}
