@@ -21,7 +21,7 @@ class CompletedState(QWidget):
 
         card = QFrame()
         card.setStyleSheet("""
-            QFrame { background:white; border:1px solid #e2e8f0; border-radius:12px; }
+            QFrame { background:#161b27; border:1px solid #2a3349; border-radius:12px; }
         """)
         cl = QVBoxLayout(card)
         cl.setContentsMargins(48, 48, 48, 48)
@@ -36,21 +36,21 @@ class CompletedState(QWidget):
         cl.addWidget(icon)
 
         done_lbl = QLabel("タスクが完了しました")
-        done_lbl.setStyleSheet("font-size:22px; font-weight:bold; color:#1e293b;")
+        done_lbl.setStyleSheet("font-size:22px; font-weight:bold; color:#e8eaf0;")
         done_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cl.addWidget(done_lbl)
 
         self.summary_lbl = QLabel()
-        self.summary_lbl.setStyleSheet("color:#6b7280; font-size:13px; line-height:1.6;")
+        self.summary_lbl.setStyleSheet("color:#8b93a8; font-size:13px; line-height:1.6;")
         self.summary_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.summary_lbl.setWordWrap(True)
         cl.addWidget(self.summary_lbl)
 
         back_btn = QPushButton("タスク一覧に戻る")
         back_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:10px 28px; border-radius:6px; font-size:14px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
         """)
         back_btn.clicked.connect(self.go_list)
         cl.addWidget(back_btn, alignment=Qt.AlignmentFlag.AlignCenter)

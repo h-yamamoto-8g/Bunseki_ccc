@@ -113,3 +113,24 @@ def update_task_field(task_id: str, **kwargs):
             tasks[i] = t
             break
     save_tasks(tasks)
+
+
+def handover_task(task_id: str, new_assignee: str, operated_by: str) -> None:
+    """タスクの担当者を変更し、引き継ぎ履歴を記録する。"""
+    tasks = load_tasks()
+    now = datetime.now().isoformat()
+    for i, t in enumerate(tasks):
+        if t["task_id"] == task_id:
+            old_assignee = t.get("assigned_to", "")
+            t["assigned_to"] = new_assignee
+            t["updated_at"] = now
+            history = t.setdefault("handover_history", [])
+            history.append({
+                "from": old_assignee,
+                "to": new_assignee,
+                "by": operated_by,
+                "at": now,
+            })
+            tasks[i] = t
+            break
+    save_tasks(tasks)

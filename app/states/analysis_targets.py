@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
 from app.data import task_store
 from app.config import STATE_LABELS
@@ -35,13 +34,13 @@ class AnalysisTargetsState(QWidget):
         # Title row
         title_row = QHBoxLayout()
         self.title_lbl = QLabel("分析対象サンプル")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         title_row.addWidget(self.title_lbl)
         title_row.addStretch()
 
         self.edited_badge = QLabel("編集済み")
         self.edited_badge.setStyleSheet("""
-            background:#fef9c3; color:#92400e; border:1px solid #fde68a;
+            background:rgba(245,166,35,0.1); color:#d97706; border:1px solid #fde68a;
             border-radius:10px; padding:2px 10px; font-size:11px;
         """)
         self.edited_badge.setVisible(False)
@@ -49,9 +48,9 @@ class AnalysisTargetsState(QWidget):
 
         self.print_btn = QPushButton("印刷")
         self.print_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:6px 14px; border-radius:5px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.print_btn.clicked.connect(self._print)
         title_row.addWidget(self.print_btn)
@@ -94,9 +93,9 @@ class AnalysisTargetsState(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(6, 60)
         self.table.setStyleSheet("""
-            QTableWidget { border:1px solid #e2e8f0; border-radius:6px; }
-            QHeaderView::section { background:#f8fafc; font-weight:bold; color:#374151;
-                                    padding:6px; border:none; border-bottom:1px solid #e2e8f0; }
+            QTableWidget { border:1px solid #2a3349; border-radius:6px; }
+            QHeaderView::section { background:#1e2535; font-weight:bold; color:#c8cad4;
+                                    padding:6px; border:none; border-bottom:1px solid #2a3349; }
         """)
         self.table.verticalHeader().setVisible(False)
         root.addWidget(self.table)
@@ -105,18 +104,18 @@ class AnalysisTargetsState(QWidget):
         nav = QHBoxLayout()
         self.back_btn = QPushButton("← 戻る")
         self.back_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.back_btn.clicked.connect(self.go_back)
         nav.addWidget(self.back_btn)
         nav.addStretch()
         self.next_btn = QPushButton("次へ →")
         self.next_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
         """)
         self.next_btn.clicked.connect(self._go_next)
         nav.addWidget(self.next_btn)
@@ -269,14 +268,7 @@ class AnalysisTargetsState(QWidget):
         self.go_next.emit()
 
     def _print(self):
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPageOrientation(printer.pageLayout().orientation().Landscape)
-        dlg = QPrintDialog(printer, self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            from PySide6.QtGui import QPainter
-            painter = QPainter(printer)
-            self.table.render(painter)
-            painter.end()
+        QMessageBox.information(self, "印刷", "印刷機能はデモ版では省略しています。")
 
 
 class AddSampleDialog(QDialog):

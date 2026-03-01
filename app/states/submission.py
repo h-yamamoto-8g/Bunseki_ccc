@@ -39,7 +39,7 @@ class SubmissionState(QWidget):
         root.setSpacing(20)
 
         self.title_lbl = QLabel("回覧")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         root.addWidget(self.title_lbl)
 
         # Circulation flow
@@ -47,7 +47,7 @@ class SubmissionState(QWidget):
         fl = QVBoxLayout(flow_frame)
         fl.addWidget(self._section_lbl("回覧フロー"))
         self.flow_lbl = QLabel()
-        self.flow_lbl.setStyleSheet("color:#374151; font-size:13px;")
+        self.flow_lbl.setStyleSheet("color:#c8cad4; font-size:13px;")
         fl.addWidget(self.flow_lbl)
 
         # Reviewer selector
@@ -68,13 +68,13 @@ class SubmissionState(QWidget):
         al = QVBoxLayout(att_frame)
         al.addWidget(self._section_lbl("添付ファイル"))
         self.att_label = QLabel("（なし）")
-        self.att_label.setStyleSheet("color:#6b7280; font-size:13px;")
+        self.att_label.setStyleSheet("color:#8b93a8; font-size:13px;")
         al.addWidget(self.att_label)
         att_btn = QPushButton("ファイルを追加")
         att_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:6px 14px; border-radius:5px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         att_btn.clicked.connect(self._add_attachment)
         al.addWidget(att_btn)
@@ -87,7 +87,7 @@ class SubmissionState(QWidget):
         self.comment_edit = QTextEdit()
         self.comment_edit.setFixedHeight(100)
         self.comment_edit.setPlaceholderText("コメントを入力してください...")
-        self.comment_edit.setStyleSheet("border:1px solid #d1d5db; border-radius:5px; font-size:13px;")
+        self.comment_edit.setStyleSheet("border:1px solid #334166; border-radius:5px; font-size:13px;")
         cmtl.addWidget(self.comment_edit)
         root.addWidget(cmt_frame)
 
@@ -121,18 +121,18 @@ class SubmissionState(QWidget):
         nav = QHBoxLayout()
         self.back_btn = QPushButton("← 戻る")
         self.back_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.back_btn.clicked.connect(self.go_back)
         nav.addWidget(self.back_btn)
         nav.addStretch()
         self.send_btn = QPushButton("回覧送信")
         self.send_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
         """)
         self.send_btn.clicked.connect(self._send)
         nav.addWidget(self.send_btn)
@@ -141,12 +141,12 @@ class SubmissionState(QWidget):
 
     def _card(self) -> QFrame:
         f = QFrame()
-        f.setStyleSheet("QFrame { background:white; border:1px solid #e2e8f0; border-radius:8px; }")
+        f.setStyleSheet("QFrame { background:#161b27; border:1px solid #2a3349; border-radius:8px; }")
         return f
 
     def _section_lbl(self, text: str) -> QLabel:
         l = QLabel(text)
-        l.setStyleSheet("font-weight:bold; font-size:13px; color:#374151; margin-bottom:6px;")
+        l.setStyleSheet("font-weight:bold; font-size:13px; color:#c8cad4; margin-bottom:6px;")
         return l
 
     def load_task(self, task: dict, readonly: bool = False):

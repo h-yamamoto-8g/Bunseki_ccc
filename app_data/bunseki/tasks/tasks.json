@@ -107,5 +107,108 @@
         "completed": true
       }
     }
+  },
+  {
+    "task_id": "20260302012753_HG_001",
+    "task_name": "20260302012753_pH",
+    "holder_group_code": "HG_001",
+    "holder_group_name": "pH",
+    "job_numbers": [
+      "250107W"
+    ],
+    "current_state": "analysis_targets",
+    "status": "進行中",
+    "created_at": "2026-03-02T01:27:53.681528",
+    "updated_at": "2026-03-02T01:27:53.681528",
+    "created_by": "デモユーザー",
+    "assigned_to": "デモユーザー",
+    "state_data": {
+      "task_setup": {
+        "holder_group_code": "HG_001",
+        "holder_group_name": "pH",
+        "job_numbers": [
+          "250107W"
+        ],
+        "completed": true
+      }
+    }
+  },
+  {
+    "task_id": "20260302071403_HG_001",
+    "task_name": "20260302071403_pH",
+    "holder_group_code": "HG_001",
+    "holder_group_name": "pH",
+    "job_numbers": [
+      "260105W"
+    ],
+    "current_state": "result_verification",
+    "status": "進行中",
+    "created_at": "2026-03-02T07:14:03.296125",
+    "updated_at": "2026-03-02T07:47:22.770678",
+    "created_by": "デモユーザー",
+    "assigned_to": "デモユーザー",
+    "state_data": {
+      "task_setup": {
+        "holder_group_code": "HG_001",
+        "holder_group_name": "pH",
+        "job_numbers": [
+          "260105W"
+        ],
+        "completed": true
+      },
+      "analysis_targets": {
+        "valid_sample_set_codes": [
+          "VSSET_0106",
+          "VSSET_0104",
+          "VSSET_0100"
+        ],
+        "deleted_codes": [],
+        "added_samples": [],
+        "completed": true
+      },
+      "analysis": {
+        "pre_checks": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "post_checks": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "completed": true
+      },
+      "result_entry": {
+        "completed": true
+      }
+    }
+  },
+  {
+    "task_id": "20260302074556_HG_002",
+    "task_name": "20260302074556_SS",
+    "holder_group_code": "HG_002",
+    "holder_group_name": "SS",
+    "job_numbers": [
+      "250107W"
+    ],
+    "current_state": "analysis_targets",
+    "status": "進行中",
+    "created_at": "2026-03-02T07:45:56.647788",
+    "updated_at": "2026-03-02T07:45:56.647788",
+    "created_by": "デモユーザー",
+    "assigned_to": "デモユーザー",
+    "state_data": {
+      "task_setup": {
+        "holder_group_code": "HG_002",
+        "holder_group_name": "SS",
+        "job_numbers": [
+          "250107W"
+        ],
+        "completed": true
+      }
+    }
   }
 ]

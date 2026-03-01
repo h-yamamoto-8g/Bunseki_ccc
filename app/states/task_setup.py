@@ -31,7 +31,7 @@ class TaskSetupState(QWidget):
         # Title row
         title_row = QHBoxLayout()
         self.title_lbl = QLabel("新規起票")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         title_row.addWidget(self.title_lbl)
         title_row.addStretch()
         self.edit_btn = QPushButton("編集")
@@ -48,7 +48,7 @@ class TaskSetupState(QWidget):
         # Form card
         card = QFrame()
         card.setStyleSheet("""
-            QFrame { background:white; border:1px solid #e2e8f0;
+            QFrame { background:#161b27; border:1px solid #2a3349;
                      border-radius:8px; }
         """)
         card_layout = QVBoxLayout(card)
@@ -60,11 +60,11 @@ class TaskSetupState(QWidget):
         self.hg_combo = QComboBox()
         self.hg_combo.setMinimumHeight(36)
         self.hg_combo.setStyleSheet("""
-            QComboBox { border:1px solid #d1d5db; border-radius:5px;
-                        padding:4px 8px; font-size:13px; background:white; color:#1e293b; }
-            QComboBox:disabled { background:#f8fafc; color:#94a3b8; }
-            QComboBox QAbstractItemView { color:#1e293b; background:white;
-                selection-background-color:#2563eb; selection-color:white; }
+            QComboBox { border:1px solid #334166; border-radius:5px;
+                        padding:4px 8px; font-size:13px; background:#161b27; color:#e8eaf0; }
+            QComboBox:disabled { background:#1e2535; color:#5a6278; }
+            QComboBox QAbstractItemView { color:#e8eaf0; background:#161b27;
+                selection-background-color:#4a8cff; selection-color:white; }
         """)
         card_layout.addWidget(self.hg_combo)
 
@@ -75,18 +75,18 @@ class TaskSetupState(QWidget):
         self.job_input.setPlaceholderText("JOB番号を入力")
         self.job_input.setMinimumHeight(36)
         self.job_input.setStyleSheet("""
-            QLineEdit { border:1px solid #d1d5db; border-radius:5px;
+            QLineEdit { border:1px solid #334166; border-radius:5px;
                         padding:4px 8px; font-size:13px; }
-            QLineEdit:disabled { background:#f8fafc; color:#94a3b8; }
+            QLineEdit:disabled { background:#1e2535; color:#5a6278; }
         """)
         job_row.addWidget(self.job_input)
         self.add_job_btn = QPushButton("＋ 追加")
         self.add_job_btn.setMinimumHeight(36)
         self.add_job_btn.setStyleSheet("""
-            QPushButton { background:#e2e8f0; color:#374151; border:none;
+            QPushButton { background:#252d3e; color:#c8cad4; border:none;
                           padding:4px 14px; border-radius:5px; font-size:13px; }
             QPushButton:hover { background:#cbd5e1; }
-            QPushButton:disabled { background:#f1f5f9; color:#94a3b8; }
+            QPushButton:disabled { background:#1e2535; color:#5a6278; }
         """)
         self.add_job_btn.clicked.connect(self._add_job)
         job_row.addWidget(self.add_job_btn)
@@ -108,17 +108,17 @@ class TaskSetupState(QWidget):
         btn_row.addStretch()
         self.cancel_btn = QPushButton("キャンセル")
         self.cancel_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.cancel_btn.clicked.connect(self.cancelled)
         btn_row.addWidget(self.cancel_btn)
         self.submit_btn = QPushButton("起票　→")
         self.submit_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
         """)
         self.submit_btn.clicked.connect(self._submit)
         btn_row.addWidget(self.submit_btn)
@@ -129,7 +129,7 @@ class TaskSetupState(QWidget):
 
     def _field_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
-        lbl.setStyleSheet("font-size:13px; font-weight:bold; color:#374151;")
+        lbl.setStyleSheet("font-size:13px; font-weight:bold; color:#c8cad4;")
         return lbl
 
     def _load_holder_groups(self):
@@ -161,7 +161,7 @@ class TaskSetupState(QWidget):
         self._readonly = readonly
         self._edit_mode = False
         sd = task.get("state_data", {}).get("task_setup", {})
-        self.title_lbl.setText(f"起票  —  {task.get('task_name','')}")
+        self.title_lbl.setText("起票")
 
         # Load holder groups and select current
         self._load_holder_groups()
@@ -225,20 +225,20 @@ class TaskSetupState(QWidget):
     def _make_tag(self, text: str, removable: bool) -> QFrame:
         frame = QFrame()
         frame.setStyleSheet("""
-            QFrame { background:#dbeafe; border-radius:12px; border:none; }
+            QFrame { background:rgba(74,140,255,0.15); border-radius:4px; border:none; }
         """)
         hl = QHBoxLayout(frame)
         hl.setContentsMargins(10, 4, 6, 4)
         hl.setSpacing(4)
         lbl = QLabel(text)
-        lbl.setStyleSheet("color:#1d4ed8; font-size:12px; font-weight:bold;")
+        lbl.setStyleSheet("color:#4a8cff; font-size:12px; font-weight:500;")
         hl.addWidget(lbl)
         if removable:
-            rm = QPushButton("×")
+            rm = QPushButton("✕")
             rm.setFixedSize(18, 18)
             rm.setStyleSheet("""
-                QPushButton { background:transparent; color:#1d4ed8; border:none; font-size:12px; }
-                QPushButton:hover { color:#dc2626; }
+                QPushButton { background:transparent; color:#4a8cff; border:none; font-size:11px; }
+                QPushButton:hover { color:#e85454; }
             """)
             rm.clicked.connect(lambda _=False, t=text: self._remove_job(t))
             hl.addWidget(rm)

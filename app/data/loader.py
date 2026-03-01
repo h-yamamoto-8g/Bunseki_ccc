@@ -200,6 +200,60 @@ class DataLoader:
                 )
         return rows
 
+    # ── Data page ─────────────────────────────────────────────────────────────
+
+    def get_data_page(
+        self,
+        date_from: str = "",
+        date_to:   str = "",
+        request_no: str = "",
+        job_no: str = "",
+        sample_names: list[str] | None = None,
+        holder_names: list[str] | None = None,
+        test_names: list[str] | None = None,
+        judgment_filter: str = "全て",
+        limit: int = 500,
+    ) -> pd.DataFrame:
+        """bunseki.csv をフィルタして返す（最大 limit 件）"""
+        df = self.df.copy()
+
+        # 日付フィルタ（sample_sampling_date: YYYYMMDDHHMMSS数値）
+        if date_from:
+            try:
+                df = df[df["sample_sampling_date"].astype(str).str[:8] >= date_from.replace("-", "")]
+            except Exception:
+                pass
+        if date_to:
+            try:
+                df = df[df["sample_sampling_date"].astype(str).str[:8] <= date_to.replace("-", "")]
+            except Exception:
+                pass
+        if request_no:
+            df = df[df["sample_request_number"].astype(str).str.contains(request_no, na=False)]
+        if job_no:
+            df = df[df["sample_job_number"].astype(str).str.contains(job_no, na=False)]
+        if sample_names:
+            df = df[df["valid_sample_display_name"].isin(sample_names)]
+        if holder_names:
+            df = df[df["valid_holder_display_name"].isin(holder_names)]
+        if test_names:
+            df = df[df["valid_test_display_name"].isin(test_names)]
+        if judgment_filter == "NN":
+            df = df[df["test_judgment"].astype(str) == "NN"]
+        elif judgment_filter == "異常":
+            df = df[df["test_judgment"].astype(str) != "NN"]
+
+        return df.head(limit).copy()
+
+    def get_dropdown_values(self) -> dict[str, list[str]]:
+        """データページのドロップダウン用ユニーク値を返す"""
+        df = self.df
+        return {
+            "samples": sorted(df["valid_sample_display_name"].dropna().unique().tolist()),
+            "holders": sorted(df["valid_holder_display_name"].dropna().unique().tolist()),
+            "tests":   sorted(df["valid_test_display_name"].dropna().unique().tolist()),
+        }
+
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _numeric_values(self, series: pd.Series) -> list[float]:

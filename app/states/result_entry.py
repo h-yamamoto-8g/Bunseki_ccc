@@ -22,25 +22,25 @@ class ResultEntryState(QWidget):
         root.setSpacing(24)
 
         self.title_lbl = QLabel("データ入力")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         root.addWidget(self.title_lbl)
 
         # Info card
         card = QFrame()
         card.setStyleSheet("""
-            QFrame { background:white; border:1px solid #e2e8f0; border-radius:8px; }
+            QFrame { background:#161b27; border:1px solid #2a3349; border-radius:8px; }
         """)
         cl = QVBoxLayout(card)
         cl.setContentsMargins(32, 32, 32, 32)
         cl.setSpacing(16)
 
         msg = QLabel("通常のデータ入力を行なってください。")
-        msg.setStyleSheet("font-size:15px; color:#374151;")
+        msg.setStyleSheet("font-size:15px; color:#c8cad4;")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cl.addWidget(msg)
 
         sub = QLabel("Lab-Aid でデータ入力が完了したら「入力完了」ボタンを押してください。")
-        sub.setStyleSheet("font-size:13px; color:#6b7280;")
+        sub.setStyleSheet("font-size:13px; color:#8b93a8;")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setWordWrap(True)
         cl.addWidget(sub)
@@ -61,18 +61,18 @@ class ResultEntryState(QWidget):
         nav = QHBoxLayout()
         self.back_btn = QPushButton("← 戻る")
         self.back_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.back_btn.clicked.connect(self.go_back)
         nav.addWidget(self.back_btn)
         nav.addStretch()
         self.done_btn = QPushButton("入力完了 →")
         self.done_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
         """)
         self.done_btn.clicked.connect(self._complete)
         nav.addWidget(self.done_btn)

@@ -52,14 +52,14 @@ class AnalysisState(QWidget):
         outer.addWidget(scroll)
 
         container = QWidget()
-        container.setStyleSheet("background: white;")
+        container.setStyleSheet("background: #161b27;")
         scroll.setWidget(container)
         root = QVBoxLayout(container)
         root.setContentsMargins(32, 24, 32, 24)
         root.setSpacing(20)
 
         self.title_lbl = QLabel("分析準備")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         root.addWidget(self.title_lbl)
 
         # Links section
@@ -69,12 +69,12 @@ class AnalysisState(QWidget):
         for link in DEMO_LINKS:
             row = QHBoxLayout()
             lbl = QLabel(f"• {link['label']}")
-            lbl.setStyleSheet("color:#374151; font-size:13px;")
+            lbl.setStyleSheet("color:#c8cad4; font-size:13px;")
             row.addWidget(lbl)
             btn = QPushButton("開く")
             btn.setFixedWidth(60)
             btn.setStyleSheet("""
-                QPushButton { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;
+                QPushButton { background:#eff6ff; color:#4a8cff; border:1px solid #bfdbfe;
                               padding:3px 10px; border-radius:4px; font-size:12px; }
                 QPushButton:hover { background:#dbeafe; }
             """)
@@ -101,7 +101,7 @@ class AnalysisState(QWidget):
         self._pre_checks = []
         for item in PRE_CHECKS:
             cb = QCheckBox(item)
-            cb.setStyleSheet("font-size:13px; color:#374151; padding:2px 0;")
+            cb.setStyleSheet("font-size:13px; color:#c8cad4; padding:2px 0;")
             cb.stateChanged.connect(self._update_finish_btn)
             pre_layout.addWidget(cb)
             self._pre_checks.append(cb)
@@ -123,7 +123,7 @@ class AnalysisState(QWidget):
         self._post_checks = []
         for item in POST_CHECKS:
             cb = QCheckBox(item)
-            cb.setStyleSheet("font-size:13px; color:#374151; padding:2px 0;")
+            cb.setStyleSheet("font-size:13px; color:#c8cad4; padding:2px 0;")
             cb.stateChanged.connect(self._update_finish_btn)
             post_layout.addWidget(cb)
             self._post_checks.append(cb)
@@ -134,9 +134,9 @@ class AnalysisState(QWidget):
         nav = QHBoxLayout()
         self.back_btn = QPushButton("← 戻る")
         self.back_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.back_btn.clicked.connect(self.go_back)
         nav.addWidget(self.back_btn)
@@ -144,9 +144,9 @@ class AnalysisState(QWidget):
         self.finish_btn = QPushButton("分析終了 →")
         self.finish_btn.setEnabled(False)
         self.finish_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
             QPushButton:disabled { background:#93c5fd; }
         """)
         self.finish_btn.clicked.connect(self._finish)
@@ -157,8 +157,8 @@ class AnalysisState(QWidget):
     def _section(self, title: str) -> QGroupBox:
         group = QGroupBox(title)
         group.setStyleSheet("""
-            QGroupBox { font-weight:bold; font-size:13px; color:#374151;
-                         border:1px solid #e2e8f0; border-radius:8px; margin-top:8px; }
+            QGroupBox { font-weight:bold; font-size:13px; color:#c8cad4;
+                         border:1px solid #2a3349; border-radius:8px; margin-top:8px; }
             QGroupBox::title { subcontrol-origin:margin; left:12px; padding:0 4px; }
         """)
         return group

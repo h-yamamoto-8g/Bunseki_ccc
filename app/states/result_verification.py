@@ -43,17 +43,22 @@ class ResultVerificationState(QWidget):
 
         # Title
         self.title_lbl = QLabel("データ確認")
-        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#1e293b;")
+        self.title_lbl.setStyleSheet("font-size:20px; font-weight:bold; color:#e8eaf0;")
         root.addWidget(self.title_lbl)
 
         # Legend
         legend = QHBoxLayout()
-        for color, label in [("#fee2e2", "異常（平均±2σ外）"), ("#fef9c3", "規格外")]:
+        for color, label in [
+            ("rgba(232,84,84,0.2)", "異常（平均±2σ外）"),
+            ("rgba(245,166,35,0.15)", "規格外"),
+        ]:
             dot = QLabel()
             dot.setFixedSize(14, 14)
-            dot.setStyleSheet(f"background:{color}; border:1px solid #d1d5db; border-radius:3px;")
+            dot.setStyleSheet(f"background:{color}; border:1px solid #334166; border-radius:3px;")
             legend.addWidget(dot)
-            legend.addWidget(QLabel(label))
+            lbl = QLabel(label)
+            lbl.setStyleSheet("color:#8b93a8; font-size:12px;")
+            legend.addWidget(lbl)
             legend.addSpacing(16)
         legend.addStretch()
         root.addLayout(legend)
@@ -61,17 +66,17 @@ class ResultVerificationState(QWidget):
         # Tabs (by valid_holder_display_name)
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet("""
-            QTabBar::tab          { padding:8px 16px; font-size:13px; color:#6b7280; }
-            QTabBar::tab:selected { color:#2563eb; border-bottom:2px solid #2563eb; }
-            QTabBar::tab:hover    { color:#374151; background:#f1f5f9; }
-            QTabWidget::pane      { border:1px solid #e2e8f0; }
+            QTabBar::tab          { padding:8px 16px; font-size:13px; color:#8b93a8; }
+            QTabBar::tab:selected { color:#4a8cff; border-bottom:2px solid #2563eb; }
+            QTabBar::tab:hover    { color:#c8cad4; background:#1e2535; }
+            QTabWidget::pane      { border:1px solid #2a3349; }
         """)
         root.addWidget(self.tab_widget)
 
         # Confirm checklist
         check_frame = QFrame()
         check_frame.setStyleSheet("""
-            QFrame { background:white; border:1px solid #e2e8f0; border-radius:8px; }
+            QFrame { background:#161b27; border:1px solid #2a3349; border-radius:8px; }
         """)
         cf = QHBoxLayout(check_frame)
         cf.setContentsMargins(16, 10, 16, 10)
@@ -79,7 +84,7 @@ class ResultVerificationState(QWidget):
         self._checks = []
         for item in VERIFY_CHECKS:
             cb = QCheckBox(item)
-            cb.setStyleSheet("font-size:12px; color:#374151;")
+            cb.setStyleSheet("font-size:12px; color:#c8cad4;")
             cb.stateChanged.connect(self._update_next_btn)
             cf.addWidget(cb)
             self._checks.append(cb)
@@ -90,9 +95,9 @@ class ResultVerificationState(QWidget):
         nav = QHBoxLayout()
         self.back_btn = QPushButton("← 戻る")
         self.back_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:8px 20px; border-radius:6px; font-size:13px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         self.back_btn.clicked.connect(self.go_back)
         nav.addWidget(self.back_btn)
@@ -100,9 +105,9 @@ class ResultVerificationState(QWidget):
         self.next_btn = QPushButton("回覧へ →")
         self.next_btn.setEnabled(False)
         self.next_btn.setStyleSheet("""
-            QPushButton { background:#2563eb; color:white; border:none;
+            QPushButton { background:#4a8cff; color:white; border:none;
                           padding:8px 24px; border-radius:6px; font-size:13px; font-weight:bold; }
-            QPushButton:hover { background:#1d4ed8; }
+            QPushButton:hover { background:#3a7eff; }
             QPushButton:disabled { background:#93c5fd; }
         """)
         self.next_btn.clicked.connect(self._go_next)
@@ -170,13 +175,15 @@ class ResultVerificationState(QWidget):
         table.setColumnWidth(7, 70)
         table.setStyleSheet("""
             QTableWidget { border:none; }
-            QHeaderView::section { background:#f8fafc; font-weight:bold; color:#374151;
-                                    padding:6px; border:none; border-bottom:1px solid #e2e8f0; }
+            QHeaderView::section { background:#1e2535; font-weight:bold; color:#c8cad4;
+                                    padding:6px; border:none; border-bottom:1px solid #2a3349; }
         """)
         table.verticalHeader().setVisible(False)
 
+        from PySide6.QtWidgets import QApplication
         for _, row in df.iterrows():
             self._add_data_row(table, row, hg_code)
+            QApplication.processEvents()
 
         layout.addWidget(table)
         return widget
@@ -244,7 +251,7 @@ class ResultVerificationState(QWidget):
         # Trend button
         trend_btn = QPushButton("グラフ")
         trend_btn.setStyleSheet("""
-            QPushButton { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;
+            QPushButton { background:#eff6ff; color:#4a8cff; border:1px solid #bfdbfe;
                           padding:2px 8px; border-radius:4px; font-size:11px; }
             QPushButton:hover { background:#dbeafe; }
         """)
@@ -293,7 +300,7 @@ class TrendDialog(QDialog):
         layout.setContentsMargins(12, 12, 12, 12)
 
         fig, ax = plt.subplots(figsize=(9, 4.5), dpi=90)
-        fig.patch.set_facecolor("#f8fafc")
+        fig.patch.set_facecolor("#161b27")
         ax.set_facecolor("white")
 
         if data:
@@ -328,9 +335,9 @@ class TrendDialog(QDialog):
 
         close_btn = QPushButton("閉じる")
         close_btn.setStyleSheet("""
-            QPushButton { background:#f1f5f9; color:#374151; border:1px solid #d1d5db;
+            QPushButton { background:#1e2535; color:#c8cad4; border:1px solid #334166;
                           padding:6px 20px; border-radius:5px; }
-            QPushButton:hover { background:#e2e8f0; }
+            QPushButton:hover { background:#252d3e; }
         """)
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
