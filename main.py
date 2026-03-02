@@ -1,37 +1,78 @@
-import sys
+"""Bunseki アプリケーションエントリポイント。
+
+MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築する。
+
+    QMainWindow
+    └─ centralwidget (QHBoxLayout)
+       ├─ frame_sidebar        (75px)
+       └─ QHBoxLayout stretch(3:0)
+          ├─ frame_subcontents (max 400px, 常時表示)
+          │   ├─ browser_guide   (ガイドテキスト)
+          │   └─ widget_step     (max 50px, ステップナビ縦並び)
+          └─ widget_main
+             ├─ widget_header    (50px 固定高)
+             ├─ stack_pages      (QStackedWidget, 8ページ)
+             └─ widget_statusbar (35px 固定高)
+
+デザイン: ホワイトベース (#f5f7fa 背景、#333333 テキスト)。
+"""
+from __future__ import annotations
+
 import platform
-from pathlib import Path
+import sys
+from typing import Optional
 
 import matplotlib
+
 matplotlib.use("QtAgg")
-# 日本語フォント設定（macOS/Windows 両対応）
 if platform.system() == "Darwin":
     matplotlib.rcParams["font.family"] = "Hiragino Sans"
 else:
     matplotlib.rcParams["font.family"] = "Yu Gothic"
 matplotlib.rcParams["axes.unicode_minus"] = False
 
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout,
-    QLabel, QStatusBar, QFrame,
-)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QStackedWidget,
+    QTextBrowser,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
-from app.config import APP_VERSION, DATA_PATH, CURRENT_USER
-from app.data.loader import DataLoader
-from app.widgets.sidebar import Sidebar
-from app.pages.home_page import HomePage
-from app.pages.tasks_page import TasksPage
-from app.pages.data_page import DataPage
-from app.pages.news_page import NewsPage
-from app.pages.library_page import LibraryPage
-from app.pages.log_page import LogPage
-from app.pages.job_page import JobPage
-from app.pages.settings_page import SettingsPage
+import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
 
-# QStackedWidget のインデックス
-_PAGE_IDX = {
+import app.config as _cfg
+from app.config import APP_VERSION, reload_paths, set_current_user
+from app.core.loader import DataLoader
+from app.services.task_service import TaskService
+from app.services.data_service import DataService
+from app.services.hg_config_service import HgConfigService
+from app.services.manual_service import ManualService
+from app.ui.dialogs.logon_dialog import LogonDialog
+from app.ui.dialogs.setup_root_dialog import SetupRootDialog
+from app.ui.pages.data_page import DataPage
+from app.ui.pages.home.wrapper import HomePage
+from app.ui.pages.job_page import JobPage
+from app.ui.pages.library_page import LibraryPage
+from app.ui.pages.log_page import LogPage
+from app.ui.pages.news_page import NewsPage
+from app.services.user_service import UserService
+from app.ui.pages.settings.page import SettingsPage
+from app.ui.pages.tasks.wrapper import TasksPage
+from app.ui.styles import GLOBAL_QSS
+from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
+
+# ─── ページインデックス ───────────────────────────────────────────────────────
+_PAGE_IDX: dict[str, int] = {
     "home":     0,
     "tasks":    1,
     "data":     2,
@@ -44,303 +85,530 @@ _PAGE_IDX = {
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
+    """Bunseki メインウィンドウ。
+
+    MainWindow.ui の設計仕様に基づく構成:
+    - サイドバー (75px)
+    - サブコンテンツパネル: ガイドテキスト + ステップナビ (タスク時のみ表示)
+    - ヘッダー: アクティブページ名 / タスク名 / 新規作成ボタン
+    - ページスタック (8 ページ)
+    - カスタムステータスバー
+
+    Args:
+        parent: 親ウィジェット。
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
         self.setWindowTitle(f"Bunseki ver.{APP_VERSION}")
         self.setMinimumSize(1280, 800)
-
-        self.data_loader = DataLoader(DATA_PATH)
+        self.data_loader = DataLoader(_cfg.DATA_PATH)
+        self.task_service = TaskService()
+        self.data_service = DataService(self.data_loader)
+        self.user_service = UserService()
+        self.manual_service = ManualService()
+        self.hg_config_service = HgConfigService()
+        self._in_task_mode = False
+        self._guide_expanded = True
         self._setup_ui()
+        self._connect_signals()
         self.showMaximized()
 
-    def _setup_ui(self):
+    # ─── UI 構築 ─────────────────────────────────────────────────────────────
+
+    def _setup_ui(self) -> None:
+        """ウィンドウ全体のUIを構築する。"""
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QHBoxLayout(central)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        # ① サイドバー ─────────────────────────────────────────────────────
+        self.sidebar = Sidebar()
+        root.addWidget(self.sidebar)
+
+        # ② メインエリア (サブコンテンツ + widget_main) ──────────────────
+        main_area = QHBoxLayout()
+        main_area.setContentsMargins(0, 0, 0, 0)
+        main_area.setSpacing(0)
+
+        # ── frame_subcontents (ガイド + ステップナビ) ──────────────────
+        self.frame_subcontents = self._build_subcontents()
+        main_area.addWidget(self.frame_subcontents)
+
+        # ── widget_main (ヘッダー + スタック + ステータスバー) ──────────
+        widget_main = self._build_widget_main()
+        main_area.addWidget(widget_main, 3)
+
+        root.addLayout(main_area)
+
+    def _build_subcontents(self) -> QFrame:
+        """frame_subcontents (ガイドパネル + ステップナビ) を構築する。
+
+        Returns:
+            構築した QFrame。
+        """
+        frame = QFrame()
+        frame.setObjectName("frame_subcontents")
+        frame.setMaximumWidth(400)
+
+        layout = QHBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Sidebar
-        self.sidebar = Sidebar()
-        self.sidebar.page_changed.connect(self._on_page_change)
-        layout.addWidget(self.sidebar)
+        # browser_guide: 現在のタスク向けガイドテキスト
+        self.browser_guide = QTextBrowser()
+        self.browser_guide.setObjectName("browser_guide")
+        layout.addWidget(self.browser_guide, 4)
 
-        # Pages
-        self.home_page     = HomePage(self.data_loader)
-        self.tasks_page    = TasksPage(self.data_loader)
-        self.data_page     = DataPage(self.data_loader)
-        self.news_page     = NewsPage()
-        self.library_page  = LibraryPage()
-        self.log_page      = LogPage()
-        self.job_page      = JobPage()
-        self.settings_page = SettingsPage()
+        # widget_step: ステップナビゲーション (max 50px)
+        self.step_nav = StepNavigation()
+        self.step_nav.setObjectName("widget_step")
+        layout.addWidget(self.step_nav, 1)
 
-        # Stacked widget
-        self.content = QWidget()
-        content_layout = QHBoxLayout(self.content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        return frame
 
-        from PySide6.QtWidgets import QStackedWidget
+    def _build_widget_main(self) -> QWidget:
+        """widget_main (ヘッダー + スタック + ステータスバー) を構築する。
+
+        Returns:
+            構築した QWidget。
+        """
+        widget = QWidget()
+        widget.setObjectName("widget_main")
+        vl = QVBoxLayout(widget)
+        vl.setContentsMargins(0, 0, 0, 0)
+        vl.setSpacing(0)
+
+        vl.addWidget(self._build_header())
+        vl.addWidget(self._build_stack())
+        vl.addWidget(self._build_statusbar())
+
+        return widget
+
+    def _build_header(self) -> QWidget:
+        """widget_header (50px 高) を構築する。
+
+        Returns:
+            構築した QWidget。
+        """
+        header = QWidget()
+        header.setFixedHeight(50)
+        header.setObjectName("widget_header")
+
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(16, 8, 16, 8)
+        hl.setSpacing(12)
+
+        # btn_active_page: 現在のページ名 + アイコン
+        self.btn_active_page = QToolButton()
+        self.btn_active_page.setObjectName("btn_active_page")
+        self.btn_active_page.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.btn_active_page.setIconSize(QSize(18, 18))
+        self.btn_active_page.setIcon(get_icon(":/icons/home.svg", "#333333"))
+        self.btn_active_page.setText("ホーム")
+        self.btn_active_page.setFixedHeight(34)
+        hl.addWidget(self.btn_active_page)
+
+        hl.addStretch()
+
+        # label_active_tasks_name: タスク作業中にタスク名を表示
+        self.label_active_tasks_name = QLabel()
+        self.label_active_tasks_name.setObjectName("label_active_tasks_name")
+        self.label_active_tasks_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hl.addWidget(self.label_active_tasks_name)
+
+        hl.addStretch()
+
+        # btn_add_task: 新規タスク作成ボタン
+        self.btn_add_task = QToolButton()
+        self.btn_add_task.setObjectName("btn_add_task")
+        self.btn_add_task.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.btn_add_task.setIconSize(QSize(16, 16))
+        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff"))
+        self.btn_add_task.setText("新規作成")
+        self.btn_add_task.setFixedHeight(34)
+        hl.addWidget(self.btn_add_task)
+
+        return header
+
+    def _build_stack(self) -> QStackedWidget:
+        """stack_pages (8 ページ) を構築する。
+
+        Returns:
+            構築した QStackedWidget。
+        """
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.home_page)      # 0
-        self.stack.addWidget(self.tasks_page)     # 1
-        self.stack.addWidget(self.data_page)      # 2
-        self.stack.addWidget(self.news_page)      # 3
-        self.stack.addWidget(self.library_page)   # 4
-        self.stack.addWidget(self.log_page)       # 5
-        self.stack.addWidget(self.job_page)       # 6
-        self.stack.addWidget(self.settings_page)  # 7
-        content_layout.addWidget(self.stack)
-        layout.addWidget(self.content)
+        self.stack.setObjectName("stack_pages")
 
-        # Status bar
-        self.status_bar = QStatusBar()
-        self.status_bar.showMessage("準備完了")
-        self.setStatusBar(self.status_bar)
-        user_lbl = QLabel(f"  {CURRENT_USER}  ")
-        user_lbl.setStyleSheet(f"color:#5a6278; font-size:11px;")
-        self.status_bar.addPermanentWidget(user_lbl)
+        self.home_page = HomePage(self.task_service)
+        self.tasks_page = TasksPage(self.task_service, self.data_service)
+        self.data_page = DataPage(self.data_service)
+        self.news_page = NewsPage()
+        self.library_page = LibraryPage(self.task_service)
+        self.log_page = LogPage()
+        self.job_page = JobPage()
+        self.settings_page = SettingsPage(
+            self.user_service,
+            self.manual_service,
+            self.hg_config_service,
+            self.data_service,
+        )
 
-        # Signals
+        self.stack.addWidget(self.home_page)      # 0: home
+        self.stack.addWidget(self.tasks_page)     # 1: tasks
+        self.stack.addWidget(self.data_page)      # 2: data
+        self.stack.addWidget(self.news_page)      # 3: news
+        self.stack.addWidget(self.library_page)   # 4: library
+        self.stack.addWidget(self.log_page)       # 5: log
+        self.stack.addWidget(self.job_page)       # 6: job
+        self.stack.addWidget(self.settings_page)  # 7: settings
+
+        return self.stack
+
+    def _build_statusbar(self) -> QWidget:
+        """widget_statusbar (35px 高) を構築する。
+
+        Returns:
+            構築した QWidget。
+        """
+        bar = QWidget()
+        bar.setFixedHeight(35)
+        bar.setObjectName("widget_statusbar")
+
+        hl = QHBoxLayout(bar)
+        hl.setContentsMargins(12, 0, 12, 0)
+        hl.setSpacing(8)
+
+        # 通常ステータスラベル
+        self.label_status = QLabel("準備完了")
+        self.label_status.setObjectName("label_status")
+        hl.addWidget(self.label_status)
+
+        # ローディングインジケーター（スピナー + メッセージ）
+        self.label_loading = QLabel()
+        self.label_loading.setObjectName("label_loading")
+        self.label_loading.setStyleSheet(
+            "color: #3b82f6; font-size: 12px; font-weight: 500;"
+        )
+        self.label_loading.setVisible(False)
+        hl.addWidget(self.label_loading)
+
+        hl.addStretch()
+
+        self.label_user = QLabel(_cfg.CURRENT_USER)
+        self.label_user.setObjectName("label_user")
+        hl.addWidget(self.label_user)
+
+        # スピナーアニメーション用タイマー
+        self._loading_timer = QTimer(self)
+        self._loading_timer.setInterval(80)
+        self._loading_timer.timeout.connect(self._tick_loading)
+        self._loading_frame = 0
+        self._loading_msg = ""
+
+        return bar
+
+    # ─── シグナル接続 ─────────────────────────────────────────────────────────
+
+    def _connect_signals(self) -> None:
+        """シグナルとスロットを接続し、初期状態を設定する。"""
+        self.sidebar.page_changed.connect(self._on_page_change)
+        self.btn_add_task.clicked.connect(self._open_new_task)
+        self.step_nav.step_clicked.connect(self._on_step_clicked)
+        self.step_nav.toggle_requested.connect(self._toggle_guide)
+
         self.home_page.navigate_to_new_task.connect(self._open_new_task)
         self.home_page.navigate_to_task.connect(self._open_task)
         self.tasks_page.navigate_home.connect(self._go_home)
+        self.tasks_page.task_context_changed.connect(self.set_task_context)
+        self.tasks_page.task_context_cleared.connect(self.clear_task_context)
+        self.tasks_page.step_edited.connect(self.step_nav.mark_edited)
+        self.tasks_page.loading_changed.connect(self._on_loading_changed)
+        self.tasks_page.handover_available.connect(self._set_handover_available)
 
-        # Show home
+        # 初期表示
         self.stack.setCurrentIndex(0)
         self.home_page.refresh()
 
-    def _on_page_change(self, page_id: str):
+    # ─── スロット ─────────────────────────────────────────────────────────────
+
+    def _on_page_change(self, page_id: str) -> None:
+        """サイドバーのページ変更を処理する。
+
+        Args:
+            page_id: 遷移先ページID。
+        """
+        self._exit_task_mode()
+
         idx = _PAGE_IDX.get(page_id, 0)
         self.stack.setCurrentIndex(idx)
+
+        name, svg_path = PAGE_INFO.get(page_id, ("", ""))
+        self.btn_active_page.setText(name)
+        self.btn_active_page.setIcon(get_icon(svg_path, "#333333") if svg_path else self.btn_active_page.icon())
+        self.label_active_tasks_name.clear()
+        self.step_nav.clear()
+
+        # ページ対応マニュアルを browser_guide に表示
+        self._show_manual(f"page:{page_id}")
+
         if page_id == "home":
             self.home_page.refresh()
         elif page_id == "tasks":
             self.tasks_page.show_list()
+        elif page_id == "data":
+            self.data_page.refresh()
         elif page_id == "job":
             self.job_page._load_jobs()
 
-    def _open_new_task(self):
+    def _on_step_clicked(self, state_id: str) -> None:
+        """ステップナビのボタンクリックを処理する。
+
+        タスクが開かれていない場合はタスクページの一覧へ遷移する。
+
+        Args:
+            state_id: クリックされたステートID。
+        """
+        # tasks ページが表示されていない場合は切り替え
+        if self.stack.currentIndex() != _PAGE_IDX["tasks"]:
+            self.sidebar.set_active("tasks")
+            self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
+            self.btn_active_page.setText("タスク")
+            self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+        self.tasks_page.navigate_to_state(state_id)
+
+    def _open_new_task(self) -> None:
+        """新規タスク起票画面へ遷移する。"""
         self.sidebar.set_active("tasks")
-        self.stack.setCurrentIndex(1)
+        self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
+        self.btn_active_page.setText("タスク")
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+        self.label_active_tasks_name.clear()
+        self.step_nav.clear()
         self.tasks_page.start_new_task()
 
-    def _open_task(self, task_id: str):
+    def _open_task(self, task_id: str) -> None:
+        """既存タスクを再開する。
+
+        Args:
+            task_id: 再開するタスクID。
+        """
         self.sidebar.set_active("tasks")
-        self.stack.setCurrentIndex(1)
+        self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
+        self.btn_active_page.setText("タスク")
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
         self.tasks_page.resume_task(task_id)
 
-    def _go_home(self):
+    def _go_home(self) -> None:
+        """ホームページへ戻る。"""
         self.sidebar.set_active("home")
-        self.stack.setCurrentIndex(0)
-        self.home_page.refresh()
+        self._on_page_change("home")
 
-    def set_status(self, message: str):
-        self.status_bar.showMessage(message)
+    # ─── 公開 API ─────────────────────────────────────────────────────────────
+
+    def set_task_context(
+        self, task_name: str, state_id: str, current_state: str = ""
+    ) -> None:
+        """タスク作業中のコンテキスト（タスク名・ステップ）を更新する。
+
+        Args:
+            task_name: ヘッダに表示するタスク名。
+            state_id: 表示中のステートID。
+            current_state: タスクの実際の進捗ステートID。
+        """
+        self._enter_task_mode()
+        self.label_active_tasks_name.setText(task_name)
+        self.step_nav.set_active_step(state_id, current_state=current_state)
+        self.frame_subcontents.setVisible(True)
+
+        # ステート対応マニュアルを browser_guide に表示
+        self._show_manual(f"state:{state_id}")
+
+    def clear_task_context(self) -> None:
+        """タスクコンテキスト（タスク名・ステップハイライト）をリセットする。"""
+        self._exit_task_mode()
+        self.label_active_tasks_name.clear()
+        self.step_nav.clear()
+        self.step_nav.clear_edited()
+
+    def _enter_task_mode(self) -> None:
+        """共通ヘッダーをタスク編集モードに切り替える。"""
+        if self._in_task_mode:
+            return
+        self._in_task_mode = True
+        # btn_add_task: "新規作成" → "引き継ぎ"
+        self.btn_add_task.clicked.disconnect()
+        self.btn_add_task.clicked.connect(self.tasks_page.request_handover)
+        self.btn_add_task.setText("引き継ぎ")
+        self.btn_add_task.setIcon(get_icon(":/icons/switch.svg", "#ffffff"))
+        # btn_active_page: ページ名 → "一覧へ戻る"
+        self.btn_active_page.clicked.connect(self._back_to_task_list)
+        self.btn_active_page.setText("一覧へ戻る")
+        self.btn_active_page.setIcon(get_icon(":/icons/return.svg", "#333333"))
+
+    def _exit_task_mode(self) -> None:
+        """共通ヘッダーをタスク編集モードから通常モードに戻す。"""
+        if not self._in_task_mode:
+            return
+        self._in_task_mode = False
+        # btn_add_task: "引き継ぎ" → "新規作成" (必ず有効化して戻す)
+        self.btn_add_task.setEnabled(True)
+        self.btn_add_task.clicked.disconnect()
+        self.btn_add_task.clicked.connect(self._open_new_task)
+        self.btn_add_task.setText("新規作成")
+        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff"))
+        # btn_active_page: "一覧へ戻る" → "タスク"
+        try:
+            self.btn_active_page.clicked.disconnect(self._back_to_task_list)
+        except RuntimeError:
+            pass
+        self.btn_active_page.setText("タスク")
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+
+    def _set_handover_available(self, available: bool) -> None:
+        """引き継ぎボタンの有効/無効を切り替える。"""
+        self.btn_add_task.setEnabled(available)
+
+    def _back_to_task_list(self) -> None:
+        """「一覧へ戻る」クリック: タスク一覧に戻る。"""
+        self.tasks_page.show_list()
+
+    # ─── ローディング表示 ─────────────────────────────────────────────────────
+
+    _SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def _on_loading_changed(self, active: bool, msg: str) -> None:
+        """loading_changed シグナルのスロット。"""
+        if active:
+            self.start_loading(msg)
+        else:
+            self.stop_loading()
+
+    def start_loading(self, msg: str) -> None:
+        """ローディングインジケーターを表示してアニメーションを開始する。
+
+        Args:
+            msg: ローディング中に表示するメッセージ。
+        """
+        self._loading_msg = msg
+        self._loading_frame = 0
+        self.label_status.setVisible(False)
+        self.label_loading.setVisible(True)
+        self.label_loading.setText(f"{self._SPINNER_FRAMES[0]}  {msg}")
+        self._loading_timer.start()
+        QApplication.processEvents()
+
+    def stop_loading(self) -> None:
+        """ローディングインジケーターを非表示にして通常状態に戻す。"""
+        self._loading_timer.stop()
+        self.label_loading.setVisible(False)
+        self.label_status.setVisible(True)
+        self.label_status.setText("準備完了")
+
+    def _tick_loading(self) -> None:
+        """スピナーフレームを1コマ進める。"""
+        self._loading_frame = (self._loading_frame + 1) % len(self._SPINNER_FRAMES)
+        frame = self._SPINNER_FRAMES[self._loading_frame]
+        self.label_loading.setText(f"{frame}  {self._loading_msg}")
+
+    def _toggle_guide(self) -> None:
+        """ガイドパネルの表示/非表示を切り替える。
+
+        step_nav の余白クリックで呼ばれる。
+        step_nav 自体は常に表示したまま browser_guide のみ開閉する。
+        """
+        self._guide_expanded = not self._guide_expanded
+        self.browser_guide.setVisible(self._guide_expanded)
+        # 非表示時は step_nav の幅だけに縮小 (maxWidth 62 + マージン 4)
+        self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 66)
+
+    def _show_manual(self, key: str) -> None:
+        """キーに対応するマニュアルHTMLを browser_guide に表示する。
+
+        マニュアルが未登録の場合はガイドをクリアする。
+
+        Args:
+            key: マニュアルキー（例: "page:home", "state:task_setup"）。
+        """
+        html = self.manual_service.get_manual_html(key)
+        if html:
+            self.browser_guide.setHtml(html)
+        else:
+            self.browser_guide.clear()
+
+    def set_guide_text(self, html: str) -> None:
+        """ガイドパネルのテキストを更新する。
+
+        Args:
+            html: 表示する HTML テキスト。
+        """
+        self.browser_guide.setHtml(html)
+
+    def set_status(self, message: str) -> None:
+        """ステータスバーのメッセージを更新する。
+
+        Args:
+            message: 表示するメッセージ。
+        """
+        self.label_status.setText(message)
 
 
-def main():
+
+
+def _ensure_data_path(app: QApplication) -> bool:
+    """DATA_PATH が有効か確認し、無効ならダイアログで設定を促す。
+
+    Returns:
+        True: 有効なパスが設定済み。False: ユーザーがキャンセル。
+    """
+    if _cfg.DATA_PATH.exists() and _cfg.DATA_PATH.is_dir():
+        return True
+
+    dlg = SetupRootDialog(str(_cfg.DATA_PATH))
+    if dlg.exec() == QDialog.DialogCode.Accepted:
+        new_path = dlg.selected_path()
+        reload_paths(new_path)
+        return True
+    return False
+
+
+def _login(app: QApplication) -> bool:
+    """ログインダイアログを表示し、認証を行う。
+
+    Returns:
+        True: ログイン成功。False: キャンセル。
+    """
+    user_service = UserService()
+    dlg = LogonDialog(user_service)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return False
+    user = dlg.authenticated_user()
+    if user:
+        set_current_user(user.get("id", ""), user.get("name", ""))
+    return True
+
+
+def main() -> None:
+    """アプリケーションを起動する。"""
     app = QApplication(sys.argv)
-    app.setFont(QFont("Helvetica Neue", 10))
+    if platform.system() == "Darwin":
+        app.setFont(QFont("Hiragino Sans", 12))
+    else:
+        app.setFont(QFont("Yu Gothic UI", 10))
     app.setStyle("Fusion")
+    app.setStyleSheet(GLOBAL_QSS)
 
-    # Global dark stylesheet (matches bunseki_ui.html)
-    app.setStyleSheet("""
-        /* ── Base ── */
-        QWidget {
-            font-family: "Yu Gothic UI", "Noto Sans JP", sans-serif;
-            font-size: 13px;
-            color: #e8eaf0;
-            background-color: #0f1117;
-        }
-        QMainWindow { background: #0f1117; }
+    if not _ensure_data_path(app):
+        sys.exit(0)
 
-        /* ── Frame / Card ── */
-        QFrame {
-            color: #e8eaf0;
-        }
-
-        /* ── Table ── */
-        QTableWidget {
-            background: #161b27;
-            color: #e8eaf0;
-            gridline-color: #2a3349;
-            border: 1px solid #2a3349;
-            border-radius: 8px;
-        }
-        QTableWidget::item {
-            color: #e8eaf0;
-            background: transparent;
-            padding: 2px 8px;
-            border: none;
-        }
-        QTableWidget::item:alternate {
-            background: #1e2535;
-        }
-        QTableWidget::item:selected {
-            background: #4a8cff;
-            color: white;
-        }
-        QHeaderView::section {
-            color: #5a6278;
-            background: #161b27;
-            border: none;
-            border-bottom: 1px solid #2a3349;
-            padding: 8px 12px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* ── ComboBox ── */
-        QComboBox {
-            color: #e8eaf0;
-            background: #1e2535;
-            border: 1px solid #2a3349;
-            border-radius: 6px;
-            padding: 6px 10px;
-            min-height: 32px;
-        }
-        QComboBox:hover  { border-color: #334166; }
-        QComboBox:focus  { border-color: #4a8cff; }
-        QComboBox:disabled { color: #5a6278; background: #161b27; }
-        QComboBox::drop-down { border: none; }
-        QComboBox QAbstractItemView {
-            color: #e8eaf0;
-            background: #1e2535;
-            selection-background-color: #4a8cff;
-            selection-color: white;
-            outline: none;
-            border: 1px solid #2a3349;
-        }
-
-        /* ── LineEdit / TextEdit ── */
-        QLineEdit {
-            color: #e8eaf0;
-            background: #1e2535;
-            border: 1px solid #2a3349;
-            border-radius: 6px;
-            padding: 6px 10px;
-            min-height: 32px;
-        }
-        QLineEdit:hover  { border-color: #334166; }
-        QLineEdit:focus  { border-color: #4a8cff; }
-        QLineEdit:disabled { color: #5a6278; background: #161b27; }
-        QTextEdit {
-            color: #e8eaf0;
-            background: #1e2535;
-            border: 1px solid #2a3349;
-            border-radius: 6px;
-            padding: 6px 10px;
-        }
-        QTextEdit:focus { border-color: #4a8cff; }
-
-        /* ── TabBar ── */
-        QTabBar::tab {
-            color: #5a6278;
-            background: transparent;
-            border: none;
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-        QTabBar::tab:selected {
-            color: #4a8cff;
-            border-bottom: 2px solid #4a8cff;
-        }
-        QTabBar::tab:hover { color: #8b93a8; background: #1e2535; }
-        QTabWidget::pane {
-            border: 1px solid #2a3349;
-            background: #161b27;
-        }
-
-        /* ── CheckBox ── */
-        QCheckBox { color: #c8cad4; spacing: 8px; }
-        QCheckBox::indicator {
-            width: 16px; height: 16px;
-            border: 1px solid #334166;
-            border-radius: 3px;
-            background: #1e2535;
-        }
-        QCheckBox::indicator:checked {
-            background: #4a8cff;
-            border-color: #4a8cff;
-        }
-        QCheckBox:disabled { color: #5a6278; }
-
-        /* ── Labels ── */
-        QLabel { color: #e8eaf0; background: transparent; }
-
-        /* ── MessageBox / Dialog ── */
-        QMessageBox { background: #161b27; }
-        QMessageBox QLabel { color: #e8eaf0; }
-        QDialog { background: #161b27; }
-        QDialogButtonBox QPushButton {
-            background: #1e2535; color: #e8eaf0;
-            border: 1px solid #334166; border-radius: 6px;
-            padding: 6px 16px; min-width: 72px;
-        }
-        QDialogButtonBox QPushButton:hover { border-color: #4a8cff; color: #4a8cff; }
-
-        /* ── GroupBox ── */
-        QGroupBox {
-            color: #8b93a8;
-            border: 1px solid #2a3349;
-            border-radius: 8px;
-            margin-top: 12px;
-            padding-top: 18px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 12px; top: -6px;
-            color: #8b93a8;
-            background: #0f1117;
-            padding: 0 4px;
-        }
-
-        /* ── ScrollBar ── */
-        QScrollArea  { border: none; background: transparent; }
-        QScrollBar:vertical {
-            width: 6px; background: transparent;
-        }
-        QScrollBar::handle:vertical {
-            background: #334166; border-radius: 3px; min-height: 20px;
-        }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-        QScrollBar:horizontal {
-            height: 6px; background: transparent;
-        }
-        QScrollBar::handle:horizontal {
-            background: #334166; border-radius: 3px;
-        }
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-
-        /* ── Splitter ── */
-        QSplitter::handle { background: #2a3349; }
-
-        /* ── StatusBar ── */
-        QStatusBar {
-            background: #161b27;
-            color: #5a6278;
-            border-top: 1px solid #2a3349;
-            font-size: 11px;
-        }
-
-        /* ── Calendar ── */
-        QCalendarWidget QWidget { background: #1e2535; color: #e8eaf0; }
-        QCalendarWidget QToolButton {
-            color: #e8eaf0; background: #1e2535;
-            border: none; padding: 4px 8px;
-        }
-        QCalendarWidget QToolButton:hover { background: #252d3e; }
-        QCalendarWidget QMenu { color: #e8eaf0; background: #1e2535; }
-        QCalendarWidget QSpinBox { color: #e8eaf0; background: #1e2535; border: none; }
-        QCalendarWidget QAbstractItemView:enabled { color: #e8eaf0; background: #1e2535; }
-        QCalendarWidget QAbstractItemView:disabled { color: #5a6278; }
-        QCalendarWidget QAbstractItemView:selected { background: #4a8cff; color: white; }
-    """)
+    if not _login(app):
+        sys.exit(0)
 
     window = MainWindow()
     sys.exit(app.exec())

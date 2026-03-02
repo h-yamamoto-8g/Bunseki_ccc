@@ -35,6 +35,9 @@
         <file>page_up.svg</file>
         <file>page_down.svg</file>
         <file>cancel.svg</file>
+        <file>download.svg</file>
+        <file>more.svg</file>
+        <file>graph.svg</file>
     </qresource>
 </RCC>
 
