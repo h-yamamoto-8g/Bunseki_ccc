@@ -50,6 +50,8 @@ class SubmissionState(QWidget):
         self._ui.return_requested.connect(self._on_return)
         self._ui.complete_requested.connect(self._on_complete)
         self._ui.reclaim_requested.connect(self._on_reclaim)
+        self._ui.comment_add_requested.connect(self._on_add_comment)
+        self._ui.comment_delete_requested.connect(self._on_delete_comment)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -62,10 +64,24 @@ class SubmissionState(QWidget):
         self._ui.set_available_users(user_names)
 
         self._ui.set_creator(task.get("created_by", ""))
+        self._ui.set_current_user(_cfg.CURRENT_USER)
 
         sd = task.get("state_data", {}).get("submission", {})
         self._ui.set_reviewers(sd.get("reviewers", []))
-        self._ui.set_comment(sd.get("comment", ""))
+        comments = list(sd.get("comments", []))
+        legacy_comment = str(sd.get("comment", "")).strip()
+        if not comments and legacy_comment:
+            comments = [
+                {
+                    "id": "legacy_comment",
+                    "author": task.get("created_by", ""),
+                    "text": legacy_comment,
+                    "created_at": task.get("updated_at", ""),
+                    "pending": False,
+                }
+            ]
+        self._ui.set_comments(comments)
+        self._ui.set_comment("")
         self._ui.set_attachments(sd.get("attachments", []))
 
         mode, current_idx = self._determine_mode(task, readonly)
@@ -116,6 +132,15 @@ class SubmissionState(QWidget):
             return
 
         task_id = self._task["task_id"]
+        comment_text = comment.strip()
+        if comment_text:
+            self._task = self._task_service.add_submission_comment(
+                task_id, _cfg.CURRENT_USER, comment_text
+            )
+            self._task = self._task_service.finalize_submission_comments(
+                task_id, _cfg.CURRENT_USER
+            )
+            self._ui.clear_draft_comment()
 
         stored_paths = self._copy_attachments(task_id, attachments)
 
@@ -124,13 +149,21 @@ class SubmissionState(QWidget):
         self._record_sigma_anomalies(task_id)
         self.loading_changed.emit(False, "")
 
+        submission_data = (
+            self._task.get("state_data", {}).get("submission", {})
+            if self._task
+            else {}
+        )
+        comments = submission_data.get("comments", [])
+        base_comment = comments[-1]["text"] if comments else ""
+
         self._task = self._task_service.save_submission(
-            task_id, reviewers, comment, stored_paths
+            task_id, reviewers, base_comment, stored_paths
         )
 
         self._ui.apply_mode("sent_analyst", current_reviewer_index=0)
 
-        sent_via_outlook = self._open_outlook_email(reviewers[0], comment)
+        sent_via_outlook = self._open_outlook_email(reviewers[0], base_comment)
         if not sent_via_outlook:
             QMessageBox.information(
                 self,
@@ -142,6 +175,20 @@ class SubmissionState(QWidget):
     def _on_forward(self) -> None:
         """確認者 → 次の確認者へ送信。"""
         task_id = self._task["task_id"]
+        self._task = self._task_service.update_submission_reviewers(
+            task_id, self._ui.get_reviewers()
+        )
+
+        draft = self._ui.get_draft_comment()
+        if draft:
+            self._task = self._task_service.add_submission_comment(
+                task_id, _cfg.CURRENT_USER, draft
+            )
+            self._ui.clear_draft_comment()
+        self._task = self._task_service.finalize_submission_comments(
+            task_id, _cfg.CURRENT_USER
+        )
+
         self._task = self._task_service.forward_submission(task_id)
 
         sd = self._task.get("state_data", {}).get("submission", {})
@@ -166,6 +213,15 @@ class SubmissionState(QWidget):
     def _on_return(self) -> None:
         """確認者 → 分析者へ差し戻し。"""
         task_id = self._task["task_id"]
+        draft = self._ui.get_draft_comment()
+        if draft:
+            self._task = self._task_service.add_submission_comment(
+                task_id, _cfg.CURRENT_USER, draft
+            )
+            self._ui.clear_draft_comment()
+        self._task = self._task_service.finalize_submission_comments(
+            task_id, _cfg.CURRENT_USER
+        )
         self._task = self._task_service.reclaim_submission(task_id)
 
         mode, idx = self._determine_mode(self._task, readonly=False)
@@ -194,26 +250,69 @@ class SubmissionState(QWidget):
 
     def _on_complete(self) -> None:
         """最後の確認者がタスクを終了する。"""
+        task_id = self._task["task_id"]
+        draft = self._ui.get_draft_comment()
+        if draft:
+            self._task = self._task_service.add_submission_comment(
+                task_id, _cfg.CURRENT_USER, draft
+            )
+            self._ui.clear_draft_comment()
+        self._task = self._task_service.finalize_submission_comments(
+            task_id, _cfg.CURRENT_USER
+        )
         self._task = self._task_service.complete_task(self._task["task_id"])
         self.go_next.emit()
 
+    def _on_add_comment(self, text: str) -> None:
+        task_id = self._task.get("task_id", "")
+        if not task_id:
+            return
+        self._task = self._task_service.add_submission_comment(
+            task_id, _cfg.CURRENT_USER, text
+        )
+        self._ui.clear_draft_comment()
+        comments = (
+            self._task.get("state_data", {})
+            .get("submission", {})
+            .get("comments", [])
+        )
+        self._ui.set_comments(comments)
+
+    def _on_delete_comment(self, comment_id: str) -> None:
+        if not comment_id:
+            return
+        task_id = self._task.get("task_id", "")
+        if not task_id:
+            return
+        self._task = self._task_service.delete_submission_comment(
+            task_id, comment_id, _cfg.CURRENT_USER
+        )
+        comments = (
+            self._task.get("state_data", {})
+            .get("submission", {})
+            .get("comments", [])
+        )
+        self._ui.set_comments(comments)
+
     # ── Private helpers ───────────────────────────────────────────────────────
 
-    def _copy_attachments(self, task_id: str, files: list[str]) -> list[str]:
+    def _copy_attachments(self, task_id: str, files: list[dict]) -> list[dict]:
         """添付ファイルを app_data/bunseki/attachments/{task_id}/ にコピーする。"""
         if not files:
             return []
         dest_dir = _ATTACHMENTS_ROOT / task_id
         dest_dir.mkdir(parents=True, exist_ok=True)
-        stored: list[str] = []
-        for src_path in files:
+        stored: list[dict] = []
+        for att in files:
+            src_path = att["path"] if isinstance(att, dict) else att
+            added_by = att.get("added_by", "") if isinstance(att, dict) else ""
             src = Path(src_path)
             if not src.exists():
-                stored.append(src_path)
+                stored.append({"path": src_path, "added_by": added_by})
                 continue
             dest = dest_dir / src.name
             shutil.copy2(src, dest)
-            stored.append(str(dest))
+            stored.append({"path": str(dest), "added_by": added_by})
         return stored
 
     def _record_sigma_anomalies(self, task_id: str) -> None:

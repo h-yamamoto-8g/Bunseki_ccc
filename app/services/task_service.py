@@ -6,6 +6,7 @@ core.task_store にのみ依存し、UI / DataLoader に依存しない。
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
 from app.core import task_store
 
@@ -166,10 +167,25 @@ class TaskService:
         attachments: list[str],
     ) -> dict:
         """回覧送信: 最初の確認者に送る。"""
+        task = task_store.get_task(task_id)
+        existing = task.get("state_data", {}).get("submission", {})
+        comments = list(existing.get("comments", []))
+        if not comments and comment.strip():
+            comments.append(
+                {
+                    "id": f"cm_{uuid4().hex}",
+                    "author": task.get("created_by", ""),
+                    "text": comment.strip(),
+                    "created_at": datetime.now().isoformat(),
+                    "pending": False,
+                }
+            )
+
         state_data = {
             "reviewers": reviewers,
             "current_reviewer_index": 0,
             "comment": comment,
+            "comments": comments,
             "attachments": attachments,
             "completed": False,
         }
@@ -189,6 +205,81 @@ class TaskService:
         task_store.update_task_field(
             task_id, assigned_to=sd["reviewers"][idx]
         )
+        return task_store.get_task(task_id)
+
+    def update_submission_reviewers(self, task_id: str, reviewers: list[str]) -> dict:
+        """回覧中の確認者リストを更新する。"""
+        task = task_store.get_task(task_id)
+        sd = task.get("state_data", {}).get("submission", {})
+        current_idx = int(sd.get("current_reviewer_index", 0))
+        if not reviewers:
+            return task
+
+        # 現在担当者より前は固定。担当者以降のみ更新対象にする。
+        original = list(sd.get("reviewers", []))
+        if original and 0 <= current_idx < len(original):
+            fixed = original[: current_idx + 1]
+            suffix = [r for r in reviewers if r not in fixed]
+            merged = fixed + suffix
+        else:
+            merged = list(reviewers)
+
+        sd["reviewers"] = merged
+        self._save_submission_state_data(task_id, sd)
+        return task_store.get_task(task_id)
+
+    def add_submission_comment(self, task_id: str, author: str, text: str) -> dict:
+        """回覧コメントを追加する（pending=True）。"""
+        body = text.strip()
+        if not body:
+            return task_store.get_task(task_id)
+        task = task_store.get_task(task_id)
+        sd = task.get("state_data", {}).get("submission", {})
+        comments = list(sd.get("comments", []))
+        comments.append(
+            {
+                "id": f"cm_{uuid4().hex}",
+                "author": author,
+                "text": body,
+                "created_at": datetime.now().isoformat(),
+                "pending": True,
+            }
+        )
+        sd["comments"] = comments
+        self._save_submission_state_data(task_id, sd)
+        return task_store.get_task(task_id)
+
+    def delete_submission_comment(
+        self, task_id: str, comment_id: str, requested_by: str
+    ) -> dict:
+        """未引き渡し（pending）の自コメントのみ削除する。"""
+        task = task_store.get_task(task_id)
+        sd = task.get("state_data", {}).get("submission", {})
+        comments = list(sd.get("comments", []))
+        kept: list[dict] = []
+        for c in comments:
+            if c.get("id") != comment_id:
+                kept.append(c)
+                continue
+            if c.get("author") != requested_by or not c.get("pending", False):
+                kept.append(c)
+        sd["comments"] = kept
+        self._save_submission_state_data(task_id, sd)
+        return task_store.get_task(task_id)
+
+    def finalize_submission_comments(self, task_id: str, author: str) -> dict:
+        """引き渡し時に、担当者の pending コメントを確定する。"""
+        task = task_store.get_task(task_id)
+        sd = task.get("state_data", {}).get("submission", {})
+        comments = list(sd.get("comments", []))
+        changed = False
+        for c in comments:
+            if c.get("author") == author and c.get("pending", False):
+                c["pending"] = False
+                changed = True
+        if changed:
+            sd["comments"] = comments
+            self._save_submission_state_data(task_id, sd)
         return task_store.get_task(task_id)
 
     def reclaim_submission(self, task_id: str) -> dict:
@@ -221,3 +312,10 @@ class TaskService:
 
     def is_setup_done(self, task: dict) -> bool:
         return task.get("state_data", {}).get("task_setup", {}).get("completed", False)
+
+    def _save_submission_state_data(self, task_id: str, submission_data: dict) -> None:
+        """current_state/status を変えずに submission の state_data だけ更新する。"""
+        task = task_store.get_task(task_id)
+        all_state_data = dict(task.get("state_data", {}))
+        all_state_data["submission"] = submission_data
+        task_store.update_task_field(task_id, state_data=all_state_data)

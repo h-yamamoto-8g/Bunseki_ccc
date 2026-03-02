@@ -54,6 +54,7 @@ from app.config import APP_VERSION, reload_paths, set_current_user
 from app.core.loader import DataLoader
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.data_update_service import run_all as _run_data_update
 from app.services.hg_config_service import HgConfigService
 from app.services.manual_service import ManualService
 from app.ui.dialogs.logon_dialog import LogonDialog
@@ -249,7 +250,7 @@ class MainWindow(QMainWindow):
         self.home_page = HomePage(self.task_service)
         self.tasks_page = TasksPage(self.task_service, self.data_service)
         self.data_page = DataPage(self.data_service)
-        self.news_page = NewsPage()
+        self.news_page = NewsPage(self.data_service)
         self.library_page = LibraryPage(self.task_service)
         self.log_page = LogPage()
         self.job_page = JobPage()
@@ -364,6 +365,8 @@ class MainWindow(QMainWindow):
             self.tasks_page.show_list()
         elif page_id == "data":
             self.data_page.refresh()
+        elif page_id == "news":
+            self.news_page.refresh()
         elif page_id == "job":
             self.job_page._load_jobs()
 
@@ -427,8 +430,14 @@ class MainWindow(QMainWindow):
         self.step_nav.set_active_step(state_id, current_state=current_state)
         self.frame_subcontents.setVisible(True)
 
-        # ステート対応マニュアルを browser_guide に表示
-        self._show_manual(f"state:{state_id}")
+        # HGマニュアル優先 → なければステートマニュアル → なければクリア
+        task = getattr(self.tasks_page, "_current_task", None)
+        hg_code = task.get("holder_group_code", "") if task else ""
+        hg_html = self.hg_config_service.get_manual_html(hg_code) if hg_code else None
+        if hg_html:
+            self.browser_guide.setHtml(hg_html)
+        else:
+            self._show_manual(f"state:{state_id}")
 
     def clear_task_context(self) -> None:
         """タスクコンテキスト（タスク名・ステップハイライト）をリセットする。"""
@@ -609,6 +618,10 @@ def main() -> None:
 
     if not _login(app):
         sys.exit(0)
+
+    # ログイン後にデータ更新・正規化を実行
+    # 実装完了後は data_update_service.ENABLED = True に切り替える
+    _run_data_update()
 
     window = MainWindow()
     sys.exit(app.exec())

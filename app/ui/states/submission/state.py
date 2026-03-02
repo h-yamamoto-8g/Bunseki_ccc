@@ -4,6 +4,9 @@
 """
 from __future__ import annotations
 
+import os
+import platform
+import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QSize
@@ -34,6 +37,33 @@ _SUCCESS = "#10b981"
 _BORDER = "#e5e7eb"
 
 
+class _RemoveButton(QPushButton):
+    """cancel.svg アイコン付き削除ボタン。ホバー時にアイコン色を赤に変える。"""
+
+    def __init__(self, icon_normal, icon_hover, parent=None):
+        super().__init__(parent)
+        self._icon_normal = icon_normal
+        self._icon_hover = icon_hover
+        self.setIcon(icon_normal)
+        self.setIconSize(QSize(12, 12))
+        self.setFixedSize(16, 16)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("削除")
+        self.setStyleSheet(
+            "QPushButton { background:transparent; border:none;"
+            " min-height:0; min-width:0; padding:0; }"
+            "QPushButton:hover { background:rgba(239,68,68,0.12); border-radius:4px; }"
+        )
+
+    def enterEvent(self, event):
+        self.setIcon(self._icon_hover)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setIcon(self._icon_normal)
+        super().leaveEvent(event)
+
+
 class SubmissionUI(QWidget):
     """回覧ステート (純粋レイアウト)。
 
@@ -52,13 +82,20 @@ class SubmissionUI(QWidget):
     return_requested = Signal()
     complete_requested = Signal()
     reclaim_requested = Signal()
+    comment_add_requested = Signal(str)
+    comment_delete_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._creator: str = ""
         self._reviewers: list[str] = []
         self._attachments: list[str] = []
+        self._comments: list[dict] = []
         self._editable = True
+        self._can_comment = True
+        self._current_user: str = ""
+        self._mode: str = "edit"
+        self._current_reviewer_index: int = 0
         self._build_ui()
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -161,15 +198,38 @@ class SubmissionUI(QWidget):
         lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         vl.addWidget(lbl)
 
+        self._comment_container = QWidget()
+        self._comment_container.setStyleSheet("border:none;")
+        self._comment_layout = QVBoxLayout(self._comment_container)
+        self._comment_layout.setContentsMargins(0, 0, 0, 0)
+        self._comment_layout.setSpacing(6)
+        vl.addWidget(self._comment_container)
+
+        input_row = QHBoxLayout()
+        input_row.setSpacing(8)
         self._comment_edit = QPlainTextEdit()
-        self._comment_edit.setPlaceholderText("確認者へのメッセージを入力")
-        self._comment_edit.setFixedHeight(100)
+        self._comment_edit.setPlaceholderText("コメントを入力して追加")
+        self._comment_edit.setFixedHeight(72)
         self._comment_edit.setStyleSheet(
             f"QPlainTextEdit {{ border:1px solid {_BORDER}; border-radius:6px;"
             f" padding:8px; font-size:13px; color:{_TEXT}; background:{_BG2}; }}"
             f"QPlainTextEdit:focus {{ border-color:{_ACCENT}; }}"
         )
-        vl.addWidget(self._comment_edit)
+        input_row.addWidget(self._comment_edit, 1)
+
+        self._btn_comment_add = QPushButton()
+        self._btn_comment_add.setFixedSize(32, 32)
+        self._btn_comment_add.setIcon(get_icon(":/icons/add.svg", "#ffffff", 14))
+        self._btn_comment_add.setIconSize(QSize(14, 14))
+        self._btn_comment_add.setText("")
+        self._btn_comment_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_comment_add.setStyleSheet(
+            f"QPushButton {{ background:{_ACCENT}; color:white; border:none; border-radius:6px; }}"
+            f"QPushButton:hover {{ background:#2563eb; }}"
+        )
+        self._btn_comment_add.clicked.connect(self._on_add_comment)
+        input_row.addWidget(self._btn_comment_add, alignment=Qt.AlignmentFlag.AlignTop)
+        vl.addLayout(input_row)
 
         return frame
 
@@ -297,13 +357,30 @@ class SubmissionUI(QWidget):
     def set_comment(self, text: str) -> None:
         self._comment_edit.setPlainText(text)
 
-    def set_attachments(self, paths: list[str]) -> None:
-        self._attachments = list(paths)
+    def set_comments(self, comments: list[dict]) -> None:
+        self._comments = list(comments)
+        self._rebuild_comments()
+
+    def set_attachments(self, attachments: list) -> None:
+        """attachments は list[dict(path,added_by)] または後方互換の list[str]。"""
+        normalized = []
+        for item in attachments:
+            if isinstance(item, dict):
+                normalized.append(item)
+            else:
+                normalized.append({"path": str(item), "added_by": ""})
+        self._attachments = normalized
 
     def get_comment(self) -> str:
         return self._comment_edit.toPlainText()
 
-    def get_attachments(self) -> list[str]:
+    def get_draft_comment(self) -> str:
+        return self._comment_edit.toPlainText().strip()
+
+    def clear_draft_comment(self) -> None:
+        self._comment_edit.clear()
+
+    def get_attachments(self) -> list[dict]:
         return list(self._attachments)
 
     def get_reviewers(self) -> list[str]:
@@ -323,16 +400,21 @@ class SubmissionUI(QWidget):
             "reviewer_last" — 確認者・最後（差し戻し+終了）
             "readonly"      — 終了済み（閲覧のみ）
         """
-        self._editable = mode == "edit"
+        self._mode = mode
+        self._current_reviewer_index = max(current_reviewer_index, 0)
+        self._editable = mode in ("edit", "reviewer_mid", "reviewer_last")
+        self._can_comment = mode in ("edit", "reviewer_mid", "reviewer_last")
 
         # フロー図を再描画
         self._rebuild_flow(current_reviewer_index, highlight=(mode != "edit"))
 
         # 確認者追加行
-        self._add_row.setVisible(mode == "edit")
+        self._add_row.setVisible(mode in ("edit", "reviewer_mid", "reviewer_last"))
 
         # コメント・添付
-        self._comment_edit.setReadOnly(mode != "edit")
+        self._comment_edit.setReadOnly(not self._can_comment)
+        self._btn_comment_add.setVisible(self._can_comment)
+        self._rebuild_comments()
         self._btn_attach.setVisible(mode == "edit")
         self._rebuild_attachments()
 
@@ -341,8 +423,17 @@ class SubmissionUI(QWidget):
         self._btn_send.setVisible(mode == "edit")
         self._btn_reclaim.setVisible(mode == "sent_analyst")
         self._btn_return.setVisible(mode in ("reviewer_mid", "reviewer_last"))
-        self._btn_forward.setVisible(mode == "reviewer_mid")
-        self._btn_complete.setVisible(mode == "reviewer_last")
+        if mode in ("reviewer_mid", "reviewer_last"):
+            has_next = self._current_reviewer_index < len(self._reviewers) - 1
+            self._btn_forward.setVisible(has_next)
+            self._btn_complete.setVisible(not has_next)
+        else:
+            self._btn_forward.setVisible(False)
+            self._btn_complete.setVisible(False)
+
+    def set_current_user(self, user_name: str) -> None:
+        self._current_user = user_name
+        self._rebuild_comments()
 
     # ══════════════════════════════════════════════════════════════════════════
     # Internal
@@ -354,11 +445,17 @@ class SubmissionUI(QWidget):
             return
         self._reviewers.append(name)
         self._rebuild_flow(current_idx=-1, highlight=False)
+        if self._mode in ("reviewer_mid", "reviewer_last"):
+            self.apply_mode(self._mode, self._current_reviewer_index)
 
     def _remove_reviewer(self, idx: int) -> None:
         if 0 <= idx < len(self._reviewers):
+            if self._mode in ("reviewer_mid", "reviewer_last") and idx <= self._current_reviewer_index:
+                return
             self._reviewers.pop(idx)
             self._rebuild_flow(current_idx=-1, highlight=False)
+            if self._mode in ("reviewer_mid", "reviewer_last"):
+                self.apply_mode(self._mode, self._current_reviewer_index)
 
     def _rebuild_flow(self, current_idx: int, highlight: bool) -> None:
         """フロー図（起票者 → 確認者1 → ...）を再構築する。"""
@@ -387,7 +484,12 @@ class SubmissionUI(QWidget):
             else:
                 node_state = "pending"
 
-            removable_idx = i if self._editable else None
+            if not self._editable:
+                removable_idx = None
+            elif self._mode in ("reviewer_mid", "reviewer_last"):
+                removable_idx = i if i > self._current_reviewer_index else None
+            else:
+                removable_idx = i
             self._flow_layout.addWidget(
                 self._make_node(
                     name,
@@ -423,14 +525,8 @@ class SubmissionUI(QWidget):
         top_row.setSpacing(0)
         top_row.addStretch()
         if removable_idx is not None:
-            rm = QPushButton("×")
-            rm.setFixedSize(16, 16)
-            rm.setCursor(Qt.CursorShape.PointingHandCursor)
-            rm.setStyleSheet(
-                "QPushButton { background:transparent; color:#cbd5e1;"
-                " font-size:11px; font-weight:bold; border:none; min-height:0; }"
-                "QPushButton:hover { color:#ef4444; }"
-            )
+            rm = _RemoveButton(get_icon(":/icons/cancel.svg", "#cbd5e1", 12),
+                               get_icon(":/icons/cancel.svg", "#ef4444", 12))
             rm.clicked.connect(lambda _=False, j=removable_idx: self._remove_reviewer(j))
             top_row.addWidget(rm)
         else:
@@ -482,6 +578,75 @@ class SubmissionUI(QWidget):
 
         return w
 
+    def _on_add_comment(self) -> None:
+        text = self.get_draft_comment()
+        if not text:
+            return
+        self.comment_add_requested.emit(text)
+
+    def _rebuild_comments(self) -> None:
+        while self._comment_layout.count():
+            item = self._comment_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        if not self._comments:
+            empty = QLabel("コメントはまだありません")
+            empty.setStyleSheet(f"font-size:12px; color:{_TEXT3}; border:none;")
+            self._comment_layout.addWidget(empty)
+            return
+
+        for c in self._comments:
+            self._comment_layout.addWidget(self._make_comment_card(c))
+
+    def _make_comment_card(self, comment: dict) -> QFrame:
+        card = QFrame()
+        card.setStyleSheet(
+            f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
+        )
+        vl = QVBoxLayout(card)
+        vl.setContentsMargins(10, 8, 8, 8)
+        vl.setSpacing(6)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(6)
+        author = str(comment.get("author", ""))
+        top_lbl = QLabel(author or "不明ユーザー")
+        top_lbl.setStyleSheet(f"font-size:12px; color:{_TEXT2}; border:none; font-weight:600;")
+        top.addWidget(top_lbl)
+        top.addStretch()
+
+        can_delete = (
+            self._can_comment
+            and author == self._current_user
+            and bool(comment.get("pending", False))
+        )
+        if can_delete:
+            del_btn = QPushButton()
+            del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
+            del_btn.setIconSize(QSize(14, 14))
+            del_btn.setFixedSize(22, 22)
+            del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setStyleSheet(
+                "QPushButton { background:transparent; border:none; }"
+                "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
+            )
+            comment_id = str(comment.get("id", ""))
+            del_btn.clicked.connect(
+                lambda _=False, cid=comment_id: self.comment_delete_requested.emit(cid)
+            )
+            top.addWidget(del_btn)
+        vl.addLayout(top)
+
+        body = QLabel(str(comment.get("text", "")))
+        body.setWordWrap(True)
+        body.setStyleSheet(f"font-size:13px; color:{_TEXT}; border:none;")
+        vl.addWidget(body)
+
+        return card
+
     @staticmethod
     def _make_connector(passed: bool) -> QWidget:
         """ノード間のコネクタ（線 + 矢印）を生成する。"""
@@ -508,9 +673,10 @@ class SubmissionUI(QWidget):
 
     def _on_add_attachment(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(self, "ファイルを選択")
+        existing_paths = {a["path"] for a in self._attachments}
         for f in files:
-            if f not in self._attachments:
-                self._attachments.append(f)
+            if f not in existing_paths:
+                self._attachments.append({"path": f, "added_by": self._current_user})
         self._rebuild_attachments()
 
     def _remove_attachment(self, idx: int) -> None:
@@ -531,10 +697,16 @@ class SubmissionUI(QWidget):
             self._att_layout.addWidget(empty)
             return
 
-        for i, path in enumerate(self._attachments):
-            self._att_layout.addWidget(self._make_att_card(path, i))
+        for i, att in enumerate(self._attachments):
+            self._att_layout.addWidget(self._make_att_card(att, i))
 
-    def _make_att_card(self, path: str, idx: int) -> QFrame:
+    def _make_att_card(self, att: dict, idx: int) -> QFrame:
+        path = att["path"]
+        added_by = att.get("added_by", "")
+        is_owner = self._editable and (
+            added_by == self._current_user or added_by == ""
+        )
+
         card = QFrame()
         card.setStyleSheet(
             f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
@@ -549,16 +721,24 @@ class SubmissionUI(QWidget):
         icon.setStyleSheet("border:none;")
         hl.addWidget(icon)
 
-        name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet(f"font-size:12px; color:{_TEXT}; border:none;")
-        hl.addWidget(name_lbl, 1)
+        name_btn = QPushButton(Path(path).name)
+        name_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        name_btn.setFlat(True)
+        name_btn.setStyleSheet(
+            f"QPushButton {{ font-size:12px; color:{_TEXT}; border:none;"
+            " background:transparent; text-align:left; padding:0; }"
+            f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
+        )
+        name_btn.clicked.connect(lambda _=False, p=path: self._open_attachment(p))
+        hl.addWidget(name_btn, 1)
 
-        if self._editable:
+        if is_owner:
             del_btn = QPushButton()
             del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
             del_btn.setIconSize(QSize(14, 14))
             del_btn.setFixedSize(22, 22)
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setToolTip("削除")
             del_btn.setStyleSheet(
                 "QPushButton { background:transparent; border:none; }"
                 "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
@@ -567,6 +747,24 @@ class SubmissionUI(QWidget):
             hl.addWidget(del_btn)
 
         return card
+
+    def _open_attachment(self, path: str) -> None:
+        """添付ファイルをOSのデフォルトアプリで開く。"""
+        p = Path(path)
+        if not p.exists():
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "ファイルが見つかりません", str(p))
+            return
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(["open", str(p)], check=False)
+            elif platform.system() == "Windows":
+                os.startfile(str(p))
+            else:
+                subprocess.run(["xdg-open", str(p)], check=False)
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "ファイルを開けません", str(e))
 
     # ── 送信 ──────────────────────────────────────────────────────────────
 

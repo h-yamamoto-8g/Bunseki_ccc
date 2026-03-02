@@ -85,7 +85,7 @@
     "current_state": "submission",
     "status": "回覧中",
     "created_at": "2026-02-26T07:58:40.328629",
-    "updated_at": "2026-03-03T07:20:15.756643",
+    "updated_at": "2026-03-03T07:39:31.459583",
     "created_by": "デモユーザー",
     "assigned_to": "山本輝",
     "state_data": {
@@ -165,7 +165,16 @@
         "attachments": [
           "/Users/yamamotohikaru/Desktop/Bunseki/app_data/bunseki/attachments/20260226075840_HG_001/requirements.txt"
         ],
-        "completed": false
+        "completed": false,
+        "comments": [
+          {
+            "id": "cm_316d72cdf11b41e8bc7bf907170d7de8",
+            "author": "山本輝",
+            "text": "test",
+            "created_at": "2026-03-03T07:39:31.459199",
+            "pending": true
+          }
+        ]
       }
     },
     "handover_history": [
@@ -534,27 +543,6 @@
         "job_numbers": [
           "260107W"
         ],
-        "completed": true
-      }
-    }
-  },
-  {
-    "task_id": "20260303043850_HG_001",
-    "task_name": "20260303043850_pH",
-    "holder_group_code": "HG_001",
-    "holder_group_name": "pH",
-    "job_numbers": [],
-    "current_state": "analysis_targets",
-    "status": "進行中",
-    "created_at": "2026-03-03T04:38:50.019665",
-    "updated_at": "2026-03-03T04:38:50.019665",
-    "created_by": "デモユーザー",
-    "assigned_to": "デモユーザー",
-    "state_data": {
-      "task_setup": {
-        "holder_group_code": "HG_001",
-        "holder_group_name": "pH",
-        "job_numbers": [],
         "completed": true
       }
     }
