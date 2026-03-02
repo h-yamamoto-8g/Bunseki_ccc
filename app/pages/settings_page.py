@@ -378,6 +378,8 @@ class _UserDialog(QDialog):
 class _HolderGroupTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._hg_config = {}
+        self._hg_list = []
         self._setup_ui()
         self._load()
 
@@ -455,10 +457,12 @@ class _HolderGroupTab(QWidget):
             except Exception:
                 pass
         self.hg_combo.clear()
+        self.hg_combo.blockSignals(True)
         for g in self._hg_list:
             label = f"{g.get('holder_group_code','?')} — {g.get('holder_group_name','')}"
             self.hg_combo.addItem(label, g.get("holder_group_code"))
-
+        self.hg_combo.blockSignals(False)
+        
         self._hg_config = _load_hg_config()
         self._on_hg_change()
 

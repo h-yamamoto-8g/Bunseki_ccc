@@ -1,7 +1,7 @@
 from pathlib import Path
 
 APP_VERSION = "1.0"
-DATA_PATH = Path("/Users/yamamotohikaru/Desktop/Bunseki/app_data")
+DATA_PATH = Path(r"C:\Users\12414\トクヤマグループ\環境分析課 - ドキュメント\app_data")
 
 # Derived paths
 COMMON_DATA_PATH = DATA_PATH / "_common"

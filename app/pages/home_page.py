@@ -80,7 +80,8 @@ class HomePage(QWidget):
         tl.addWidget(title)
         tl.addStretch()
 
-        today_str = datetime.now().strftime("%-m月%-d日")
+        now = datetime.now()
+        today_str = f"{now.month}月{now.day}日"
         date_lbl = QLabel(f"{today_str}  {CURRENT_USER}")
         date_lbl.setStyleSheet(f"font-size:11px; color:{_TEXT3};")
         tl.addWidget(date_lbl)
@@ -105,7 +106,7 @@ class HomePage(QWidget):
         hdr_left.setSpacing(4)
         h1 = QLabel("ホーム")
         h1.setStyleSheet(f"font-size:20px; font-weight:700; color:{_TEXT};")
-        sub = QLabel(f"{datetime.now().strftime('%Y年%-m月%-d日')} — 本日のタスクと当月スケジュール")
+        sub = QLabel(f"{now.year}年{now.month}月{now.day}日 — 本日のタスクと当月スケジュール")
         sub.setStyleSheet(f"font-size:12px; color:{_TEXT3};")
         hdr_left.addWidget(h1)
         hdr_left.addWidget(sub)
