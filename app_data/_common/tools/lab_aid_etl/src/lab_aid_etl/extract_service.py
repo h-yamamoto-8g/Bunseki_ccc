@@ -1,18 +1,3 @@
-"""
-extract_service
-
-役割:
-- full_normalized.csv から profile 指定の
-  - 列allowlist
-  - 行フィルタ（test_domain_code == WH）
-  を適用して <profile>.csv を生成する
-
-手順:
-1) 入力CSVを1行ずつ読み（ストリーム）
-2) domain_filter を評価（今回は test.domain_code == WH で固定運用）
-3) 通過した行だけ allowlist 列で出力
-"""
-
 from __future__ import annotations
 
 import csv
@@ -40,8 +25,8 @@ def _eval_domain_filter(domain_filter: Dict[str, Any], row: Dict[str, str]) -> b
     if entity == "test" and field == "domain_code":
         left = row.get("test_domain_code", "")
     else:
-        # 将来拡張用（必要になったら master参照方式も追加できる）
-        left = row.get(field, "")
+        # 将来拡張用：必要なら row の任意列参照を許容
+        left = row.get(field or "", "")
 
     if op == "eq":
         return left == value

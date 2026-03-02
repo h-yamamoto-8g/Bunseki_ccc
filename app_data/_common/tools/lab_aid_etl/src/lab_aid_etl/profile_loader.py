@@ -1,18 +1,3 @@
-"""
-profile_loader
-
-役割:
-- profile（_common/master_data/views/<profile>.json）を読み込む
-- さらに、profile内の paths（_common/...）を「実際の _common 位置」から絶対パスに解決する
-  → 実行ディレクトリに依存しない CLI にする
-
-手順:
-1) 現在ディレクトリから親へ辿って "_common" フォルダを探索する
-2) profile の読み込みパスを確定し、JSONをロードする
-3) profile.paths 内の値が "_common/..." で始まる場合、見つけた _common を基点に絶対パス化する
-4) extract 設定（columns_allowlist / domain_filter）の最低限検証を行う
-"""
-
 from __future__ import annotations
 
 import json
@@ -60,7 +45,6 @@ def _resolve_common_relative(path_value: str, common_dir: str) -> str:
 
     norm = path_value.replace("\\", "/")
     if norm.startswith("_common/") or norm == "_common":
-        # "_common/xxx" の "xxx" 部分を取り出して common_dir に結合
         tail = norm[len("_common/") :] if norm != "_common" else ""
         return os.path.abspath(os.path.join(common_dir, tail))
 
@@ -92,7 +76,7 @@ def load_profile(profile_name: str, profile_dir: Optional[str]) -> Dict[str, Any
     1) profile path を確定して JSON 読み込み
     2) 必須キー（paths/extract）を検証
     3) paths.* が "_common/..." の場合、実体 _common 基点で絶対パス化
-    4) extract 設定の最低限検証
+    4) extract 設定の最低限検証（columns_allowlist / domain_filter）
     """
     profile_path = resolve_profile_path(profile_name, profile_dir)
     if not os.path.isfile(profile_path):
@@ -104,10 +88,8 @@ def load_profile(profile_name: str, profile_dir: Optional[str]) -> Dict[str, Any
     if "paths" not in obj or "extract" not in obj:
         raise InputError("profile missing required keys: paths/extract")
 
-    # _common 実体位置を確定（profile_dir 指定時でも、paths変換用に確保）
     common_dir = _find_common_dir(os.getcwd())
 
-    # paths を絶対パス化（_common/... だけ変換）
     paths = obj.get("paths", {})
     if isinstance(paths, dict):
         resolved = {}
@@ -121,5 +103,10 @@ def load_profile(profile_name: str, profile_dir: Optional[str]) -> Dict[str, Any
 
     if "domain_filter" not in ex or not isinstance(ex["domain_filter"], dict):
         raise InputError("profile.extract.domain_filter is required (dict)")
+
+    # field方式の検証（安定版仕様に戻す）
+    df = ex["domain_filter"]
+    if "field" not in df or not isinstance(df.get("field"), str) or not df.get("field"):
+        raise InputError("domain_filter.field is required (non-empty string)")
 
     return obj

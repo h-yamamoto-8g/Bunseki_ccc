@@ -1,23 +1,3 @@
-"""
-normalize_service
-
-役割:
-- full.csv を読み、以下列を付与して full_normalized.csv を生成する
-  - valid_sample_set_code
-  - valid_holder_set_code
-  - valid_test_set_code
-  - holder_group_code
-  - test_domain_code（extractのフィルタ簡略化・検証容易化のため追加）
-
-手順:
-1) CSVを1行ずつ読み込む（ストリーム）
-2) sample_code/holder_code/test_code を逆引き辞書で set_code に変換
-3) unknown_policy=unknown の場合、未知は "UNKNOWN" を入れて継続
-4) holder_group_code を valid_holder_set_code から付与（未知は UNKNOWN/UNGROUPED）
-5) test_domain_code を valid_test_set_code から付与
-6) 元の行＋追加列を出力CSVへ書き込む
-"""
-
 from __future__ import annotations
 
 import csv
@@ -45,8 +25,36 @@ def _map_code(code: str, mapping: Dict[str, str], unknown_policy: str, counter: 
         return "UNKNOWN"
     if unknown_policy == "empty":
         return ""
-    # unknown_policy="error" は今回は採用しないが拡張余地として残す
     raise ValueError(f"Unknown code ({key}): {code}")
+
+
+def _map_display_name(set_code: str, mapping: Dict[str, str]) -> str:
+    """
+    役割:
+    - set_code から display_name を引く（UNKNOWN/空は空文字）
+
+    手順:
+    1) set_code が "" / "UNKNOWN" なら ""
+    2) それ以外は mapping から取得（無ければ ""）
+    """
+    if set_code in ("", "UNKNOWN"):
+        return ""
+    return mapping.get(set_code, "")
+
+
+def _map_trend_enabled(set_code: str, mapping: Dict[str, bool]) -> str:
+    """
+    役割:
+    - set_code から trend_enabled を引いてCSV列（文字列）にする
+
+    手順:
+    1) set_code が "" / "UNKNOWN" なら ""
+    2) mapping から bool を取得し "true"/"false" に変換
+    """
+    if set_code in ("", "UNKNOWN"):
+        return ""
+    v = mapping.get(set_code, False)
+    return "true" if v else "false"
 
 
 def normalize_full_csv(
@@ -65,7 +73,7 @@ def normalize_full_csv(
     手順:
     1) 入力存在チェック
     2) DictReader/DictWriter でストリーム処理
-    3) 追加列を付与して書き込み
+    3) 追加列（set_code/display_name/holder_group/domain/trend）を付与して書き込み
     """
     if not os.path.isfile(in_csv):
         raise InputError(f"Input CSV not found: {in_csv}")
@@ -78,12 +86,15 @@ def normalize_full_csv(
     with open(in_csv, "r", encoding=encoding, newline="") as rf, open(out_csv, "w", encoding=encoding, newline="") as wf:
         reader = csv.DictReader(rf, delimiter=delimiter)
 
-        # 追加列
         extra_cols = [
             "valid_sample_set_code",
             "valid_holder_set_code",
             "valid_test_set_code",
+            "valid_sample_display_name",
+            "valid_holder_display_name",
+            "valid_test_display_name",
             "holder_group_code",
+            "trend_enabled",
             "test_domain_code",
         ]
         fieldnames: List[str] = list(reader.fieldnames or [])
@@ -101,9 +112,15 @@ def normalize_full_csv(
             holder_code = str(row.get("holder_code", "")).strip()
             test_code = str(row.get("test_code", "")).strip()
 
+            # set_code
             row["valid_sample_set_code"] = _map_code(sample_code, master.sample_code_to_set, unknown_policy, unknown_counts, "sample")
             row["valid_holder_set_code"] = _map_code(holder_code, master.holder_code_to_set, unknown_policy, unknown_counts, "holder")
             row["valid_test_set_code"] = _map_code(test_code, master.test_code_to_set, unknown_policy, unknown_counts, "test")
+
+            # display_name
+            row["valid_sample_display_name"] = _map_display_name(row["valid_sample_set_code"], master.sample_set_to_display)
+            row["valid_holder_display_name"] = _map_display_name(row["valid_holder_set_code"], master.holder_set_to_display)
+            row["valid_test_display_name"] = _map_display_name(row["valid_test_set_code"], master.test_set_to_display)
 
             # holder_group_code
             holder_set = row["valid_holder_set_code"]
@@ -112,7 +129,10 @@ def normalize_full_csv(
             else:
                 row["holder_group_code"] = master.holder_set_to_group.get(holder_set, "UNGROUPED")
 
-            # test_domain_code（extractで domain_code==WH を評価するため）
+            # trend_enabled（test_set から付与）
+            row["trend_enabled"] = _map_trend_enabled(row["valid_test_set_code"], master.test_set_to_trend_enabled)
+
+            # test_domain_code（test_set から付与）
             test_set = row["valid_test_set_code"]
             if test_set in ("", "UNKNOWN"):
                 row["test_domain_code"] = ""

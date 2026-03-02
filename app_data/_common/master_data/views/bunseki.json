@@ -2,7 +2,7 @@
   "schema_version": 1,
   "profile": "bunseki",
   "io": {
-    "encoding": "utf-8-sig",
+    "encoding": "cp932",
     "delimiter": ","
   },
 
@@ -20,8 +20,13 @@
   "extract": {
     "domain_filter": { "entity": "test", "field": "domain_code", "op": "eq", "value": "WH" },
     "columns_allowlist": [
-      "sample_request_number","sample_sampling_date","sample_sampling_date_sample","sample_measurement_date","sample_job_number","sample_job_branch_number","sample_protocol_name","sample_code","sample_name","sample_material_or_facility_name","holder_code","holder_name","test_code","test_name","test_raw_data","test_reported_data","test_unit_name","test_upper_limit_spec_1","test_upper_limit_spec_2","test_upper_limit_spec_3","test_upper_limit_spec_4","test_lower_limit_spec_1","test_lower_limit_spec_2","test_lower_limit_spec_3","test_lower_limit_spec_4","test_upper_quantitation_limit","test_lower_quantitation_limit","sample_requester","sample_approver","sample_approver_name","sample_overall_judge","sample_overall_judge_name","sample_status","test_status","test_grade_code","sample_out_of_spec_flag","test_judgment","test_hidden_flag","test_report_value_flag",
-      "valid_sample_set_code","valid_holder_set_code","valid_test_set_code","holder_group_code",
+      "sample_request_number","sample_sampling_date","sample_sampling_date_sample","sample_measurement_date","sample_job_number","sample_job_branch_number","sample_protocol_name","sample_code","sample_name","sample_material_or_facility_name","holder_code","holder_name","test_code","test_name","test_raw_data","test_reported_data","test_unit_code","test_unit_name","test_upper_limit_spec_1","test_upper_limit_spec_2","test_upper_limit_spec_3","test_upper_limit_spec_4","test_lower_limit_spec_1","test_lower_limit_spec_2","test_lower_limit_spec_3","test_lower_limit_spec_4","test_upper_quantitation_limit","test_lower_quantitation_limit","sample_requester","sample_approver","sample_approver_name","sample_overall_judge","sample_overall_judge_name","sample_status","test_status","test_grade_code","sample_out_of_spec_flag","test_judgment","test_hidden_flag","test_report_value_flag",
+
+      "valid_sample_set_code","valid_sample_display_name",
+      "valid_holder_set_code","valid_holder_display_name",
+      "valid_test_set_code","valid_test_display_name",
+      "holder_group_code",
+      "trend_enabled",
       "test_domain_code"
     ]
   }

@@ -1,17 +1,3 @@
-"""
-master_loader
-
-役割:
-- valid_*.json / holder_groups.json を読み込み、正規化に必要な辞書（逆引き）を構築する
-- 同一 code が複数 set_code に属する「重複所属」を処理開始前に検出し停止する
-
-手順:
-1) 各JSON（schema_version, updated_at, items[]）から items[] を取得
-2) sample/holder/test: code -> set_code の逆引き辞書を構築（重複所属は MasterDataError）
-3) sample/holder/test: set_code -> domain_code を構築（extract時の domain_filter に使う）
-4) holder_group: valid_holder_set_code -> holder_group_code の逆引きを構築（重複は MasterDataError）
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,14 +12,25 @@ from .errors import MasterDataError
 class MasterData:
     """役割: 正規化・抽出に必要な辞書群をまとめる"""
 
+    # code -> set_code（正規化の主キー変換）
     sample_code_to_set: Dict[str, str]
     holder_code_to_set: Dict[str, str]
     test_code_to_set: Dict[str, str]
 
+    # set_code -> domain_code（domain_filter / 検証用）
     sample_set_to_domain: Dict[str, str]
     holder_set_to_domain: Dict[str, str]
     test_set_to_domain: Dict[str, str]
 
+    # set_code -> display_name（人間可読名）
+    sample_set_to_display: Dict[str, str]
+    holder_set_to_display: Dict[str, str]
+    test_set_to_display: Dict[str, str]
+
+    # set_code -> trend_enabled（テストのトレンド表示可否）
+    test_set_to_trend_enabled: Dict[str, bool]
+
+    # valid_holder_set_code -> holder_group_code（Bunseki固有の作業単位）
     holder_set_to_group: Dict[str, str]
 
 
@@ -95,6 +92,45 @@ def _build_set_to_domain(items: List[dict[str, Any]]) -> Dict[str, str]:
     return out
 
 
+def _build_set_to_display(items: List[dict[str, Any]]) -> Dict[str, str]:
+    """
+    役割:
+    - set_code -> display_name を作る（人間可読名の付与用）
+    - display_name が無い/空の場合は空文字を許容する
+
+    手順:
+    1) items を走査して set_code を取得
+    2) display_name を辞書に保存（無ければ ""）
+    """
+    out: Dict[str, str] = {}
+    for it in items:
+        set_code = str(it.get("set_code", ""))
+        if not set_code:
+            continue
+        out[set_code] = str(it.get("display_name", ""))
+    return out
+
+
+def _build_test_set_to_trend_enabled(items: List[dict[str, Any]]) -> Dict[str, bool]:
+    """
+    役割:
+    - valid_tests.json の set_code -> trend_enabled を構築する
+
+    手順:
+    1) items を走査して set_code を取得
+    2) trend_enabled が bool ならそのまま採用
+    3) 無い/不正な型は False 扱い（落とさず既定に寄せる）
+    """
+    out: Dict[str, bool] = {}
+    for it in items:
+        set_code = str(it.get("set_code", ""))
+        if not set_code:
+            continue
+        v = it.get("trend_enabled", False)
+        out[set_code] = bool(v) if isinstance(v, (bool, int)) else False
+    return out
+
+
 def load_master_data(master_dir: str) -> MasterData:
     """
     役割:
@@ -102,22 +138,34 @@ def load_master_data(master_dir: str) -> MasterData:
 
     手順:
     1) valid_samples / valid_holders / valid_tests / holder_groups の items[] を取得
-    2) 逆引き辞書群を構築
-    3) holder_group の逆引き辞書を構築（重複は停止）
+    2) 逆引き辞書群（code -> set_code）を構築
+    3) set_code -> domain_code / display_name / trend_enabled を構築
+    4) holder_group の逆引き辞書を構築（重複は停止）
     """
     samples = _read_items(os.path.join(master_dir, "valid_samples.json"))
     holders = _read_items(os.path.join(master_dir, "valid_holders.json"))
     tests = _read_items(os.path.join(master_dir, "valid_tests.json"))
     groups = _read_items(os.path.join(master_dir, "holder_groups.json"))
 
+    # code -> set_code
     sample_code_to_set = _build_reverse_map(samples, "sample_codes")
     holder_code_to_set = _build_reverse_map(holders, "holder_codes")
     test_code_to_set = _build_reverse_map(tests, "test_codes")
 
+    # set_code -> domain_code
     sample_set_to_domain = _build_set_to_domain(samples)
     holder_set_to_domain = _build_set_to_domain(holders)
     test_set_to_domain = _build_set_to_domain(tests)
 
+    # set_code -> display_name
+    sample_set_to_display = _build_set_to_display(samples)
+    holder_set_to_display = _build_set_to_display(holders)
+    test_set_to_display = _build_set_to_display(tests)
+
+    # set_code -> trend_enabled（testsのみ）
+    test_set_to_trend_enabled = _build_test_set_to_trend_enabled(tests)
+
+    # valid_holder_set_code -> holder_group_code
     holder_set_to_group: Dict[str, str] = {}
     group_dups: List[Tuple[str, str, str]] = []
     for g in groups:
@@ -147,5 +195,9 @@ def load_master_data(master_dir: str) -> MasterData:
         sample_set_to_domain=sample_set_to_domain,
         holder_set_to_domain=holder_set_to_domain,
         test_set_to_domain=test_set_to_domain,
+        sample_set_to_display=sample_set_to_display,
+        holder_set_to_display=holder_set_to_display,
+        test_set_to_display=test_set_to_display,
+        test_set_to_trend_enabled=test_set_to_trend_enabled,
         holder_set_to_group=holder_set_to_group,
     )

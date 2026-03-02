@@ -155,10 +155,8 @@ def _run_build(args: argparse.Namespace) -> Dict[str, Any]:
 
     # merge（必要時のみ）
     s = time.time()
-    need_merge = args.force_merge or (not os.path.exists(full_csv))
-    if need_merge:
-        merge_yearly_csvs(yearly_dir, full_csv, encoding, delimiter, strict_header=True)
-    steps["merge"] = {"ran": need_merge, "ms": int((time.time() - s) * 1000)}
+    merge_yearly_csvs(yearly_dir, full_csv, encoding, delimiter, strict_header=True)
+    steps["merge"] = {"ran": True, "ms": int((time.time() - s) * 1000)}
 
     # normalize
     s = time.time()
