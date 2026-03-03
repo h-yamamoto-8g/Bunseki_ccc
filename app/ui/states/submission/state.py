@@ -751,6 +751,10 @@ class SubmissionUI(QWidget):
     def _open_attachment(self, path: str) -> None:
         """添付ファイルをOSのデフォルトアプリで開く。"""
         p = Path(path)
+        # 相対パスなら DATA_PATH を基準に解決（SharePoint 共有対応）
+        if not p.is_absolute():
+            import app.config as _cfg
+            p = _cfg.DATA_PATH / p
         if not p.exists():
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "ファイルが見つかりません", str(p))

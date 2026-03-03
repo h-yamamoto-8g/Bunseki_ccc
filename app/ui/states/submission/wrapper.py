@@ -297,7 +297,10 @@ class SubmissionState(QWidget):
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _copy_attachments(self, task_id: str, files: list[dict]) -> list[dict]:
-        """添付ファイルを app_data/bunseki/attachments/{task_id}/ にコピーする。"""
+        """添付ファイルを app_data/bunseki/attachments/{task_id}/ にコピーする。
+
+        保存パスは DATA_PATH からの相対パスで返す（SharePoint 共有対応）。
+        """
         if not files:
             return []
         dest_dir = _ATTACHMENTS_ROOT / task_id
@@ -312,7 +315,9 @@ class SubmissionState(QWidget):
                 continue
             dest = dest_dir / src.name
             shutil.copy2(src, dest)
-            stored.append({"path": str(dest), "added_by": added_by})
+            # DATA_PATH からの相対パスで保存（ユーザー間で共有可能にする）
+            rel = str(dest.relative_to(_cfg.DATA_PATH))
+            stored.append({"path": rel, "added_by": added_by})
         return stored
 
     def _record_sigma_anomalies(self, task_id: str) -> None:
