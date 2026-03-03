@@ -18,11 +18,13 @@ class TaskSetupUI(QWidget):
         form_submitted(hg_code, hg_name, job_numbers): 起票/保存ボタン押下
         edit_requested(): 編集ボタン押下
         cancelled(): キャンセル/戻るボタン押下
+        next_requested(): 進むボタン押下
     """
 
     form_submitted = Signal(str, str, list)
     edit_requested = Signal()
     cancelled = Signal()
+    next_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,9 +36,20 @@ class TaskSetupUI(QWidget):
         self._form = Ui_PageStateStart()
         self._form.setupUi(self)
 
+        # 「進む」ボタンを btn_create の後ろに追加
+        self._btn_next = QPushButton("進む")
+        self._btn_next.setMinimumSize(QSize(100, 50))
+        self._btn_next.setMaximumSize(QSize(100, 50))
+        self._btn_next.setVisible(False)
+        action_layout = self._form.widget_action.layout()
+        # btn_create の直後（右スペーサーの前）に挿入
+        idx = action_layout.indexOf(self._form.btn_create)
+        action_layout.insertWidget(idx + 1, self._btn_next)
+
         # 生成ウィジェットとシグナルを接続
         self._form.btn_job_number_add.clicked.connect(self._add_job)
         self._form.btn_cancel.clicked.connect(self.cancelled)
+        self._btn_next.clicked.connect(self.next_requested)
         # btn_create を「起票 / 保存 / 編集」共用ボタンとして使う
         self._form.btn_create.clicked.connect(self._on_primary_btn)
 
@@ -72,6 +85,7 @@ class TaskSetupUI(QWidget):
         self._form.btn_create.setText("起票")
         self._form.btn_cancel.setVisible(True)
         self._form.btn_cancel.setText("キャンセル")
+        self._btn_next.setVisible(False)
         self._form.input_job_number.clear()
         self._set_editable(True)  # 内部で _refresh_tags() を呼ぶため重複呼び出し不要
 
@@ -80,13 +94,15 @@ class TaskSetupUI(QWidget):
             self._edit_btn_active = False
             self._set_editable(False)
             self._form.btn_create.setVisible(False)
-            self._form.btn_cancel.setText("閉じる")
+            self._form.btn_cancel.setText("戻る")
+            self._btn_next.setVisible(True)
         else:
             self._edit_btn_active = True
             self._set_editable(False)
             self._form.btn_create.setVisible(True)
             self._form.btn_create.setText("編集")
             self._form.btn_cancel.setText("戻る")
+            self._btn_next.setVisible(True)
 
     def show_edit_mode(self) -> None:
         self._edit_btn_active = False
@@ -94,6 +110,7 @@ class TaskSetupUI(QWidget):
         self._form.btn_create.setText("保存")
         self._form.btn_create.setVisible(True)
         self._form.btn_cancel.setText("キャンセル")
+        self._btn_next.setVisible(False)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
