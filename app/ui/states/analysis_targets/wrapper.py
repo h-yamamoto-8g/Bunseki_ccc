@@ -161,16 +161,16 @@ class AnalysisTargetsState(QWidget):
                 f"<td>{s.get('sample_job_number', '')}</td>"
                 f"<td>{s.get('sample_sampling_date', '')}</td>"
                 f"<td>{s.get('valid_sample_display_name', '')}</td>"
-                f"<td style='text-align:right;'>{median}</td>"
-                f"<td style='text-align:right;'>{max_v}</td>"
-                f"<td style='text-align:right;'>{min_v}</td>"
+                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{median}</td>"
+                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{max_v}</td>"
+                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{min_v}</td>"
                 f"</tr>"
             )
         for name in added:
             rows_html += (
                 f"<tr>"
                 f"<td></td><td></td>"
-                f"<td style='color:#7c3aed;'>{name}（追加）</td>"
+                f"<td style='color:#7c3aed; border:1px solid #999; padding:4px 8px;'>{name}（追加）</td>"
                 f"<td>—</td><td>—</td><td>—</td>"
                 f"</tr>"
             )
