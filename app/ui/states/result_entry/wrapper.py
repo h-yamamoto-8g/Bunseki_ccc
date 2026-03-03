@@ -4,7 +4,7 @@ from __future__ import annotations
 import subprocess
 import webbrowser
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox
 from PySide6.QtCore import Signal
 
 from app.services.task_service import TaskService
@@ -32,6 +32,7 @@ _LABAID_PATH = ""
 class ResultEntryState(QWidget):
     go_next = Signal()
     go_back = Signal()
+    loading_changed = Signal(bool, str)
 
     def __init__(
         self,
@@ -77,4 +78,9 @@ class ResultEntryState(QWidget):
 
     def _on_data_update(self) -> None:
         """「データ更新」ボタン押下時: データ更新・正規化を実行する。"""
-        _run_data_update()
+        self.loading_changed.emit(True, "データを更新しています...")
+        QApplication.processEvents()
+        try:
+            _run_data_update()
+        finally:
+            self.loading_changed.emit(False, "")

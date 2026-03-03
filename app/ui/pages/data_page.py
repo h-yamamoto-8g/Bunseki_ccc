@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -76,6 +77,7 @@ _COLUMNS = [
 
 class DataPage(QWidget):
     """bunseki.csv の検索・閲覧・CSVエクスポートページ。"""
+    loading_changed = Signal(bool, str)
 
     def __init__(self, data_service: DataService, parent: QWidget | None = None):
         super().__init__(parent)
@@ -291,18 +293,23 @@ class DataPage(QWidget):
     # ── 内部処理 ──────────────────────────────────────────────────────────────
 
     def _load_dropdowns(self) -> None:
-        vals = self._ds.get_dropdown_values()
+        self.loading_changed.emit(True, "データを読み込んでいます...")
+        QApplication.processEvents()
+        try:
+            vals = self._ds.get_dropdown_values()
 
-        for combo, key in [
-            (self.combo_holder, "holders"),
-            (self.combo_sample, "samples"),
-            (self.combo_test,   "tests"),
-        ]:
-            combo.blockSignals(True)
-            combo.clear()
-            combo.addItem("全て")
-            combo.addItems(vals.get(key, []))
-            combo.blockSignals(False)
+            for combo, key in [
+                (self.combo_holder, "holders"),
+                (self.combo_sample, "samples"),
+                (self.combo_test,   "tests"),
+            ]:
+                combo.blockSignals(True)
+                combo.clear()
+                combo.addItem("全て")
+                combo.addItems(vals.get(key, []))
+                combo.blockSignals(False)
+        finally:
+            self.loading_changed.emit(False, "")
 
     def _collect_filters(self) -> dict:
         filters: dict = {}
@@ -325,10 +332,15 @@ class DataPage(QWidget):
         return filters
 
     def _on_search(self) -> None:
-        self._display_limit = _PAGE_SIZE
-        # limit=0 で全件取得してキャッシュ
-        self._all_df = self._ds.get_data_page(**self._collect_filters(), limit=0)
-        self._refresh_table()
+        self.loading_changed.emit(True, "データを検索しています...")
+        QApplication.processEvents()
+        try:
+            self._display_limit = _PAGE_SIZE
+            # limit=0 で全件取得してキャッシュ
+            self._all_df = self._ds.get_data_page(**self._collect_filters(), limit=0)
+            self._refresh_table()
+        finally:
+            self.loading_changed.emit(False, "")
 
     def _on_load_more(self) -> None:
         self._display_limit += _PAGE_SIZE

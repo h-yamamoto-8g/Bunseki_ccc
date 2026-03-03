@@ -47,6 +47,73 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# ─── スプラッシュ画面 ─────────────────────────────────────────────────────────
+
+_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+
+class _SplashScreen(QDialog):
+    """起動時のローディングスプラッシュ画面。"""
+
+    def __init__(self, message: str = "データを更新しています...") -> None:
+        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(380, 160)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        card = QFrame()
+        card.setStyleSheet(
+            "QFrame { background: #ffffff; border: 1px solid #e5e7eb;"
+            " border-radius: 12px; }"
+        )
+        outer.addWidget(card)
+
+        vl = QVBoxLayout(card)
+        vl.setContentsMargins(32, 28, 32, 28)
+        vl.setSpacing(12)
+
+        title = QLabel("Bunseki")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #334155; border: none;")
+        vl.addWidget(title)
+
+        self._label = QLabel(f"{_SPINNER_FRAMES[0]}  {message}")
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._label.setStyleSheet("font-size: 13px; color: #3b82f6; font-weight: 500; border: none;")
+        vl.addWidget(self._label)
+
+        self._msg = message
+        self._frame = 0
+        self._timer = QTimer(self)
+        self._timer.setInterval(80)
+        self._timer.timeout.connect(self._tick)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        # 画面中央に配置
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + (geo.width() - self.width()) // 2
+            y = geo.y() + (geo.height() - self.height()) // 2
+            self.move(x, y)
+        self._timer.start()
+
+    def set_message(self, msg: str) -> None:
+        self._msg = msg
+        self._label.setText(f"{_SPINNER_FRAMES[self._frame]}  {msg}")
+        QApplication.processEvents()
+
+    def _tick(self) -> None:
+        self._frame = (self._frame + 1) % len(_SPINNER_FRAMES)
+        self._label.setText(f"{_SPINNER_FRAMES[self._frame]}  {self._msg}")
+
+    def finish(self) -> None:
+        self._timer.stop()
+        self.close()
+
 import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
 
 import app.config as _cfg
@@ -332,6 +399,7 @@ class MainWindow(QMainWindow):
         self.tasks_page.step_edited.connect(self.step_nav.mark_edited)
         self.tasks_page.loading_changed.connect(self._on_loading_changed)
         self.tasks_page.handover_available.connect(self._set_handover_available)
+        self.data_page.loading_changed.connect(self._on_loading_changed)
 
         # 初期表示
         self.stack.setCurrentIndex(0)
@@ -623,9 +691,15 @@ def main() -> None:
     if not _login(app):
         sys.exit(0)
 
-    # ログイン後にデータ更新・正規化を実行
+    # ログイン後にデータ更新・正規化を実行（スプラッシュ画面を表示）
     # 実装完了後は data_update_service.ENABLED = True に切り替える
-    _run_data_update()
+    splash = _SplashScreen("データを更新しています...")
+    splash.show()
+    QApplication.processEvents()
+    try:
+        _run_data_update()
+    finally:
+        splash.finish()
 
     window = MainWindow()
     sys.exit(app.exec())

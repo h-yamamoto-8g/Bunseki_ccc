@@ -104,6 +104,7 @@ class TasksPage(QWidget):
 
         self.entry_state.go_next.connect(lambda: self._go_to_state("result_verification"))
         self.entry_state.go_back.connect(lambda: self._go_to_state("analysis"))
+        self.entry_state.loading_changed.connect(self.loading_changed)
 
         self.verify_state.go_next.connect(lambda: self._go_to_state("submission"))
         self.verify_state.go_back.connect(lambda: self._go_to_state("result_entry"))
