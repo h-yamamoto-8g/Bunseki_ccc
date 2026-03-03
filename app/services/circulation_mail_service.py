@@ -381,16 +381,17 @@ class CirculationMailService:
 
     def open_outlook(
         self, to: str, cc: str, subject: str, html_body: str
-    ) -> bool:
+    ) -> tuple[bool, str]:
         """Outlook でメールを作成して表示する（Windows / pywin32 のみ）。
 
         Returns:
-            True: メール作成成功。False: pywin32 未導入等で作成不可。
+            (True, "") : メール作成・表示成功。
+            (False, msg): 失敗理由。
         """
         try:
             import win32com.client as win32  # type: ignore
         except ImportError:
-            return False
+            return False, "pywin32 が未導入のため Outlook を起動できません。"
 
         try:
             outlook = win32.Dispatch("Outlook.Application")
@@ -401,6 +402,6 @@ class CirculationMailService:
             mail.Subject = subject
             mail.HTMLBody = html_body
             mail.Display()
-            return True
-        except Exception:
-            return False
+            return True, ""
+        except Exception as e:
+            return False, f"Outlook メール作成に失敗しました:\n{e}"
