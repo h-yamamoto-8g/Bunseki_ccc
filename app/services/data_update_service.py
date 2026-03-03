@@ -58,7 +58,6 @@ DOMAIN_CODE: Final[str] = "WH"
 ETL_EXE_PATH: Final[Path] = (
     DATA_PATH / "_common" / "tools" / "lab_aid_etl" / "dist" / "lab_aid_etl.exe"
 )
-print(ETL_EXE_PATH)
 PROFILE_NAME: Final[str] = "bunseki"
 
 
@@ -100,118 +99,118 @@ class ExtractorResult:
 
 
 # ── データ取得（Extractor実行） ─────────────────────────────────────────────
-# def run_data_update(domain_code: str = DOMAIN_CODE) -> None:
-#     """
-#     データソース（Lab-Aid）から最新データを取得し、ローカルに保存する。
+def run_data_update(domain_code: str = DOMAIN_CODE) -> None:
+    """
+    データソース（Lab-Aid）から最新データを取得し、ローカルに保存する。
 
-#     役割:
-#         - lab_aid_extract.exe を起動し、最新年（= 現在年）のCSVを出力させる。
-#         - result.json を読み取り、失敗時は DataUpdateError を送出する。
+    役割:
+        - lab_aid_extract.exe を起動し、最新年（= 現在年）のCSVを出力させる。
+        - result.json を読み取り、失敗時は DataUpdateError を送出する。
 
-#     手順:
-#         1) 実行フラグを確認
-#         2) 必要ファイル（exe/xlsm）と出力先フォルダの存在を確認
-#         3) 実行前の result.json の mtime を控える（削除できないケースの誤判定防止）
-#         4) Extractor を subprocess で実行（--domain-code, --year, --xlsm-path, --out-dir, --result-json）
-#         5) result.json が生成/更新されたことを確認し、ok=false なら DataUpdateError
-#     """
-#     if not ENABLED:
-#         return
+    手順:
+        1) 実行フラグを確認
+        2) 必要ファイル（exe/xlsm）と出力先フォルダの存在を確認
+        3) 実行前の result.json の mtime を控える（削除できないケースの誤判定防止）
+        4) Extractor を subprocess で実行（--domain-code, --year, --xlsm-path, --out-dir, --result-json）
+        5) result.json が生成/更新されたことを確認し、ok=false なら DataUpdateError
+    """
+    if not ENABLED:
+        return
 
-#     # 「最新年」= 現在年（運用定義。年度運用にするならここを差し替える）
-#     year = datetime.now().year
+    # 「最新年」= 現在年（運用定義。年度運用にするならここを差し替える）
+    year = datetime.now().year
 
-#     exe_path = EXTRACTOR_EXE_PATH
-#     xlsm_path = EXTRACTOR_XLSM_PATH
-#     out_dir = RAW_OUT_DIR
-#     result_json = EXTRACTOR_RESULT_JSON_PATH
+    exe_path = EXTRACTOR_EXE_PATH
+    xlsm_path = EXTRACTOR_XLSM_PATH
+    out_dir = RAW_OUT_DIR
+    result_json = EXTRACTOR_RESULT_JSON_PATH
 
-#     # --- 1) パスの存在確認 ---------------------------------------------------
-#     if not exe_path.exists():
-#         raise DataUpdateError(f"Extractor exe が見つかりません: {exe_path}")
+    # --- 1) パスの存在確認 ---------------------------------------------------
+    if not exe_path.exists():
+        raise DataUpdateError(f"Extractor exe が見つかりません: {exe_path}")
 
-#     if not xlsm_path.exists():
-#         raise DataUpdateError(f"Extractor xlsm が見つかりません: {xlsm_path}")
+    if not xlsm_path.exists():
+        raise DataUpdateError(f"Extractor xlsm が見つかりません: {xlsm_path}")
 
-#     out_dir.mkdir(parents=True, exist_ok=True)
-#     result_json.parent.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result_json.parent.mkdir(parents=True, exist_ok=True)
 
-#     # --- 2) 実行前の状態を記録（古い result.json 読み込み誤判定を防ぐ） ----------
-#     before_mtime = result_json.stat().st_mtime if result_json.exists() else None
+    # --- 2) 実行前の状態を記録（古い result.json 読み込み誤判定を防ぐ） ----------
+    before_mtime = result_json.stat().st_mtime if result_json.exists() else None
 
-#     # 古い result.json が残って誤判定しないように削除（できれば削除）
-#     if result_json.exists():
-#         try:
-#             result_json.unlink()
-#             before_mtime = None  # 消せたなら「前回結果」は存在しない扱いにする
-#         except OSError:
-#             # 削除できない場合は mtime 比較で「更新されたか」を必ず見る
-#             pass
+    # 古い result.json が残って誤判定しないように削除（できれば削除）
+    if result_json.exists():
+        try:
+            result_json.unlink()
+            before_mtime = None  # 消せたなら「前回結果」は存在しない扱いにする
+        except OSError:
+            # 削除できない場合は mtime 比較で「更新されたか」を必ず見る
+            pass
 
-#     # --- 3) コマンド組み立て -------------------------------------------------
-#     # 何をしているか:
-#     # - Extractor の CLI 仕様（main.py の argparse）に合わせて引数を渡す。
-#     cmd = [
-#         str(exe_path),
-#         "--domain-code",
-#         domain_code,
-#         "--year",
-#         str(year),
-#         "--xlsm-path",
-#         str(xlsm_path),
-#         "--out-dir",
-#         str(out_dir),
-#         "--result-json",
-#         str(result_json),
-#     ]
+    # --- 3) コマンド組み立て -------------------------------------------------
+    # 何をしているか:
+    # - Extractor の CLI 仕様（main.py の argparse）に合わせて引数を渡す。
+    cmd = [
+        str(exe_path),
+        "--domain-code",
+        domain_code,
+        "--year",
+        str(year),
+        "--xlsm-path",
+        str(xlsm_path),
+        "--out-dir",
+        str(out_dir),
+        "--result-json",
+        str(result_json),
+    ]
 
-#     # --- 4) 実行 -------------------------------------------------------------
-#     try:
-#         # 何をしているか:
-#         # - capture_output=True で stdout/stderr を回収し、失敗時に例外メッセージへ含める。
-#         proc = subprocess.run(
-#             cmd,
-#             capture_output=True,
-#             text=True,
-#             check=False,
-#             cwd=str(exe_path.parent),
-#         )
-#     except Exception as e:
-#         raise DataUpdateError(f"Extractor実行失敗: {e}") from e
+    # --- 4) 実行 -------------------------------------------------------------
+    try:
+        # 何をしているか:
+        # - capture_output=True で stdout/stderr を回収し、失敗時に例外メッセージへ含める。
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=str(exe_path.parent),
+        )
+    except Exception as e:
+        raise DataUpdateError(f"Extractor実行失敗: {e}") from e
 
-#     # --- 5) result.json を優先して判定 --------------------------------------
-#     if not result_json.exists():
-#         # result.json が出ないのはツール側の異常（起動失敗/権限/クラッシュ等）
-#         raise DataUpdateError(
-#             "Extractorのresult.jsonが生成されませんでした。\n"
-#             f"returncode={proc.returncode}\n"
-#             f"stdout:\n{proc.stdout}\n"
-#             f"stderr:\n{proc.stderr}"
-#         )
+    # --- 5) result.json を優先して判定 --------------------------------------
+    if not result_json.exists():
+        # result.json が出ないのはツール側の異常（起動失敗/権限/クラッシュ等）
+        raise DataUpdateError(
+            "Extractorのresult.jsonが生成されませんでした。\n"
+            f"returncode={proc.returncode}\n"
+            f"stdout:\n{proc.stdout}\n"
+            f"stderr:\n{proc.stderr}"
+        )
 
-#     after_mtime = result_json.stat().st_mtime
-#     if before_mtime is not None and after_mtime == before_mtime:
-#         raise DataUpdateError("Extractorのresult.jsonが更新されていません（古い結果の可能性）")
+    after_mtime = result_json.stat().st_mtime
+    if before_mtime is not None and after_mtime == before_mtime:
+        raise DataUpdateError("Extractorのresult.jsonが更新されていません（古い結果の可能性）")
 
-#     extractor_result = ExtractorResult.from_json(result_json)
+    extractor_result = ExtractorResult.from_json(result_json)
 
-#     if not extractor_result.ok:
-#         raise DataUpdateError(
-#             "Extractorが失敗しました。\n"
-#             f"message: {extractor_result.message}\n"
-#             f"details: {extractor_result.details}"
-#         )
+    if not extractor_result.ok:
+        raise DataUpdateError(
+            "Extractorが失敗しました。\n"
+            f"message: {extractor_result.message}\n"
+            f"details: {extractor_result.details}"
+        )
 
-#     if not extractor_result.csv_path:
-#         raise DataUpdateError(
-#             "Extractorは成功扱いですが csv_path が空です。\n"
-#             f"message: {extractor_result.message}\n"
-#             f"details: {extractor_result.details}"
-#         )
+    if not extractor_result.csv_path:
+        raise DataUpdateError(
+            "Extractorは成功扱いですが csv_path が空です。\n"
+            f"message: {extractor_result.message}\n"
+            f"details: {extractor_result.details}"
+        )
 
-#     csv_path = Path(extractor_result.csv_path)
-#     if not csv_path.exists():
-#         raise DataUpdateError(f"Extractor出力CSVが見つかりません: {csv_path}")
+    csv_path = Path(extractor_result.csv_path)
+    if not csv_path.exists():
+        raise DataUpdateError(f"Extractor出力CSVが見つかりません: {csv_path}")
 
 
 # ── 正規化処理（ETL実行） ───────────────────────────────────────────────────
