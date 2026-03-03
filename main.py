@@ -625,8 +625,7 @@ def main() -> None:
 
     # ログイン後にデータ更新・正規化を実行
     # 実装完了後は data_update_service.ENABLED = True に切り替える
-    # _run_data_update()
-    #TODO: コメント直す
+    _run_data_update()
 
     window = MainWindow()
     sys.exit(app.exec())
