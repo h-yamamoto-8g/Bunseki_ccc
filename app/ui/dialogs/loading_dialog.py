@@ -57,9 +57,9 @@ class LoadingDialog(QDialog):
         self.setWindowFlags(
             Qt.WindowType.Dialog
             | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowTitle("ロード中...")
         self.setModal(True)
         self.setFixedSize(160, 160)
 
@@ -74,8 +74,8 @@ class LoadingDialog(QDialog):
         self._panel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._panel.setStyleSheet(
             "QLabel {"
-            "  background: #ffffff;"
-            "  border: 1px solid #e5e7eb;"
+            "  background: rgba(255, 255, 255, 180);"
+            "  border: 1px solid rgba(229, 231, 235, 150);"
             "  border-radius: 16px;"
             f"  color: {_ACCENT};"
             "  font-size: 64px;"
@@ -95,6 +95,8 @@ class LoadingDialog(QDialog):
     def exec(self) -> int:
         """ダイアログを表示し、バックグラウンドで処理を実行する。"""
         self._timer.start()
+        self.raise_()
+        self.activateWindow()
 
         self._worker = _WorkerThread(self._fn, self)
         self._worker.finished.connect(self._on_finished)
