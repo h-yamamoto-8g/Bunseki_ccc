@@ -49,6 +49,14 @@ class DataService:
                 return u.get("email", "")
         return ""
 
+    def get_anomaly_mail_recipients(self) -> list[str]:
+        """異常メール受信者（is_anomaly_mail=True）のメールアドレスを返す。"""
+        return [
+            u["email"]
+            for u in self._loader.get_users()
+            if u.get("is_anomaly_mail") and u.get("is_active") and u.get("email")
+        ]
+
     def get_holder_groups(self) -> list[dict]:
         return self._loader.get_holder_groups()
 

@@ -163,7 +163,10 @@ class SubmissionState(QWidget):
 
         self._ui.apply_mode("sent_analyst", current_reviewer_index=0)
 
-        sent_via_outlook = self._open_outlook_email(reviewers[0], base_comment)
+        cc = self._collect_cc_recipients(exclude_to={reviewers[0]})
+        sent_via_outlook = self._open_outlook_email(
+            reviewers[0], base_comment, cc_emails=cc
+        )
         if not sent_via_outlook:
             QMessageBox.information(
                 self,
@@ -199,8 +202,9 @@ class SubmissionState(QWidget):
         mode, idx = self._determine_mode(self._task, readonly=False)
         self._ui.apply_mode(mode, current_reviewer_index=idx)
 
+        cc = self._collect_cc_recipients(exclude_to={next_reviewer})
         sent_via_outlook = self._open_outlook_email(
-            next_reviewer, "", is_forward=True
+            next_reviewer, "", is_forward=True, cc_emails=cc
         )
         if not sent_via_outlook:
             QMessageBox.information(
@@ -261,7 +265,50 @@ class SubmissionState(QWidget):
             task_id, _cfg.CURRENT_USER
         )
         self._task = self._task_service.complete_task(self._task["task_id"])
+
+        # 完了通知メールを送信
+        self._send_complete_email()
+
         self.go_next.emit()
+
+    def _send_complete_email(self) -> None:
+        """タスク完了通知メールを作成する。"""
+        task = self._task
+        sd = task.get("state_data", {}).get("submission", {})
+        reviewers = sd.get("reviewers", [])
+        creator = task.get("created_by", "")
+
+        # To: 分析者 + 全確認者（自分は除外）
+        to_names: set[str] = set()
+        if creator:
+            to_names.add(creator)
+        for name in reviewers:
+            if name:
+                to_names.add(name)
+        to_names.discard(_cfg.CURRENT_USER)
+
+        to_emails: list[str] = []
+        for name in to_names:
+            email = self._data_service.get_user_email(name)
+            if email:
+                to_emails.append(email)
+
+        if not to_emails:
+            return
+
+        # 宛先の代表名（メール本文の宛名用）
+        recipient_label = "関係者各位"
+
+        sent = self._open_outlook_email(
+            recipient_label, "", is_complete=True, to_emails=to_emails
+        )
+        if not sent:
+            QMessageBox.information(
+                self,
+                "完了",
+                "タスクを完了しました。\n"
+                "（Outlook はWindows環境でのみ起動します）",
+            )
 
     def _on_add_comment(self, text: str) -> None:
         task_id = self._task.get("task_id", "")
@@ -376,8 +423,44 @@ class SubmissionState(QWidget):
 
     # ── Outlook メール ────────────────────────────────────────────────────────
 
+    def _collect_cc_recipients(self, exclude_to: set[str] | None = None) -> list[str]:
+        """過去の分析者・確認者のメールアドレスを収集する（自分は除外）。"""
+        task = self._task
+        sd = task.get("state_data", {}).get("submission", {})
+        reviewers = sd.get("reviewers", [])
+        current_idx = sd.get("current_reviewer_index", 0)
+
+        names: set[str] = set()
+        # 分析者（起票者）
+        creator = task.get("created_by", "")
+        if creator:
+            names.add(creator)
+        # レビュー済み確認者（current_reviewer_index より前）
+        for name in reviewers[:current_idx]:
+            if name:
+                names.add(name)
+
+        # 自分を除外
+        names.discard(_cfg.CURRENT_USER)
+        # To に含まれるアドレスの名前を除外（重複防止）
+        if exclude_to:
+            names -= exclude_to
+
+        emails: list[str] = []
+        for name in names:
+            email = self._data_service.get_user_email(name)
+            if email:
+                emails.append(email)
+        return emails
+
     def _open_outlook_email(
-        self, reviewer: str, comment: str, is_forward: bool = False
+        self,
+        reviewer: str,
+        comment: str,
+        is_forward: bool = False,
+        is_complete: bool = False,
+        to_emails: list[str] | None = None,
+        cc_emails: list[str] | None = None,
     ) -> bool:
         """Outlook でメールを作成して表示する（Windows / pywin32 のみ）。"""
         try:
@@ -387,24 +470,48 @@ class SubmissionState(QWidget):
 
         task = self._task
         task_name = task.get("task_name", "")
-        reviewer_email = self._data_service.get_user_email(reviewer)
 
         anomaly_rows = self._get_anomaly_rows_html()
         has_anomaly = bool(anomaly_rows)
 
+        # 件名の構築
         subject_prefix = "[Bunseki] "
         if has_anomaly:
             subject_prefix += "⚠ 異常データあり - "
-        subject = f"{subject_prefix}分析結果の回覧 - {task_name}"
+        if is_complete:
+            subject = f"{subject_prefix}タスク完了通知 - {task_name}"
+        else:
+            subject = f"{subject_prefix}分析結果の回覧 - {task_name}"
 
         html_body = self._build_email_html(
-            task, reviewer, comment, anomaly_rows, is_forward
+            task, reviewer, comment, anomaly_rows, is_forward, is_complete
         )
+
+        # 異常がある場合、異常メール受信者を CC に追加
+        all_cc = list(cc_emails or [])
+        if has_anomaly:
+            anomaly_recipients = self._data_service.get_anomaly_mail_recipients()
+            # 既存の To / CC と重複しないアドレスのみ追加
+            existing = set(all_cc)
+            if to_emails:
+                existing.update(to_emails)
+            for addr in anomaly_recipients:
+                if addr not in existing:
+                    all_cc.append(addr)
+
+        # To アドレスの構築
+        if to_emails:
+            to_str = "; ".join(to_emails)
+        else:
+            reviewer_email = self._data_service.get_user_email(reviewer)
+            to_str = reviewer_email or reviewer
 
         try:
             outlook = win32.Dispatch("Outlook.Application")
             mail = outlook.CreateItem(0)
-            mail.To = reviewer_email or reviewer
+            mail.To = to_str
+            if all_cc:
+                mail.CC = "; ".join(all_cc)
             mail.Subject = subject
             mail.HTMLBody = html_body
             mail.Display()
@@ -456,15 +563,30 @@ class SubmissionState(QWidget):
         comment: str,
         anomaly_rows_html: str,
         is_forward: bool,
+        is_complete: bool = False,
     ) -> str:
-        """回覧メールのHTML本文を生成する。"""
+        """回覧/完了通知メールのHTML本文を生成する。"""
         task_name = task.get("task_name", "")
         hg_name = task.get("holder_group_name", "")
         jobs_str = "、".join(task.get("job_numbers", []))
         created_by = task.get("created_by", "")
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        action_label = "次の確認者への回覧" if is_forward else "分析結果の回覧"
+        if is_complete:
+            action_label = "タスク完了通知"
+            header_bg = "#166534"
+            greeting = f"{reviewer}"
+            body_text = "下記タスクの分析・確認が全て完了しましたのでお知らせいたします。"
+        elif is_forward:
+            action_label = "次の確認者への回覧"
+            header_bg = "#1e3a5f"
+            greeting = f"{reviewer} 様"
+            body_text = f"下記タスクの{action_label}が届きました。ご確認をお願いいたします。"
+        else:
+            action_label = "分析結果の回覧"
+            header_bg = "#1e3a5f"
+            greeting = f"{reviewer} 様"
+            body_text = f"下記タスクの{action_label}が届きました。ご確認をお願いいたします。"
 
         warning_block = ""
         if anomaly_rows_html:
@@ -494,20 +616,30 @@ class SubmissionState(QWidget):
                 "</div>"
             )
 
+        complete_badge = ""
+        if is_complete:
+            complete_badge = (
+                "<div style='background:#f0fdf4; border:1px solid #86efac;"
+                " border-radius:6px; padding:12px 16px; margin:0 0 16px;'>"
+                "<p style='margin:0; font-weight:bold; color:#166534; font-size:14px;'>"
+                "✓ タスクが正常に完了しました</p>"
+                "</div>"
+            )
+
         return (
             "<html><body style='font-family:\"Segoe UI\",\"Yu Gothic UI\",sans-serif;"
             " font-size:14px; color:#1e293b;'>"
             "<div style='max-width:680px; margin:0 auto; background:#ffffff;'>"
-            "<div style='background:#1e3a5f; padding:16px 24px;"
+            f"<div style='background:{header_bg}; padding:16px 24px;"
             " border-radius:8px 8px 0 0;'>"
             f"<h2 style='margin:0; color:white; font-size:16px;'>"
             f"Bunseki — {action_label}</h2>"
             f"<p style='margin:4px 0 0; color:#94a3b8; font-size:12px;'>{now_str}</p>"
             "</div>"
             "<div style='padding:20px 24px; border:1px solid #e2e8f0; border-top:none;'>"
-            f"<p style='margin:0 0 12px;'>{reviewer} 様</p>"
-            f"<p style='margin:0 0 16px;'>"
-            f"下記タスクの{action_label}が届きました。ご確認をお願いいたします。</p>"
+            f"<p style='margin:0 0 12px;'>{greeting}</p>"
+            f"<p style='margin:0 0 16px;'>{body_text}</p>"
+            f"{complete_badge}"
             "<table style='border-collapse:collapse; font-size:13px; margin-bottom:12px;'>"
             "<tr><td style='padding:4px 8px; color:#64748b; width:120px;'>タスク名</td>"
             f"<td style='padding:4px 8px; font-weight:bold;'>{task_name}</td></tr>"
