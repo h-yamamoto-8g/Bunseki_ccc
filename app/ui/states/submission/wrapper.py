@@ -13,12 +13,13 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox, QApplication
 from PySide6.QtCore import Signal
 
 import app.config as _cfg
-from app.config import DATA_PATH
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from .state import SubmissionUI
 
-_ATTACHMENTS_ROOT = DATA_PATH / "bunseki" / "attachments"
+
+def _attachments_root():
+    return _cfg.DATA_PATH / "bunseki" / "attachments"
 
 
 class SubmissionState(QWidget):
@@ -350,7 +351,7 @@ class SubmissionState(QWidget):
         """
         if not files:
             return []
-        dest_dir = _ATTACHMENTS_ROOT / task_id
+        dest_dir = _attachments_root() / task_id
         dest_dir.mkdir(parents=True, exist_ok=True)
         stored: list[dict] = []
         for att in files:

@@ -21,9 +21,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.config import DATA_PATH
+import app.config as _cfg
 
-USERS_FILE = DATA_PATH / "bunseki" / "config" / "users.json"
+
+def _users_file():
+    return _cfg.DATA_PATH / "bunseki" / "config" / "users.json"
 
 _DEFAULTS = {
     "id": "",
@@ -65,15 +67,15 @@ def _normalize(users: list[dict]) -> list[dict]:
 
 
 def _ensure() -> None:
-    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _users_file().parent.mkdir(parents=True, exist_ok=True)
 
 
 def load_users() -> list[dict]:
     _ensure()
-    if not USERS_FILE.exists():
+    if not _users_file().exists():
         return []
     try:
-        raw = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(_users_file().read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     return _normalize(raw)
@@ -81,7 +83,7 @@ def load_users() -> list[dict]:
 
 def save_users(users: list[dict]) -> None:
     _ensure()
-    USERS_FILE.write_text(
+    _users_file().write_text(
         json.dumps(users, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
