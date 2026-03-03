@@ -43,14 +43,15 @@ def save_data_path(path: Path) -> None:
 
 
 def _resolve_data_path() -> Path:
-    """設定ファイル → 開発フォールバックの順で DATA_PATH を解決する。"""
+    """設定ファイル → SharePoint 標準パスの順で DATA_PATH を解決する。"""
     saved = load_data_path()
     if saved is not None:
         return saved
-    # 開発環境フォールバック
+    # 本番環境: SharePoint 同期フォルダの標準パスを試行
     if platform.system() == "Windows":
-        return Path(r"C:\Users\12414\トクヤマグループ\環境分析課 - ドキュメント\app_data")
-    return Path(__file__).parent.parent / "app_data"
+        return Path.home() / "トクヤマグループ" / "環境分析課 - ドキュメント" / "app_data"
+    # Windows 以外は設定ダイアログで指定させる（存在しないパスを返す）
+    return Path.home() / "app_data"
 
 
 DATA_PATH = _resolve_data_path()

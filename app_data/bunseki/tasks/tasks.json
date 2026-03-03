@@ -163,7 +163,7 @@
         "current_reviewer_index": 0,
         "comment": "test",
         "attachments": [
-          "/Users/yamamotohikaru/Desktop/Bunseki/app_data/bunseki/attachments/20260226075840_HG_001/requirements.txt"
+          "bunseki/attachments/20260226075840_HG_001/requirements.txt"
         ],
         "completed": false,
         "comments": [
