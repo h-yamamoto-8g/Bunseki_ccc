@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox, QApplication
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox
 from PySide6.QtCore import Signal
 
 import app.config as _cfg
@@ -17,6 +17,7 @@ from app.config import DATA_PATH
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.circulation_mail_service import CirculationMailService
+from app.ui.dialogs.loading_dialog import LoadingDialog
 from .state import SubmissionUI
 
 _ATTACHMENTS_ROOT = DATA_PATH / "bunseki" / "attachments"
@@ -146,10 +147,9 @@ class SubmissionState(QWidget):
 
         stored_paths = self._copy_attachments(task_id, attachments)
 
-        self.loading_changed.emit(True, "異常データを集計しています...")
-        QApplication.processEvents()
-        self._record_sigma_anomalies(task_id)
-        self.loading_changed.emit(False, "")
+        LoadingDialog(
+            lambda: self._record_sigma_anomalies(task_id), parent=self
+        ).exec()
 
         submission_data = (
             self._task.get("state_data", {}).get("submission", {})
@@ -278,7 +278,14 @@ class SubmissionState(QWidget):
         if not to_emails:
             return
 
-        anomalies = self._mail_service.detect_anomalies(task)
+        result: dict = {}
+        LoadingDialog(
+            lambda: result.update(
+                anomalies=self._mail_service.detect_anomalies(task)
+            ),
+            parent=self,
+        ).exec()
+        anomalies = result.get("anomalies", [])
         subject = self._mail_service.build_subject(
             task, anomalies, is_complete=True
         )
@@ -416,7 +423,12 @@ class SubmissionState(QWidget):
         task = self._task
         ms = self._mail_service
 
-        anomalies = ms.detect_anomalies(task)
+        result: dict = {}
+        LoadingDialog(
+            lambda: result.update(anomalies=ms.detect_anomalies(task)),
+            parent=self,
+        ).exec()
+        anomalies = result.get("anomalies", [])
         has_anomaly = bool(anomalies)
 
         to_str, cc_str = ms.collect_to_cc(task, to_name, has_anomaly)
