@@ -129,10 +129,12 @@ class CirculationMailService:
         has_anomaly: bool,
         *,
         to_emails_override: list[str] | None = None,
+        extra_cc: list[str] | None = None,
     ) -> tuple[str, str]:
         """To / CC のメールアドレス文字列を返す。
 
-        通常時: To=回覧先, CC=自分よりフローが前のユーザー
+        To  = 回覧先（次の確認者）のみ
+        CC  = 自分よりフローが前のユーザー
         異常時: CC に is_anomaly_mail=True のユーザーを追加
 
         Returns:
@@ -150,7 +152,7 @@ class CirculationMailService:
             to_email = self._ds.get_user_email(to_name)
             to_str = to_email or to_name
 
-        # ---- CC: 回覧先 + 自分より前のユーザー ----
+        # ---- CC: 起票者 + 自分より前の確認者 ----
         cc_names: set[str] = set()
         if creator:
             cc_names.add(creator)
@@ -173,6 +175,12 @@ class CirculationMailService:
             if email and email not in seen:
                 cc_emails.append(email)
                 seen.add(email)
+
+        # extra_cc（完了メール等で呼び出し元から追加される CC）
+        for addr in (extra_cc or []):
+            if addr and addr not in seen:
+                cc_emails.append(addr)
+                seen.add(addr)
 
         # ---- 異常時: is_anomaly_mail ユーザーを追加 ----
         if has_anomaly:
@@ -204,7 +212,6 @@ class CirculationMailService:
     def build_html(
         self,
         task: dict,
-        recipient_label: str,
         comment: str,
         anomalies: list[AnomalyRecord],
         *,
@@ -221,20 +228,12 @@ class CirculationMailService:
         if is_complete:
             action_label = "タスク完了通知"
             header_bg = "#166534"
-            greeting = f"{recipient_label}"
-            body_text = (
-                "下記タスクの分析・確認が全て完了しましたのでお知らせいたします。"
-            )
         elif is_forward:
             action_label = "分析結果の確認依頼"
             header_bg = "#1e3a5f"
-            greeting = f"{recipient_label} 様"
-            body_text = "下記タスクの確認依頼が届きました。ご確認のほどよろしくお願いいたします。"
         else:
             action_label = "分析結果の回覧"
             header_bg = "#1e3a5f"
-            greeting = f"{recipient_label} 様"
-            body_text = "下記タスクの分析結果をお送りいたします。ご確認のほどよろしくお願いいたします。"
 
         # ── パーツ組み立て ──
         complete_badge = ""
@@ -243,7 +242,7 @@ class CirculationMailService:
                 "<div style='background:#f0fdf4; border:1px solid #86efac;"
                 " border-radius:6px; padding:14px 18px; margin:0 0 20px;'>"
                 "<p style='margin:0; font-weight:bold; color:#166534; font-size:14px;'>"
-                "&#10003; タスクが正常に完了しました</p></div>"
+                "&#10003; タスク完了</p></div>"
             )
 
         anomaly_block = self._build_anomaly_block(anomalies) if anomalies else ""
@@ -282,9 +281,6 @@ class CirculationMailService:
             "</td></tr></table></div>"
             # ── 本文 ──
             "<div style='padding:24px 28px;'>"
-            f"<p style='margin:0 0 6px; font-size:14px;'>{greeting}</p>"
-            f"<p style='margin:0 0 20px; font-size:14px; line-height:1.7;'>"
-            f"{body_text}</p>"
             f"{complete_badge}"
             # ── タスク情報テーブル ──
             "<table style='border-collapse:collapse; width:100%; font-size:13px;"
@@ -317,7 +313,6 @@ class CirculationMailService:
             " border-top:1px solid #e2e8f0;'>"
             "<p style='margin:0; font-size:11px; color:#94a3b8;'>"
             f"このメールは Bunseki ver.{_cfg.APP_VERSION} から自動生成されました。"
-            " 本メールに心当たりがない場合はシステム管理者にお問い合わせください。"
             "</p></div></div></body></html>"
         )
 
