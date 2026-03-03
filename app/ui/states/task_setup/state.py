@@ -53,6 +53,17 @@ class TaskSetupUI(QWidget):
         # btn_create を「起票 / 保存 / 編集」共用ボタンとして使う
         self._form.btn_create.clicked.connect(self._on_primary_btn)
 
+        # 「次へ →」ボタンを動的に追加（起票完了後のナビゲーション用）
+        self._btn_next = QPushButton("次へ →")
+        self._btn_next.setMinimumSize(QSize(100, 50))
+        self._btn_next.setMaximumSize(QSize(100, 50))
+        self._btn_next.setVisible(False)
+        self._btn_next.clicked.connect(self.next_requested)
+        self._form.horizontalLayout_5.insertWidget(
+            self._form.horizontalLayout_5.indexOf(self._form.btn_create) + 1,
+            self._btn_next,
+        )
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def set_holder_groups(self, hg_list: list[dict]) -> None:
@@ -94,8 +105,8 @@ class TaskSetupUI(QWidget):
             self._edit_btn_active = False
             self._set_editable(False)
             self._form.btn_create.setVisible(False)
-            self._form.btn_cancel.setText("戻る")
-            self._btn_next.setVisible(True)
+            self._form.btn_cancel.setText("閉じる")
+            self._btn_next.setVisible(False)
         else:
             self._edit_btn_active = True
             self._set_editable(False)

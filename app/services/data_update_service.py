@@ -30,6 +30,7 @@ from app.config import DATA_PATH
 # True  : 実行する
 # False : スキップ（ツール未準備のため一時無効化）
 ENABLED: bool = True
+# TODO: trueにする
 
 
 # ── 外部ツール設定 ──────────────────────────────────────────────────────────
