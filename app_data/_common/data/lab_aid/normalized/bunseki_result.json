@@ -16,9 +16,9 @@
     }
   },
   "outputs": {
-    "full_csv": "C:\\Users\\12414\\トクヤマグループ\\環境分析課 - ドキュメント\\app_data\\_common\\data\\lab_aid\\merged\\full.csv",
-    "full_normalized_csv": "C:\\Users\\12414\\トクヤマグループ\\環境分析課 - ドキュメント\\app_data\\_common\\data\\lab_aid\\normalized\\full_normalized.csv",
-    "output_csv": "C:\\Users\\12414\\トクヤマグループ\\環境分析課 - ドキュメント\\app_data\\_common\\data\\lab_aid\\normalized\\bunseki.csv"
+    "full_csv": "_common/data/lab_aid/merged/full.csv",
+    "full_normalized_csv": "_common/data/lab_aid/normalized/full_normalized.csv",
+    "output_csv": "_common/data/lab_aid/normalized/bunseki.csv"
   },
   "rows": {
     "input_rows": 380402,
