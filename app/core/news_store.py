@@ -5,23 +5,25 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from app.config import DATA_PATH
+import app.config as _cfg
 
-_NEWS_PATH = DATA_PATH / "bunseki" / "news" / "news.json"
+
+def _news_path():
+    return _cfg.DATA_PATH / "bunseki" / "news" / "news.json"
 
 
 def _load() -> list[dict]:
-    if not _NEWS_PATH.exists():
+    if not _news_path().exists():
         return []
     try:
-        return json.loads(_NEWS_PATH.read_text(encoding="utf-8"))
+        return json.loads(_news_path().read_text(encoding="utf-8"))
     except Exception:
         return []
 
 
 def _save(items: list[dict]) -> None:
-    _NEWS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _NEWS_PATH.write_text(
+    _news_path().parent.mkdir(parents=True, exist_ok=True)
+    _news_path().write_text(
         json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 

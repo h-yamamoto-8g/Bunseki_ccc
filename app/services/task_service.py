@@ -287,9 +287,14 @@ class TaskService:
         task = task_store.get_task(task_id)
         sd = task.get("state_data", {}).get("submission", {})
         sd["current_reviewer_index"] = 0
-        task_store.update_task_state(task_id, "submission", sd)
+        all_state_data = dict(task.get("state_data", {}))
+        all_state_data["submission"] = sd
         task_store.update_task_field(
-            task_id, status="進行中", assigned_to=task["created_by"]
+            task_id,
+            current_state="submission",
+            state_data=all_state_data,
+            status="進行中",
+            assigned_to=task["created_by"],
         )
         return task_store.get_task(task_id)
 

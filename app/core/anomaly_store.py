@@ -9,21 +9,23 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from app.config import DATA_PATH
+import app.config as _cfg
 
-ANOMALY_FILE = DATA_PATH / "bunseki" / "data" / "anomalies.json"
+
+def _anomaly_file():
+    return _cfg.DATA_PATH / "bunseki" / "data" / "anomalies.json"
 
 
 def _ensure() -> None:
-    ANOMALY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _anomaly_file().parent.mkdir(parents=True, exist_ok=True)
 
 
 def load_anomalies() -> list[dict]:
     """保存済み2σ超過レコードを全件返す。"""
     _ensure()
-    if not ANOMALY_FILE.exists():
+    if not _anomaly_file().exists():
         return []
-    with open(ANOMALY_FILE, encoding="utf-8") as f:
+    with open(_anomaly_file(), encoding="utf-8") as f:
         try:
             return json.load(f)
         except json.JSONDecodeError:
@@ -42,5 +44,5 @@ def save_anomaly_records(records: list[dict]) -> None:
     existing = [r for r in existing if r.get("task_id") != task_id]
     existing.extend(records)
 
-    with open(ANOMALY_FILE, "w", encoding="utf-8") as f:
+    with open(_anomaly_file(), "w", encoding="utf-8") as f:
         json.dump(existing, f, ensure_ascii=False, indent=2, default=str)

@@ -27,9 +27,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from app.config import DATA_PATH
+import app.config as _cfg
 
-USERS_FILE = DATA_PATH / "bunseki" / "config" / "users.json"
+
+def _users_file():
+    return _cfg.DATA_PATH / "bunseki" / "config" / "users.json"
 
 _DEFAULTS = {
     "id": "",
@@ -94,10 +96,8 @@ def _ensure() -> None:
 
     役割:
         - 初回起動やクリーン環境で users.json 保存先が無くて落ちるのを防ぐ。
-    手順:
-        - USERS_FILE.parent を mkdir（parents=True）
     """
-    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _users_file().parent.mkdir(parents=True, exist_ok=True)
 
 
 def _coerce_raw_to_user_list(raw: Any) -> list[dict[str, Any]]:
@@ -152,11 +152,11 @@ def load_users() -> list[dict[str, Any]]:
         5) _normalize を適用して返す
     """
     _ensure()
-    if not USERS_FILE.exists():
+    if not _users_file().exists():
         return []
 
     try:
-        raw = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(_users_file().read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         # 何をしているか:
         # - 壊れたJSONでアプリ全体が落ちるのを防ぐ（必要ならここでログ出力に差し替え）。
@@ -183,7 +183,7 @@ def save_users(users: list[dict[str, Any]]) -> None:
         2) pretty json で書き込み
     """
     _ensure()
-    USERS_FILE.write_text(
+    _users_file().write_text(
         json.dumps(users, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
