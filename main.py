@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
 
 import app.config as _cfg
-from app.config import APP_VERSION, reload_paths, set_current_user
+from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
 from app.core.loader import DataLoader
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
@@ -571,14 +571,16 @@ class MainWindow(QMainWindow):
 
 
 def _ensure_data_path(app: QApplication) -> bool:
-    """DATA_PATH が有効か確認し、無効ならダイアログで設定を促す。
+    """DATA_PATH が有効か確認し、未設定または無効ならダイアログで設定を促す。
 
     Returns:
         True: 有効なパスが設定済み。False: ユーザーがキャンセル。
     """
-    if _cfg.DATA_PATH.exists() and _cfg.DATA_PATH.is_dir():
+    # ユーザーが明示的にパスを保存済み かつ 有効なら OK
+    if load_data_path() is not None:
         return True
 
+    # 未設定 → 設定ダイアログを表示（フォールバックパスを初期値として提示）
     dlg = SetupRootDialog(str(_cfg.DATA_PATH))
     if dlg.exec() == QDialog.DialogCode.Accepted:
         new_path = dlg.selected_path()
