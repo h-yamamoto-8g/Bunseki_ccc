@@ -93,6 +93,7 @@ class TasksPage(QWidget):
 
         self.setup_state.submitted.connect(self._on_setup_submitted)
         self.setup_state.cancelled.connect(self.show_list)
+        self.setup_state.go_next.connect(lambda: self._go_to_state("analysis_targets"))
 
         self.targets_state.go_next.connect(lambda: self._go_to_state("analysis"))
         self.targets_state.go_back.connect(lambda: self._go_to_state("task_setup"))
