@@ -290,10 +290,16 @@ class SubmissionState(QWidget):
             task, anomalies, is_complete=True
         )
         html = self._mail_service.build_html(
-            task, "関係者各位", "", anomalies, is_complete=True
+            task, "", anomalies, is_complete=True
         )
+
+        # To: 分析者のみ、CC: 残りの確認者 + 異常メール受信者
+        creator_email = self._data_service.get_user_email(creator)
+        cc_emails = [e for e in to_emails if e != creator_email]
         to_str, cc_str = self._mail_service.collect_to_cc(
-            task, "", bool(anomalies), to_emails_override=to_emails
+            task, creator, bool(anomalies),
+            to_emails_override=[creator_email] if creator_email else [],
+            extra_cc=cc_emails,
         )
         ok, err = self._mail_service.open_outlook(to_str, cc_str, subject, html)
         if not ok:
@@ -434,7 +440,7 @@ class SubmissionState(QWidget):
         to_str, cc_str = ms.collect_to_cc(task, to_name, has_anomaly)
         subject = ms.build_subject(task, anomalies)
         html = ms.build_html(
-            task, to_name, comment, anomalies, is_forward=is_forward
+            task, comment, anomalies, is_forward=is_forward
         )
 
         ok, err = ms.open_outlook(to_str, cc_str, subject, html)
