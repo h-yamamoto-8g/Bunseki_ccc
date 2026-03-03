@@ -597,6 +597,8 @@ def _login(app: QApplication) -> bool:
     """
     user_service = UserService()
     dlg = LogonDialog(user_service)
+    dlg.raise_()
+    dlg.activateWindow()
     if dlg.exec() != QDialog.DialogCode.Accepted:
         return False
     user = dlg.authenticated_user()
