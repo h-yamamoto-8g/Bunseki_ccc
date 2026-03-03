@@ -89,7 +89,7 @@ class _FilterTabs(QFrame):
             btn = QPushButton(tab)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._inactive_style())
-            btn.clicked.connect(lambda _, t=tab: self._select(t))
+            btn.clicked.connect(lambda _=False, t=tab: self._select(t))
             layout.addWidget(btn)
             self._btns[tab] = btn
         if tabs:
