@@ -288,14 +288,9 @@ class SubmissionState(QWidget):
         to_str, cc_str = self._mail_service.collect_to_cc(
             task, "", bool(anomalies), to_emails_override=to_emails
         )
-        sent = self._mail_service.open_outlook(to_str, cc_str, subject, html)
-        if not sent:
-            QMessageBox.information(
-                self,
-                "完了",
-                "タスクを完了しました。\n"
-                "（Outlook はWindows環境でのみ起動します）",
-            )
+        ok, err = self._mail_service.open_outlook(to_str, cc_str, subject, html)
+        if not ok:
+            QMessageBox.warning(self, "メール作成", err)
 
     def _on_add_comment(self, text: str) -> None:
         task_id = self._task.get("task_id", "")
@@ -430,11 +425,6 @@ class SubmissionState(QWidget):
             task, to_name, comment, anomalies, is_forward=is_forward
         )
 
-        sent = ms.open_outlook(to_str, cc_str, subject, html)
-        if not sent:
-            QMessageBox.information(
-                self,
-                "回覧",
-                f"確認者「{to_name}」に回覧しました。\n"
-                "（Outlook はWindows環境でのみ起動します）",
-            )
+        ok, err = ms.open_outlook(to_str, cc_str, subject, html)
+        if not ok:
+            QMessageBox.warning(self, "メール作成", err)
