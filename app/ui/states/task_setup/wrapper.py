@@ -22,6 +22,7 @@ class TaskSetupState(QWidget):
 
     submitted = Signal(dict)
     cancelled = Signal()
+    go_next = Signal()
 
     def __init__(
         self,
@@ -43,6 +44,7 @@ class TaskSetupState(QWidget):
         self._ui.form_submitted.connect(self._on_form_submitted)
         self._ui.edit_requested.connect(self._on_edit_requested)
         self._ui.cancelled.connect(self.cancelled)
+        self._ui.next_requested.connect(self.go_next)
 
     # ── Public API ────────────────────────────────────────────────────────────
 

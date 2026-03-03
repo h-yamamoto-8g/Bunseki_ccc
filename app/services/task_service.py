@@ -95,6 +95,8 @@ class TaskService:
                     "completed": True,
                 },
             )
+            # 起票完了後は analysis_targets へ進める（create_task と同じ挙動）
+            task_store.update_task_field(task_id, current_state="analysis_targets")
         task = task_store.get_task(task_id)
         return task
 
