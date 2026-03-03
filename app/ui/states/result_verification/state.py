@@ -44,6 +44,10 @@ class ResultVerificationUI(QWidget):
         self._form = Ui_StateResultVerification()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.verticalLayout.setSpacing(8)
+        self._form.verticalLayout.setContentsMargins(8, 8, 8, 8)
+
         # エイリアス
         self.tab_widget = self._form.tabWidget_data
         self.next_btn   = self._form.btn_next
