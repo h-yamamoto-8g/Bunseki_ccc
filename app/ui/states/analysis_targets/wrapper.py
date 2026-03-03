@@ -7,6 +7,7 @@ from PySide6.QtCore import Signal
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from .state import AnalysisTargetsUI, AddSampleDialog
+from .print_preview import PrintPreviewDialog
 
 
 class AnalysisTargetsState(QWidget):
@@ -41,9 +42,7 @@ class AnalysisTargetsState(QWidget):
         self._ui.content_edited.connect(
             lambda: self.step_edited.emit("analysis_targets")
         )
-        self._ui.print_btn.clicked.connect(
-            lambda: QMessageBox.information(self, "印刷", "印刷機能はデモ版では省略しています。")
-        )
+        self._ui.print_btn.clicked.connect(self._on_print)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -80,6 +79,26 @@ class AnalysisTargetsState(QWidget):
                 self._ui.show_edit_btn(False)
 
     # ── Handlers ─────────────────────────────────────────────────────────────
+
+    def _on_print(self) -> None:
+        table = self._ui.table
+        col_count = table.columnCount() - 1  # 最終列（削除ボタン）を除外
+
+        headers = [
+            table.horizontalHeaderItem(c).text() for c in range(col_count)
+        ]
+        rows = []
+        for r in range(table.rowCount()):
+            rows.append([
+                (table.item(r, c).text() if table.item(r, c) else "")
+                for c in range(col_count)
+            ])
+
+        hg_name = self._task.get("holder_group_name", "")
+        title = f"分析対象一覧 — {hg_name}" if hg_name else "分析対象一覧"
+
+        dlg = PrintPreviewDialog(title, headers, rows, self)
+        dlg.exec()
 
     def _on_edit_requested(self) -> None:
         self._edit_mode = True
