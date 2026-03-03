@@ -41,11 +41,13 @@ class TasksPage(QWidget):
         self,
         task_service: TaskService,
         data_service: DataService,
+        job_service=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._job_service = job_service
         self._current_task: dict | None = None
         self._all_tasks_full: list[dict] = []
         self._display_limit: int = 100
@@ -62,7 +64,7 @@ class TasksPage(QWidget):
         ts = self._task_service
         ds = self._data_service
 
-        self.setup_state = TaskSetupState(ts, ds)
+        self.setup_state = TaskSetupState(ts, ds, job_service=self._job_service)
         self.targets_state = AnalysisTargetsState(ts, ds)
         self.analysis_state = AnalysisState(ts, ds)
         self.entry_state = ResultEntryState(ts, ds)

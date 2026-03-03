@@ -56,6 +56,7 @@ from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.data_update_service import run_all as _run_data_update
 from app.services.hg_config_service import HgConfigService
+from app.services.job_service import JobService
 from app.services.manual_service import ManualService
 from app.ui.dialogs.logon_dialog import LogonDialog
 from app.ui.dialogs.setup_root_dialog import SetupRootDialog
@@ -109,6 +110,7 @@ class MainWindow(QMainWindow):
         self.user_service = UserService()
         self.manual_service = ManualService()
         self.hg_config_service = HgConfigService()
+        self.job_service = JobService()
         self._in_task_mode = False
         self._guide_expanded = True
         self._setup_ui()
@@ -248,12 +250,12 @@ class MainWindow(QMainWindow):
         self.stack.setObjectName("stack_pages")
 
         self.home_page = HomePage(self.task_service)
-        self.tasks_page = TasksPage(self.task_service, self.data_service)
+        self.tasks_page = TasksPage(self.task_service, self.data_service, self.job_service)
         self.data_page = DataPage(self.data_service)
         self.news_page = NewsPage(self.data_service)
         self.library_page = LibraryPage(self.task_service)
         self.log_page = LogPage()
-        self.job_page = JobPage()
+        self.job_page = JobPage(self.job_service)
         self.settings_page = SettingsPage(
             self.user_service,
             self.manual_service,

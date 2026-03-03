@@ -27,11 +27,13 @@ class TaskSetupState(QWidget):
         self,
         task_service: TaskService,
         data_service: DataService,
+        job_service=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._job_service = job_service
         self._task_id: str | None = None
         self._edit_mode = False
 
@@ -52,6 +54,12 @@ class TaskSetupState(QWidget):
         hg_list = self._data_service.get_holder_groups()
         self._ui.set_holder_groups(hg_list)
         self._ui.show_new_mode()
+        # 有効なJOB番号を自動セット
+        if self._job_service:
+            valid_jobs = self._job_service.get_valid_job_numbers()
+            if valid_jobs:
+                self._ui._job_numbers = list(valid_jobs)
+                self._ui._refresh_tags()
 
     def open_existing(self, task: dict, readonly: bool = False) -> None:
         self._task_id = task["task_id"]
