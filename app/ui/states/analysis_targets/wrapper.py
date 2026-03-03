@@ -1,9 +1,14 @@
 """AnalysisTargetsState — 分析対象ステートのUIラッパー。"""
 from __future__ import annotations
 
+from datetime import datetime
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox, QDialog, QApplication
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QTextDocument
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 
+import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from .state import AnalysisTargetsUI, AddSampleDialog
@@ -41,9 +46,7 @@ class AnalysisTargetsState(QWidget):
         self._ui.content_edited.connect(
             lambda: self.step_edited.emit("analysis_targets")
         )
-        self._ui.print_btn.clicked.connect(
-            lambda: QMessageBox.information(self, "印刷", "印刷機能はデモ版では省略しています。")
-        )
+        self._ui.print_btn.clicked.connect(self._on_print)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -118,3 +121,82 @@ class AnalysisTargetsState(QWidget):
             task_id, vsset_codes, deleted_codes, added_samples, in_edit
         )
         self.go_next.emit()
+
+    # ── 印刷 ─────────────────────────────────────────────────────────────────
+
+    def _on_print(self) -> None:
+        """サンプル一覧を印刷する。"""
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        dlg = QPrintDialog(printer, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        doc = QTextDocument()
+        doc.setHtml(self._build_print_html())
+        doc.print_(printer)
+
+    def _build_print_html(self) -> str:
+        """印刷用 HTML を生成する。"""
+        task = self._task
+        task_name = task.get("task_name", "")
+        hg_name = task.get("holder_group_name", "")
+        jobs = "、".join(task.get("job_numbers", []))
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        # 表示中サンプル（削除済み除外）
+        visible = [
+            s for s in self._ui._samples
+            if s["valid_sample_set_code"] not in self._ui._deleted_codes
+        ]
+        # 追加サンプル
+        added = self._ui._added_samples
+
+        rows_html = ""
+        for s in visible:
+            median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
+            max_v = f"{s['max']:.3g}" if s.get("max") is not None else "—"
+            min_v = f"{s['min']:.3g}" if s.get("min") is not None else "—"
+            rows_html += (
+                f"<tr>"
+                f"<td>{s.get('sample_job_number', '')}</td>"
+                f"<td>{s.get('sample_sampling_date', '')}</td>"
+                f"<td>{s.get('valid_sample_display_name', '')}</td>"
+                f"<td style='text-align:right;'>{median}</td>"
+                f"<td style='text-align:right;'>{max_v}</td>"
+                f"<td style='text-align:right;'>{min_v}</td>"
+                f"</tr>"
+            )
+        for name in added:
+            rows_html += (
+                f"<tr>"
+                f"<td></td><td></td>"
+                f"<td style='color:#7c3aed;'>{name}（追加）</td>"
+                f"<td>—</td><td>—</td><td>—</td>"
+                f"</tr>"
+            )
+
+        total = len(visible) + len(added)
+
+        return (
+            "<html><head><style>"
+            "body { font-family: 'Yu Gothic UI', sans-serif; font-size: 11pt; }"
+            "h2 { margin: 0 0 4px; font-size: 14pt; }"
+            ".meta { color: #555; font-size: 10pt; margin-bottom: 8px; }"
+            "table { border-collapse: collapse; width: 100%; margin-top: 8px; }"
+            "th, td { border: 1px solid #999; padding: 4px 8px; font-size: 10pt; }"
+            "th { background: #e8e8e8; font-weight: bold; }"
+            ".footer { margin-top: 12px; font-size: 9pt; color: #888; }"
+            "</style></head><body>"
+            f"<h2>分析対象サンプル一覧</h2>"
+            f"<div class='meta'>"
+            f"タスク: {task_name}　／　分析項目: {hg_name}　／　JOB番号: {jobs}"
+            f"</div>"
+            f"<div class='meta'>サンプル数: {total}</div>"
+            "<table>"
+            "<tr><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
+            "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
+            f"{rows_html}"
+            "</table>"
+            f"<div class='footer'>印刷日時: {now}　　ユーザー: {_cfg.CURRENT_USER}</div>"
+            "</body></html>"
+        )
