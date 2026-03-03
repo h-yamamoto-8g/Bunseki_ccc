@@ -2,20 +2,22 @@ import json
 from datetime import datetime
 from pathlib import Path
 import app.config as _cfg
-from app.config import DATA_PATH, STATE_ORDER
+from app.config import STATE_ORDER
 
-TASKS_FILE = DATA_PATH / "bunseki" / "tasks" / "tasks.json"
+
+def _tasks_file():
+    return _cfg.DATA_PATH / "bunseki" / "tasks" / "tasks.json"
 
 
 def _ensure():
-    TASKS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _tasks_file().parent.mkdir(parents=True, exist_ok=True)
 
 
 def load_tasks() -> list[dict]:
     _ensure()
-    if not TASKS_FILE.exists():
+    if not _tasks_file().exists():
         return []
-    with open(TASKS_FILE, encoding="utf-8") as f:
+    with open(_tasks_file(), encoding="utf-8") as f:
         try:
             return json.load(f)
         except json.JSONDecodeError:
@@ -24,7 +26,7 @@ def load_tasks() -> list[dict]:
 
 def save_tasks(tasks: list[dict]):
     _ensure()
-    with open(TASKS_FILE, "w", encoding="utf-8") as f:
+    with open(_tasks_file(), "w", encoding="utf-8") as f:
         json.dump(tasks, f, ensure_ascii=False, indent=2, default=str)
 
 
