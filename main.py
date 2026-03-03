@@ -57,6 +57,7 @@ from app.services.data_service import DataService
 from app.services.data_update_service import run_all as _run_data_update
 from app.services.hg_config_service import HgConfigService
 from app.services.manual_service import ManualService
+from app.ui.dialogs.loading_dialog import LoadingDialog
 from app.ui.dialogs.logon_dialog import LogonDialog
 from app.ui.dialogs.setup_root_dialog import SetupRootDialog
 from app.ui.pages.data_page import DataPage
@@ -625,7 +626,8 @@ def main() -> None:
 
     # ログイン後にデータ更新・正規化を実行
     # 実装完了後は data_update_service.ENABLED = True に切り替える
-    _run_data_update()
+    loading = LoadingDialog(_run_data_update)
+    loading.exec()
 
     window = MainWindow()
     sys.exit(app.exec())
