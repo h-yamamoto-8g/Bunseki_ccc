@@ -136,6 +136,7 @@ class HomePageUI(QWidget):
 
         # ── マイタスク: tableView_mytasks → QTableWidget ────────────────────
         layout3 = self._form.verticalLayout_3
+        layout3.setSpacing(8)
         layout3.removeWidget(self._form.tableView_mytasks)
         self._form.tableView_mytasks.deleteLater()
 
@@ -146,6 +147,7 @@ class HomePageUI(QWidget):
 
         # ── ニュース: tableView_news → 空プレースホルダ ─────────────────────
         layout4 = self._form.verticalLayout_4
+        layout4.setSpacing(8)
         layout4.removeWidget(self._form.tableView_news)
         self._form.tableView_news.deleteLater()
 

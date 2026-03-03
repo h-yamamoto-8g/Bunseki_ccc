@@ -32,6 +32,10 @@ class AnalysisUI(QWidget):
         self._form = Ui_PageStateAnalysis()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.verticalLayout_6.setSpacing(8)
+        self._form.verticalLayout_6.setContentsMargins(8, 8, 8, 8)
+
         # 生成UIのバグ修正: after チェックリストのタイトルが "分析前確認リスト" になっている
         self._form.groupBox_after_check_list.setTitle("分析後確認リスト")
 
