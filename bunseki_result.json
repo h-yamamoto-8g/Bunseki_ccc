@@ -1,0 +1,8 @@
+{
+  "status": "error",
+  "command": "build",
+  "error_code": 2,
+  "message": "InputError",
+  "details": "\"_common\" directory not found from current directory and parents.",
+  "execution_time_ms": 1
+}
