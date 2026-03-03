@@ -48,7 +48,7 @@ PAGE_INFO: dict[str, tuple[str, str]] = {
     "news":     ("ニュース",  ":/icons/news.svg"),
     "library":  ("ライブラリ", ":/icons/library.svg"),
     "log":      ("ログ",      ":/icons/logs.svg"),
-    "job":      ("ジョブ",    ":/icons/flow.svg"),
+    "job":      ("ジョブ",    ":/icons/job-number.svg"),
     "settings": ("設定",      ":/icons/setting.svg"),
 }
 
