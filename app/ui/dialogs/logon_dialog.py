@@ -25,7 +25,9 @@ class LogonDialog(QDialog):
         self.ui.setupUi(self)
 
         self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
+            self.windowFlags()
+            & ~Qt.WindowType.WindowContextHelpButtonHint
+            | Qt.WindowType.WindowStaysOnTopHint
         )
 
         self.ui.btn_logon.clicked.connect(self._on_logon)
