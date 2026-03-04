@@ -31,7 +31,6 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # 不要なバックエンドを除外してサイズ削減
-        "tkinter",
         "matplotlib.backends.backend_tk",
         "matplotlib.backends.backend_tkagg",
         "PyQt5",
@@ -43,6 +42,13 @@ a = Analysis(
     noarchive=False,
 )
 
+# PyInstaller Splash: Python 起動前（展開中）から表示される
+splash = Splash(
+    "resources/assets/splash.png",
+    binaries=a.binaries,
+    datas=a.datas,
+)
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -51,6 +57,8 @@ exe = EXE(
     a.binaries,
     a.zipfiles,
     a.datas,
+    splash,
+    splash.binaries,
     [],
     name="Bunseki",
     debug=False,
