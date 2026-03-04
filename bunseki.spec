@@ -5,7 +5,7 @@
     pip install pyinstaller
     pyinstaller bunseki.spec
 
-生成先: dist/Bunseki/
+生成先: dist/Bunseki/  (フォルダごと配布)
 """
 import sys
 from pathlib import Path
