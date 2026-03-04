@@ -214,6 +214,13 @@ class TasksPage(QWidget):
         )
 
     def _on_task_deleted(self, task_id: str) -> None:
+        task = self._task_service.get_task(task_id)
+        if task and task.get("assigned_to", "") != _cfg.CURRENT_USER:
+            QMessageBox.warning(
+                self, "操作不可",
+                "自分が担当していないタスクは削除できません。",
+            )
+            return
         self._task_service.delete_task(task_id)
         self._refresh_list()
 
@@ -246,6 +253,9 @@ class TasksPage(QWidget):
 
     def _navigate_to_state(self, state: str, task: dict) -> None:
         readonly = self._task_service.is_task_readonly(task)
+        # 自分のタスクでなければ閲覧専用
+        if not readonly and task.get("assigned_to", "") != _cfg.CURRENT_USER:
+            readonly = True
         # current_state より先へジャンプした場合はプレビュー（操作不可）
         preview = not readonly and self._is_future_state(state, task)
         if preview:
