@@ -66,5 +66,5 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,  # GUI アプリのためコンソール非表示
-    icon=None,      # アイコンを設定する場合: icon="resources/assets/app-logo.ico"
+    icon="resources/assets/app-logo.ico",
 )
