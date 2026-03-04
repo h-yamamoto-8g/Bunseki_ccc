@@ -115,7 +115,7 @@ class SubmissionUI(QWidget):
         content = QWidget()
         content.setStyleSheet("background: white;")
         vl = QVBoxLayout(content)
-        vl.setContentsMargins(0, 0, 0, 0)
+        vl.setContentsMargins(16, 8, 16, 8)
         vl.setSpacing(16)
 
         vl.addWidget(self._build_flow_section())
@@ -155,7 +155,20 @@ class SubmissionUI(QWidget):
         add_hl.addWidget(add_lbl)
 
         self._reviewer_combo = QComboBox()
-        self._reviewer_combo.setMinimumWidth(180)
+        self._reviewer_combo.setMinimumWidth(200)
+        self._reviewer_combo.setFixedHeight(32)
+        self._reviewer_combo.setStyleSheet(
+            f"QComboBox {{ border:1px solid {_BORDER}; border-radius:6px;"
+            f" padding:4px 10px; font-size:13px; color:{_TEXT}; background:{_BG2}; }}"
+            f"QComboBox:hover {{ border-color:{_ACCENT}; }}"
+            f"QComboBox::drop-down {{ subcontrol-origin:padding; subcontrol-position:right center;"
+            f" width:28px; border:none; }}"
+            f"QComboBox::down-arrow {{ image:none; border-left:1px solid {_BORDER};"
+            f" width:20px; }}"
+            f"QComboBox QAbstractItemView {{ border:1px solid {_BORDER}; border-radius:4px;"
+            f" background:{_BG2}; selection-background-color:#eff6ff;"
+            f" selection-color:{_TEXT}; padding:4px; }}"
+        )
         add_hl.addWidget(self._reviewer_combo)
 
         self._btn_add = QPushButton()
@@ -203,9 +216,11 @@ class SubmissionUI(QWidget):
 
         self._comment_container = QWidget()
         self._comment_container.setStyleSheet("border:none;")
-        self._comment_layout = QVBoxLayout(self._comment_container)
-        self._comment_layout.setContentsMargins(0, 0, 0, 0)
+        self._comment_layout = QHBoxLayout(self._comment_container)
+        self._comment_layout.setContentsMargins(0, 4, 0, 4)
         self._comment_layout.setSpacing(6)
+        self._comment_layout.addStretch()
+        self._comment_layout.addStretch()
         vl.addWidget(self._comment_container)
 
         input_row = QHBoxLayout()
@@ -596,32 +611,39 @@ class SubmissionUI(QWidget):
             if w:
                 w.deleteLater()
 
+        self._comment_layout.addStretch()
+
         if not self._comments:
             empty = QLabel("コメントはまだありません")
             empty.setStyleSheet(f"font-size:12px; color:{_TEXT3}; border:none;")
             self._comment_layout.addWidget(empty)
+            self._comment_layout.addStretch()
             return
 
         for c in self._comments:
-            self._comment_layout.addWidget(self._make_comment_card(c))
+            self._comment_layout.addWidget(self._make_comment_node(c))
 
-    def _make_comment_card(self, comment: dict) -> QFrame:
-        card = QFrame()
-        card.setStyleSheet(
-            f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
-        )
-        vl = QVBoxLayout(card)
-        vl.setContentsMargins(10, 8, 8, 8)
-        vl.setSpacing(6)
+        self._comment_layout.addStretch()
 
-        top = QHBoxLayout()
-        top.setContentsMargins(0, 0, 0, 0)
-        top.setSpacing(6)
+    def _make_comment_node(self, comment: dict) -> QWidget:
+        """コメントをフローノード風のアイコン＋テキストで表示する。"""
         author = str(comment.get("author", ""))
-        top_lbl = QLabel(author or "不明ユーザー")
-        top_lbl.setStyleSheet(f"font-size:12px; color:{_TEXT2}; border:none; font-weight:600;")
-        top.addWidget(top_lbl)
-        top.addStretch()
+        text = str(comment.get("text", ""))
+        initial = author[0] if author else "?"
+
+        w = QWidget()
+        w.setStyleSheet("border:none;")
+        w.setFixedWidth(110)
+        vl = QVBoxLayout(w)
+        vl.setContentsMargins(4, 0, 4, 0)
+        vl.setSpacing(3)
+        vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # 削除ボタン行
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(0)
+        top_row.addStretch()
 
         can_delete = (
             self._can_comment
@@ -629,28 +651,50 @@ class SubmissionUI(QWidget):
             and bool(comment.get("pending", False))
         )
         if can_delete:
-            del_btn = QPushButton()
-            del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
-            del_btn.setIconSize(QSize(14, 14))
-            del_btn.setFixedSize(22, 22)
-            del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            del_btn.setStyleSheet(
-                "QPushButton { background:transparent; border:none; }"
-                "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
+            del_btn = _RemoveButton(
+                get_icon(":/icons/cancel.svg", "#cbd5e1", 12),
+                get_icon(":/icons/cancel.svg", "#ef4444", 12),
             )
             comment_id = str(comment.get("id", ""))
             del_btn.clicked.connect(
                 lambda _=False, cid=comment_id: self.comment_delete_requested.emit(cid)
             )
-            top.addWidget(del_btn)
-        vl.addLayout(top)
+            top_row.addWidget(del_btn)
+        else:
+            spacer = QLabel()
+            spacer.setFixedSize(16, 16)
+            spacer.setStyleSheet("border:none; background:transparent;")
+            top_row.addWidget(spacer)
+        vl.addLayout(top_row)
 
-        body = QLabel(str(comment.get("text", "")))
+        # アバター（吹き出し風）
+        avatar = QLabel(initial)
+        avatar.setFixedSize(42, 42)
+        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        avatar.setStyleSheet(
+            f"background:#fef3c7; color:#92400e;"
+            f" border:2px solid #fcd34d; border-radius:21px;"
+            " font-size:16px; font-weight:bold;"
+        )
+        vl.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # 著者名
+        nm = QLabel(author or "不明")
+        nm.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nm.setMaximumWidth(100)
+        nm.setWordWrap(False)
+        nm.setStyleSheet(f"font-size:11px; color:{_TEXT}; font-weight:600;")
+        vl.addWidget(nm, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # コメント本文
+        body = QLabel(text)
+        body.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        body.setMaximumWidth(100)
         body.setWordWrap(True)
-        body.setStyleSheet(f"font-size:13px; color:{_TEXT}; border:none;")
-        vl.addWidget(body)
+        body.setStyleSheet(f"font-size:10px; color:{_TEXT2};")
+        vl.addWidget(body, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        return card
+        return w
 
     @staticmethod
     def _make_connector(passed: bool) -> QWidget:
