@@ -159,27 +159,33 @@ class ResultVerificationUI(QWidget):
         upper_lim = f"{min(upper_vals):.4g}" if upper_vals else "—"
         lower_lim = f"{max(lower_vals):.4g}" if lower_vals else "—"
 
-        judgment_raw = str(row.get("test_judgment", ""))
+        grade_raw = str(row.get("test_grade_code", ""))
         trend_ok = row.get("trend_enabled") == True
 
-        if judgment_raw and judgment_raw not in ("nan", "None", "NN", ""):
-            # test_judgment に値がある → そのまま使用
-            flag_text = judgment_raw
+        # 優先度1: test_grade_code の判定
+        if grade_raw in ("NN", "--") or grade_raw in ("nan", "None"):
+            # NN / -- → 異常なし
+            flag_text = "NN"
+            is_anomaly = False
+        elif grade_raw and grade_raw not in ("",):
+            # NN/-- 以外の値がある → 異常
+            flag_text = grade_raw
             is_anomaly = True
         else:
-            # test_judgment が空 → 基準値チェック → mean±2σ チェックの順で判定
+            # grade_code が空 → 優先度2: 基準値チェック → 優先度3: mean±2σ
             raw_num = self._extract_numeric_fn(str(row.get("test_raw_data", "")))
-            spec_over = False
-            if raw_num is not None:
-                if upper_vals and raw_num > min(upper_vals):
-                    spec_over = True
-                elif lower_vals and raw_num < max(lower_vals):
-                    spec_over = True
 
-            if spec_over:
-                flag_text = "基準値超過"
+            # 優先度2: 基準値超過チェック (U{N}/L{N})
+            from app.core.loader import DataLoader
+            spec_label = None
+            if raw_num is not None:
+                spec_label = DataLoader.check_spec_violation(row, raw_num)
+
+            if spec_label:
+                flag_text = spec_label
                 is_anomaly = True
             elif trend_ok:
+                # 優先度3: mean±2σ チェック (異常なしのもののみ)
                 is_anomaly = self._anomaly_fn(row, hg_code)
                 if is_anomaly is True:
                     flag_text = "異常"
@@ -188,7 +194,8 @@ class ResultVerificationUI(QWidget):
                 else:
                     flag_text = "—"
             else:
-                flag_text = "—"
+                # 基準値も問題なし → NN
+                flag_text = "NN"
                 is_anomaly = False
 
         values = [

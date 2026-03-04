@@ -22,15 +22,28 @@ import sys
 
 # ------------------------------------------------------------------
 # PySide6 shibokensupport と six の競合回避
-# PySide6 のインポートフック (shibokensupport) が dateutil 経由で
-# 読み込まれる six._SixMetaPathImporter を inspect しようとして
-# AttributeError が発生する。pandas / matplotlib より先に除去する。
-# （PySide6 の __feature__ 機構は本アプリでは未使用のため影響なし）
+# shibokensupport が全インポートに介入し、inspect.getsource() を実行する。
+# six._SixMetaPathImporter に _path 属性がないため repr() 生成時に
+# AttributeError が発生する。__import__ をラップして検出→修復→再試行する。
 # ------------------------------------------------------------------
-sys.meta_path[:] = [
-    m for m in sys.meta_path
-    if "shibokensupport" not in getattr(type(m), "__module__", "")
-]
+import builtins as _builtins
+
+_orig_import = _builtins.__import__
+
+
+def _patched_import(name, *args, **kwargs):
+    try:
+        return _orig_import(name, *args, **kwargs)
+    except AttributeError as _exc:
+        if "_path" in str(_exc):
+            for _m in sys.meta_path:
+                if type(_m).__name__ == "_SixMetaPathImporter":
+                    type(_m)._path = None
+            return _orig_import(name, *args, **kwargs)
+        raise
+
+
+_builtins.__import__ = _patched_import
 
 import platform
 from typing import Optional
