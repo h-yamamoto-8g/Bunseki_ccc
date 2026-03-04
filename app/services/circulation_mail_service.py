@@ -65,47 +65,38 @@ class CirculationMailService:
 
     def _check_row(self, row: pd.Series, hg_code: str) -> AnomalyRecord | None:
         """1行ごとに判定 → 異常なら AnomalyRecord を返す。"""
-        judgment_raw = str(row.get("test_judgment", ""))
+        from app.core.loader import DataLoader
 
-        # 1) test_judgment に値がある → そのまま異常扱い
-        if judgment_raw and judgment_raw not in ("nan", "None", "NN", ""):
+        grade_raw = str(row.get("test_grade_code", ""))
+
+        # 1) test_grade_code の判定
+        #    NN / -- (None, nan) → 異常なし
+        if grade_raw in ("NN", "--") or grade_raw in ("nan", "None"):
+            return None
+        #    それ以外の値 → 異常
+        if grade_raw and grade_raw not in ("",):
             return AnomalyRecord(
                 sample_name=str(row.get("valid_sample_display_name", "")),
                 test_name=str(row.get("valid_test_display_name", "")),
                 value=str(row.get("test_raw_data", "")),
                 unit=str(row.get("test_unit_name", "")),
-                kind=judgment_raw,
+                kind=grade_raw,
             )
 
-        # 2) 基準値超過チェック
+        # grade_code が空 → 優先度2: 基準値超過チェック (U{N}/L{N})
         raw_num = self._ds.extract_numeric(str(row.get("test_raw_data", "")))
         if raw_num is not None:
-            upper_vals = [
-                row.get(f"test_upper_limit_spec_{i}")
-                for i in range(1, 5)
-                if pd.notna(row.get(f"test_upper_limit_spec_{i}"))
-            ]
-            lower_vals = [
-                row.get(f"test_lower_limit_spec_{i}")
-                for i in range(1, 5)
-                if pd.notna(row.get(f"test_lower_limit_spec_{i}"))
-            ]
-            spec_over = False
-            if upper_vals and raw_num > min(upper_vals):
-                spec_over = True
-            elif lower_vals and raw_num < max(lower_vals):
-                spec_over = True
-
-            if spec_over:
+            spec_label = DataLoader.check_spec_violation(row, raw_num)
+            if spec_label:
                 return AnomalyRecord(
                     sample_name=str(row.get("valid_sample_display_name", "")),
                     test_name=str(row.get("valid_test_display_name", "")),
                     value=str(row.get("test_raw_data", "")),
                     unit=str(row.get("test_unit_name", "")),
-                    kind="基準値超過",
+                    kind=spec_label,
                 )
 
-        # 3) mean±2σ チェック
+        # 3) mean±2σ チェック (異常なしのもののみ、trend_enabled == True)
         trend_enabled = row.get("trend_enabled") is True
         if trend_enabled:
             is_anomaly = self._ds.calculate_anomaly(row, hg_code)
@@ -321,7 +312,8 @@ class CirculationMailService:
         rows = ""
         for i, a in enumerate(anomalies):
             bg = "#fff1f2" if i % 2 == 0 else "#ffffff"
-            kind_color = "#dc2626" if a.kind == "基準値超過" else "#b91c1c"
+            is_spec = a.kind.startswith(("U", "L")) and len(a.kind) <= 3
+            kind_color = "#dc2626" if is_spec else "#b91c1c"
             rows += (
                 f"<tr style='background:{bg};'>"
                 f"<td style='padding:6px 10px; border-bottom:1px solid #fecaca;'>"
@@ -338,7 +330,7 @@ class CirculationMailService:
             )
 
         sigma_count = sum(1 for a in anomalies if a.kind == "2σ超過")
-        spec_count = sum(1 for a in anomalies if a.kind == "基準値超過")
+        spec_count = sum(1 for a in anomalies if a.kind.startswith(("U", "L")) and len(a.kind) <= 3)
         other_count = len(anomalies) - sigma_count - spec_count
         summary_parts: list[str] = []
         if spec_count:

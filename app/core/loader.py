@@ -27,6 +27,7 @@ class DataLoader:
                             "sample_job_number": str,
                             "test_raw_data": str,
                             "test_judgment": str,
+                            "test_grade_code": str,
                             "trend_enabled": str,
                         },
                     )
@@ -141,6 +142,7 @@ class DataLoader:
         """
         Returns True = anomaly, False = normal, None = cannot determine.
         Uses mean ± 2σ over historical data for the same sample+test combination.
+        最低12件の履歴データが必要。
         """
         if not row.get("trend_enabled"):
             return None
@@ -161,7 +163,7 @@ class DataLoader:
         )
         nums = self._numeric_values(self._cutoff_5yr(df[hist_mask])["test_raw_data"])
 
-        if len(nums) < 3:
+        if len(nums) < 12:
             return None
 
         mean = float(np.mean(nums))
@@ -198,7 +200,7 @@ class DataLoader:
             & (df["trend_enabled"] == True)
         )
         nums = self._numeric_values(self._cutoff_5yr(df[mask])["test_raw_data"])
-        if len(nums) < 3:
+        if len(nums) < 12:
             return {}
         mean = float(np.mean(nums))
         std = float(np.std(nums, ddof=1))
@@ -208,6 +210,44 @@ class DataLoader:
             "upper": mean + 2 * std,
             "lower": mean - 2 * std,
         }
+
+    @staticmethod
+    def check_spec_violation(row: pd.Series, raw_num: float) -> str | None:
+        """基準値超過チェック。超過していれば U{N} / L{N} を返す。
+
+        各 spec レベル 1-4 を個別にチェックし、超過している中で
+        最も厳しい（上限なら最小値、下限なら最大値）spec の番号を返す。
+        """
+        upper_hit: tuple[int, float] | None = None
+        lower_hit: tuple[int, float] | None = None
+
+        for i in range(1, 5):
+            v_u = row.get(f"test_upper_limit_spec_{i}")
+            if v_u is not None and pd.notna(v_u):
+                try:
+                    spec_val = float(v_u)
+                except (ValueError, TypeError):
+                    continue
+                if raw_num > spec_val:
+                    if upper_hit is None or spec_val < upper_hit[1]:
+                        upper_hit = (i, spec_val)
+
+            v_l = row.get(f"test_lower_limit_spec_{i}")
+            if v_l is not None and pd.notna(v_l):
+                try:
+                    spec_val = float(v_l)
+                except (ValueError, TypeError):
+                    continue
+                if raw_num < spec_val:
+                    if lower_hit is None or spec_val > lower_hit[1]:
+                        lower_hit = (i, spec_val)
+
+        # 上限・下限の両方で超過している場合、上限優先
+        if upper_hit:
+            return f"U{upper_hit[0]}"
+        if lower_hit:
+            return f"L{lower_hit[0]}"
+        return None
 
     # ── Trend graph data ──────────────────────────────────────────────────────
 
@@ -227,14 +267,14 @@ class DataLoader:
         for _, row in hist.iterrows():
             n = self.extract_numeric(str(row.get("test_raw_data", "")))
             if n is not None:
-                judgment_raw = str(row.get("test_judgment", ""))
+                grade_raw = str(row.get("test_grade_code", ""))
                 rows.append(
                     {
                         "date": self._fmt_date(row.get("sample_sampling_date")),
                         "value": n,
                         "raw": str(row.get("test_raw_data", "")),
                         "unit": str(row.get("test_unit_name", "")),
-                        "judgment": judgment_raw if judgment_raw not in ("nan", "None", "NN", "") else "OK",
+                        "judgment": grade_raw if grade_raw not in ("nan", "None", "NN", "--", "") else "OK",
                     }
                 )
         return rows
@@ -311,9 +351,9 @@ class DataLoader:
         if test_names:
             df = df[df["valid_test_display_name"].isin(test_names)]
         if judgment_filter == "NN":
-            df = df[df["test_judgment"].astype(str) == "NN"]
+            df = df[df["test_grade_code"].astype(str).isin(["NN", "--"])]
         elif judgment_filter == "異常":
-            df = df[df["test_judgment"].astype(str) != "NN"]
+            df = df[~df["test_grade_code"].astype(str).isin(["NN", "--", "", "nan", "None"])]
 
         return df.copy() if limit == 0 else df.head(limit).copy()
 
