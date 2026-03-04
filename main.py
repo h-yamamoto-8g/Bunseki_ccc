@@ -22,8 +22,7 @@ import platform
 import sys
 from typing import Optional
 
-import six  # noqa: F401  PySide6のshibokensupportフックより先にロード
-import six.moves  # noqa: F401
+import dateutil.tz  # noqa: F401  PySide6のshibokensupportより先にロードして競合回避
 
 import matplotlib
 
