@@ -110,8 +110,10 @@ class SubmissionUI(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: white; border: none; }")
 
         content = QWidget()
+        content.setStyleSheet("background: white;")
         vl = QVBoxLayout(content)
         vl.setContentsMargins(0, 0, 0, 0)
         vl.setSpacing(16)
@@ -191,10 +193,11 @@ class SubmissionUI(QWidget):
             f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
         )
         vl = QVBoxLayout(frame)
-        vl.setContentsMargins(16, 14, 16, 14)
-        vl.setSpacing(8)
+        vl.setContentsMargins(16, 10, 16, 10)
+        vl.setSpacing(6)
 
         lbl = QLabel("コメント")
+        lbl.setFixedHeight(20)
         lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         vl.addWidget(lbl)
 
@@ -305,12 +308,12 @@ class SubmissionUI(QWidget):
             f"QPushButton:hover {{ background:#059669; }}"
         )
 
+        hl.addStretch()
+
         self._btn_back = QPushButton("← 戻る")
         self._btn_back.setStyleSheet(_secondary)
         self._btn_back.clicked.connect(self.back_requested)
         hl.addWidget(self._btn_back)
-
-        hl.addStretch()
 
         self._btn_reclaim = QPushButton("取り戻し")
         self._btn_reclaim.setStyleSheet(_danger)
@@ -336,6 +339,8 @@ class SubmissionUI(QWidget):
         self._btn_complete.setStyleSheet(_success)
         self._btn_complete.clicked.connect(self.complete_requested)
         hl.addWidget(self._btn_complete)
+
+        hl.addStretch()
 
         return bar
 
