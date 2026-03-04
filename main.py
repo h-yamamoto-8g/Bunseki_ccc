@@ -24,31 +24,52 @@ import sys
 import time
 from typing import Optional
 
+import builtins
+_original_import = builtins.__import__
+
+from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer
+from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QSplashScreen,
+    QStackedWidget,
+    QTextBrowser,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+# PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
+builtins.__import__ = _original_import
+
+# ─── 重いモジュールはスプラッシュ表示後に遅延インポート ─────────────────────
+# matplotlib, app.* モジュールは _load_app_modules() で読み込む
+_cfg = None  # app.config (遅延)
+
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
 
-def _boot_splash() -> None:
-    """QApplication + QSplashScreen を最速で起動し、重いインポートをその間に実行する。"""
-    # ── 最小限のインポートでスプラッシュ表示 ──────────────────────────────
-    from PySide6.QtCore import Qt, QElapsedTimer
-    from PySide6.QtGui import QPixmap
-    from PySide6.QtWidgets import QApplication, QSplashScreen
-
-    app = QApplication(sys.argv)
-    timer = QElapsedTimer()
-    timer.start()
-
-    # PyInstaller バンドル時は _MEIPASS、開発時は __file__ 基準
+def _show_splash(app: QApplication) -> tuple[QSplashScreen, QElapsedTimer]:
+    """QSplashScreen を表示して返す。"""
     base = pathlib.Path(getattr(sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent))
     splash_path = base / "resources" / "assets" / "splash.png"
     pixmap = QPixmap(str(splash_path))
     splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
+    timer = QElapsedTimer()
+    timer.start()
     app.processEvents()
+    return splash, timer
 
-    # ── スプラッシュ表示中に重いモジュールを読み込む ──────────────────────
-    import builtins
-    _original_import = builtins.__import__
+
+def _load_app_modules(app: QApplication) -> None:
+    """スプラッシュ表示中に重いモジュールを読み込み、globals に注入する。"""
+    g = globals()
 
     import matplotlib
     matplotlib.use("QtAgg")
@@ -59,86 +80,14 @@ def _boot_splash() -> None:
     matplotlib.rcParams["axes.unicode_minus"] = False
     app.processEvents()
 
-    # PySide6 残りのインポート（shibokensupport の __import__ パッチ復元付き）
-    from PySide6.QtGui import QFont  # noqa: F811
-    app.processEvents()
-
-    # PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
-    builtins.__import__ = _original_import
-
     import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
     app.processEvents()
 
-    import app.config  # noqa: F401
+    import app.config as _cfg_mod
+    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
     from app.ui.styles import GLOBAL_QSS
     app.processEvents()
 
-    # アプリ全体の外観設定
-    if platform.system() == "Darwin":
-        app.setFont(QFont("Hiragino Sans", 12))
-    else:
-        app.setFont(QFont("Yu Gothic UI", 10))
-    app.setStyle("Fusion")
-    app.setStyleSheet(GLOBAL_QSS)
-    app.processEvents()
-
-    # 残りのアプリモジュールを読み込む
-    _import_app_modules()
-    app.processEvents()
-
-    # ── 最低表示時間を保証 ────────────────────────────────────────────────
-    remaining = _SPLASH_MIN_MS - timer.elapsed()
-    if remaining > 0:
-        deadline = timer.elapsed() + remaining
-        while timer.elapsed() < deadline:
-            app.processEvents()
-            time.sleep(0.01)
-
-    splash.close()
-    return app
-
-
-def _import_app_modules() -> None:
-    """アプリケーション本体のモジュールを一括インポートする。
-
-    グローバルスコープに注入して MainWindow 等から参照可能にする。
-    """
-    g = globals()
-
-    from PySide6.QtCore import Qt, QSize, QTimer
-    from PySide6.QtGui import QFont
-    from PySide6.QtWidgets import (
-        QApplication,
-        QDialog,
-        QFrame,
-        QHBoxLayout,
-        QLabel,
-        QMainWindow,
-        QStackedWidget,
-        QTextBrowser,
-        QToolButton,
-        QVBoxLayout,
-        QWidget,
-    )
-
-    g["Qt"] = Qt
-    g["QSize"] = QSize
-    g["QTimer"] = QTimer
-    g["QFont"] = QFont
-    g["QApplication"] = QApplication
-    g["QDialog"] = QDialog
-    g["QFrame"] = QFrame
-    g["QHBoxLayout"] = QHBoxLayout
-    g["QLabel"] = QLabel
-    g["QMainWindow"] = QMainWindow
-    g["QStackedWidget"] = QStackedWidget
-    g["QTextBrowser"] = QTextBrowser
-    g["QToolButton"] = QToolButton
-    g["QVBoxLayout"] = QVBoxLayout
-    g["QWidget"] = QWidget
-
-    import app.config as _cfg
-    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
     from app.core.loader import DataLoader
     from app.services.task_service import TaskService
     from app.services.data_service import DataService
@@ -146,6 +95,9 @@ def _import_app_modules() -> None:
     from app.services.hg_config_service import HgConfigService
     from app.services.job_service import JobService
     from app.services.manual_service import ManualService
+    from app.services.user_service import UserService
+    app.processEvents()
+
     from app.ui.dialogs.logon_dialog import LogonDialog
     from app.ui.dialogs.setup_root_dialog import SetupRootDialog
     from app.ui.pages.data_page import DataPage
@@ -154,17 +106,19 @@ def _import_app_modules() -> None:
     from app.ui.pages.library_page import LibraryPage
     from app.ui.pages.log_page import LogPage
     from app.ui.pages.news_page import NewsPage
-    from app.services.user_service import UserService
     from app.ui.pages.settings.page import SettingsPage
     from app.ui.pages.tasks.wrapper import TasksPage
     from app.ui.widgets.icon_utils import get_icon
     from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
+    app.processEvents()
 
-    g["_cfg"] = _cfg
+    # globals に注入
+    g["_cfg"] = _cfg_mod
     g["APP_VERSION"] = APP_VERSION
     g["load_data_path"] = load_data_path
     g["reload_paths"] = reload_paths
     g["set_current_user"] = set_current_user
+    g["GLOBAL_QSS"] = GLOBAL_QSS
     g["DataLoader"] = DataLoader
     g["TaskService"] = TaskService
     g["DataService"] = DataService
@@ -172,6 +126,7 @@ def _import_app_modules() -> None:
     g["HgConfigService"] = HgConfigService
     g["JobService"] = JobService
     g["ManualService"] = ManualService
+    g["UserService"] = UserService
     g["LogonDialog"] = LogonDialog
     g["SetupRootDialog"] = SetupRootDialog
     g["DataPage"] = DataPage
@@ -180,7 +135,6 @@ def _import_app_modules() -> None:
     g["LibraryPage"] = LibraryPage
     g["LogPage"] = LogPage
     g["NewsPage"] = NewsPage
-    g["UserService"] = UserService
     g["SettingsPage"] = SettingsPage
     g["TasksPage"] = TasksPage
     g["get_icon"] = get_icon
@@ -727,10 +681,34 @@ def _login(app: QApplication) -> bool:
 
 def main() -> None:
     """アプリケーションを起動する。"""
-    app = _boot_splash()
+    app = QApplication(sys.argv)
+
+    # スプラッシュを最速で表示
+    splash, timer = _show_splash(app)
+
+    # スプラッシュ表示中に重いモジュールをロード (matplotlib, app.*)
+    _load_app_modules(app)
+
+    # 外観設定（GLOBAL_QSS は _load_app_modules で読み込み済み）
+    if platform.system() == "Darwin":
+        app.setFont(QFont("Hiragino Sans", 12))
+    else:
+        app.setFont(QFont("Yu Gothic UI", 10))
+    app.setStyle("Fusion")
+    app.setStyleSheet(GLOBAL_QSS)
 
     if not _ensure_data_path(app):
         sys.exit(0)
+
+    # 最低表示時間を保証
+    remaining = _SPLASH_MIN_MS - timer.elapsed()
+    if remaining > 0:
+        deadline = timer.elapsed() + remaining
+        while timer.elapsed() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+
+    splash.close()
 
     if not _login(app):
         sys.exit(0)
