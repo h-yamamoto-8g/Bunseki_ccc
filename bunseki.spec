@@ -5,7 +5,7 @@
     pip install pyinstaller
     pyinstaller bunseki.spec
 
-生成先: dist/Bunseki/
+生成先: dist/Bunseki.exe (単一ファイル)
 """
 import sys
 from pathlib import Path
@@ -48,8 +48,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name="Bunseki",
     debug=False,
     bootloader_ignore_signals=False,
@@ -57,15 +59,4 @@ exe = EXE(
     upx=True,
     console=False,  # GUI アプリのためコンソール非表示
     icon=None,      # アイコンを設定する場合: icon="resources/assets/app-logo.ico"
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name="Bunseki",
 )
