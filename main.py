@@ -90,15 +90,24 @@ _cfg: app.config = None  # type: ignore[assignment]  # app.config (遅延)
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
 
-def _show_splash(qapp: QApplication) -> tuple[QSplashScreen, QElapsedTimer]:
-    """QSplashScreen を表示して返す。"""
-    base = pathlib.Path(getattr(sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent))
+def _show_splash(qapp: QApplication) -> tuple[QSplashScreen | None, QElapsedTimer]:
+    """QSplashScreen を表示して返す。
+
+    frozen 環境では PyInstaller Splash (pyi_splash) が起動直後から
+    表示されているため QSplashScreen は生成しない。
+    """
+    timer = QElapsedTimer()
+    timer.start()
+
+    if getattr(sys, "frozen", False):
+        # PyInstaller Splash がすでに表示中 → QSplashScreen 不要
+        return None, timer
+
+    base = pathlib.Path(__file__).resolve().parent
     splash_path = base / "resources" / "assets" / "splash.png"
     pixmap = QPixmap(str(splash_path))
     splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
-    timer = QElapsedTimer()
-    timer.start()
     qapp.processEvents()
     return splash, timer
 
@@ -736,21 +745,43 @@ def main() -> None:
     if not _ensure_data_path(qapp):
         sys.exit(0)
 
-    # 最低表示時間を保証
-    remaining = _SPLASH_MIN_MS - timer.elapsed()
-    if remaining > 0:
-        deadline = timer.elapsed() + remaining
-        while timer.elapsed() < deadline:
-            qapp.processEvents()
-            time.sleep(0.01)
+    # 最低表示時間を保証 (dev 環境の QSplashScreen 用)
+    if splash is not None:
+        remaining = _SPLASH_MIN_MS - timer.elapsed()
+        if remaining > 0:
+            deadline = timer.elapsed() + remaining
+            while timer.elapsed() < deadline:
+                qapp.processEvents()
+                time.sleep(0.01)
+        splash.close()
 
-    splash.close()
+    # PyInstaller Splash を閉じる (frozen 環境のみ)
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+        pyi_splash.close()
+    except ImportError:
+        pass
 
     if not _login(qapp):
         sys.exit(0)
 
-    # ログイン後にデータ更新・正規化を実行
+    # ログイン後にデータ更新・正規化を実行 (ローディング表示付き)
+    loading_label = QLabel("  データを読み込んでいます...")
+    loading_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+    loading_label.setFixedSize(320, 70)
+    loading_label.setWindowFlags(
+        Qt.WindowType.SplashScreen | Qt.WindowType.WindowStaysOnTopHint
+    )
+    loading_label.setStyleSheet(
+        "background: #ffffff; color: #333333; font-size: 14px;"
+        "border: 1px solid #d0d0d0; border-radius: 8px; padding: 16px;"
+    )
+    loading_label.show()
+    qapp.processEvents()
+
     _run_data_update()
+
+    loading_label.close()
 
     window = MainWindow()
     sys.exit(qapp.exec())

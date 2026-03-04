@@ -44,8 +44,19 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# PyInstaller Splash: Tcl/Tk ベースで Python インポート前に即座に表示
+splash = Splash(
+    "resources/assets/splash.png",
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=None,          # テキスト表示なし
+    text_color="white",
+)
+
 exe = EXE(
     pyz,
+    splash,                 # Splash ターゲット
+    splash.binaries,        # Tcl/Tk バイナリ
     a.scripts,
     a.binaries,
     a.zipfiles,
