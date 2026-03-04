@@ -22,7 +22,8 @@ import platform
 import sys
 from typing import Optional
 
-import dateutil.tz  # noqa: F401  PySide6のshibokensupportより先にロードして競合回避
+import builtins
+_original_import = builtins.__import__
 
 import matplotlib
 
@@ -48,6 +49,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+# PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
+builtins.__import__ = _original_import
 
 import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
 
