@@ -22,7 +22,7 @@ import pathlib
 import platform
 import sys
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import builtins
 _original_import = builtins.__import__
@@ -47,9 +47,45 @@ from PySide6.QtWidgets import (
 # PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
 builtins.__import__ = _original_import
 
+# PyInstaller frozen環境ではshibokensupportのfeature検出を無効化する。
+# shibokensupport.feature._mod_uses_pyside が inspect.getsource() を呼び、
+# six._SixMetaPathImporter に _path 属性がなく AttributeError になるのを防止。
+if getattr(sys, "frozen", False):
+    try:
+        import shibokensupport.feature as _sbk_feature
+        _sbk_feature._mod_uses_pyside = lambda *_a, **_kw: False
+    except Exception:
+        pass
+
 # ─── 重いモジュールはスプラッシュ表示後に遅延インポート ─────────────────────
 # matplotlib, app.* モジュールは _load_app_modules() で読み込む
-_cfg = None  # app.config (遅延)
+# TYPE_CHECKING ブロック: 静的解析用（実行時は読み込まれない）
+if TYPE_CHECKING:
+    import app.config as _cfg
+    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
+    from app.core.loader import DataLoader
+    from app.services.data_service import DataService
+    from app.services.data_update_service import run_all as _run_data_update
+    from app.services.hg_config_service import HgConfigService
+    from app.services.job_service import JobService
+    from app.services.manual_service import ManualService
+    from app.services.task_service import TaskService
+    from app.services.user_service import UserService
+    from app.ui.dialogs.logon_dialog import LogonDialog
+    from app.ui.dialogs.setup_root_dialog import SetupRootDialog
+    from app.ui.pages.data_page import DataPage
+    from app.ui.pages.home.wrapper import HomePage
+    from app.ui.pages.job_page import JobPage
+    from app.ui.pages.library_page import LibraryPage
+    from app.ui.pages.log_page import LogPage
+    from app.ui.pages.news_page import NewsPage
+    from app.ui.pages.settings.page import SettingsPage
+    from app.ui.pages.tasks.wrapper import TasksPage
+    from app.ui.styles import GLOBAL_QSS
+    from app.ui.widgets.icon_utils import get_icon
+    from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
+
+_cfg: app.config = None  # type: ignore[assignment]  # app.config (遅延)
 
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
