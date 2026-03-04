@@ -616,15 +616,6 @@ def _login(app: QApplication) -> bool:
     return True
 
 
-def _close_pyinstaller_splash() -> None:
-    """PyInstaller のスプラッシュスクリーンを閉じる（ビルド版のみ）。"""
-    try:
-        import pyi_splash  # type: ignore[import-not-found]
-        pyi_splash.close()
-    except ImportError:
-        pass  # 開発時（python main.py）では存在しない
-
-
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
 
@@ -648,9 +639,6 @@ def main() -> None:
     timer = QElapsedTimer()
     timer.start()
     splash = _show_splash(app)
-
-    # PyInstaller の展開時スプラッシュを閉じる（Qt スプラッシュに引き継ぎ）
-    _close_pyinstaller_splash()
 
     if platform.system() == "Darwin":
         app.setFont(QFont("Hiragino Sans", 12))
