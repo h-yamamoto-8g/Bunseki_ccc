@@ -34,8 +34,8 @@ else:
     matplotlib.rcParams["font.family"] = "Yu Gothic"
 matplotlib.rcParams["axes.unicode_minus"] = False
 
-from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QSplashScreen,
     QStackedWidget,
     QTextBrowser,
     QToolButton,
@@ -624,9 +625,33 @@ def _close_pyinstaller_splash() -> None:
         pass  # 開発時（python main.py）では存在しない
 
 
+_SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
+
+
+def _show_splash(app: QApplication) -> QSplashScreen:
+    """QSplashScreen を表示して返す。"""
+    import pathlib
+
+    splash_path = pathlib.Path(__file__).resolve().parent / "resources" / "assets" / "splash.png"
+    pixmap = QPixmap(str(splash_path))
+    splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+    splash.show()
+    app.processEvents()
+    return splash
+
+
 def main() -> None:
     """アプリケーションを起動する。"""
     app = QApplication(sys.argv)
+
+    # スプラッシュを最速で表示
+    timer = QElapsedTimer()
+    timer.start()
+    splash = _show_splash(app)
+
+    # PyInstaller の展開時スプラッシュを閉じる（Qt スプラッシュに引き継ぎ）
+    _close_pyinstaller_splash()
+
     if platform.system() == "Darwin":
         app.setFont(QFont("Hiragino Sans", 12))
     else:
@@ -634,11 +659,20 @@ def main() -> None:
     app.setStyle("Fusion")
     app.setStyleSheet(GLOBAL_QSS)
 
-    # PyInstaller の展開時スプラッシュを閉じる
-    _close_pyinstaller_splash()
-
     if not _ensure_data_path(app):
         sys.exit(0)
+
+    # 最低表示時間を保証
+    remaining = _SPLASH_MIN_MS - timer.elapsed()
+    if remaining > 0:
+        import time
+        # イベントループを回しながら待機
+        deadline = timer.elapsed() + remaining
+        while timer.elapsed() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+
+    splash.close()
 
     if not _login(app):
         sys.exit(0)
