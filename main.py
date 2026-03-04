@@ -18,7 +18,6 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
 """
 from __future__ import annotations
 
-import math
 import pathlib
 import platform
 import sys
@@ -92,25 +91,41 @@ _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
 
 class LoadingOverlay(QWidget):
-    """白半透明背景 + 青いドットスピナーのオーバーレイ。"""
+    """白半透明背景 + 青い四角ピクセルが四角く回るスピナーのオーバーレイ。"""
 
-    _DOT_COUNT = 8
-    _DOT_RADIUS = 5
-    _ORBIT_RADIUS = 20
+    # 四角形の辺上に配置するピクセル数 (上4 + 右3 + 下3 + 左2 = 12)
+    _POSITIONS: list[tuple[int, int]] = []
+    _PIXEL_SIZE = 6
+    _SIDE_LEN = 36  # 四角軌道の一辺の長さ
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(400, 200)
+        self.resize(400, 220)
         self._angle = 0
         self._timer = QTimer(self)
         self._timer.setInterval(80)
         self._timer.timeout.connect(self._tick)
         self._msg = "データを読み込んでいます..."
+
+        # 四角形の辺上にピクセル位置を生成 (時計回り)
+        s = self._SIDE_LEN
+        steps_per_side = 3
+        self._positions: list[tuple[int, int]] = []
+        # 上辺: 左→右
+        for i in range(steps_per_side):
+            self._positions.append((i * s // steps_per_side - s // 2, -s // 2))
+        # 右辺: 上→下
+        for i in range(steps_per_side):
+            self._positions.append((s // 2, i * s // steps_per_side - s // 2))
+        # 下辺: 右→左
+        for i in range(steps_per_side):
+            self._positions.append((s // 2 - i * s // steps_per_side, s // 2))
+        # 左辺: 下→上
+        for i in range(steps_per_side):
+            self._positions.append((-s // 2, s // 2 - i * s // steps_per_side))
+        self._dot_count = len(self._positions)
 
     def start(self) -> None:
         self._center_on_screen()
@@ -132,7 +147,7 @@ class LoadingOverlay(QWidget):
             )
 
     def _tick(self) -> None:
-        self._angle = (self._angle + 1) % self._DOT_COUNT
+        self._angle = (self._angle + 1) % self._dot_count
         self.update()
         QApplication.processEvents()
 
@@ -140,36 +155,37 @@ class LoadingOverlay(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 白半透明背景 (70%)
+        # 白半透明背景 (70%) — WA_TranslucentBackground により後ろが透けて見える
         p.setBrush(QColor(255, 255, 255, 178))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(self.rect(), 12, 12)
 
         cx = self.width() // 2
-        cy = self.height() // 2 - 16
+        cy = self.height() // 2 - 24
 
-        # 青いドットを円形に配置、アクティブなドットを大きく濃く
-        for i in range(self._DOT_COUNT):
-            angle_rad = 2 * math.pi * i / self._DOT_COUNT - math.pi / 2
-            x = cx + self._ORBIT_RADIUS * math.cos(angle_rad)
-            y = cy + self._ORBIT_RADIUS * math.sin(angle_rad)
+        # 青い四角ピクセルを四角形の軌道上に配置
+        ps = self._PIXEL_SIZE
+        for i in range(self._dot_count):
+            ox, oy = self._positions[i]
+            x = cx + ox - ps // 2
+            y = cy + oy - ps // 2
 
-            dist = (i - self._angle) % self._DOT_COUNT
+            dist = (i - self._angle) % self._dot_count
             if dist == 0:
-                alpha, r = 255, self._DOT_RADIUS
-            elif dist == 1 or dist == self._DOT_COUNT - 1:
-                alpha, r = 180, self._DOT_RADIUS - 1
-            elif dist == 2 or dist == self._DOT_COUNT - 2:
-                alpha, r = 100, self._DOT_RADIUS - 2
+                alpha = 255
+            elif dist <= 2 or dist >= self._dot_count - 2:
+                alpha = 160
+            elif dist <= 4 or dist >= self._dot_count - 4:
+                alpha = 80
             else:
-                alpha, r = 50, self._DOT_RADIUS - 2
+                alpha = 35
 
             p.setBrush(QColor(59, 130, 246, alpha))  # blue-500
-            p.drawEllipse(int(x - r), int(y - r), r * 2, r * 2)
+            p.drawRect(x, y, ps, ps)
 
-        # テキスト
+        # テキスト (スピナーとの間隔を広めに)
         p.setPen(QColor(51, 51, 51))
-        text_rect = QRect(0, cy + self._ORBIT_RADIUS + 12, self.width(), 30)
+        text_rect = QRect(0, cy + self._SIDE_LEN // 2 + 28, self.width(), 30)
         p.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, self._msg)
 
         p.end()
