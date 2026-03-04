@@ -18,8 +18,21 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
 """
 from __future__ import annotations
 
-import platform
 import sys
+
+# ------------------------------------------------------------------
+# PySide6 shibokensupport と six の競合回避
+# PySide6 のインポートフック (shibokensupport) が dateutil 経由で
+# 読み込まれる six._SixMetaPathImporter を inspect しようとして
+# AttributeError が発生する。pandas / matplotlib より先に除去する。
+# （PySide6 の __feature__ 機構は本アプリでは未使用のため影響なし）
+# ------------------------------------------------------------------
+sys.meta_path[:] = [
+    m for m in sys.meta_path
+    if "shibokensupport" not in getattr(type(m), "__module__", "")
+]
+
+import platform
 from typing import Optional
 
 import dateutil.tz  # noqa: F401  PySide6のshibokensupportより先にロードして競合回避
