@@ -411,6 +411,7 @@ class TasksPageUI(QWidget):
     # ── Public API ────────────────────────────────────────────────────────────
 
     def fill_table(self, tasks: list[dict]) -> None:
+        self._tasks_by_id: dict[str, dict] = {t["task_id"]: t for t in tasks}
         self.task_table.setRowCount(0)
         icon_open = QIcon(":/icons/step.svg")
         icon_more = QIcon(":/icons/more.svg")
@@ -500,10 +501,20 @@ class TasksPageUI(QWidget):
         return _TakeoverDialog(task, parent=self)
 
     def _show_more_menu(self, btn: QPushButton, task_id: str) -> None:
+        task = getattr(self, "_tasks_by_id", {}).get(task_id, {})
+        is_mine = task.get("assigned_to", "") == _cfg.CURRENT_USER
+
         menu = QMenu(self)
-        del_action = menu.addAction(QIcon(":/icons/delete.svg"), "削除")
+        if is_mine:
+            del_action = menu.addAction(QIcon(":/icons/delete.svg"), "削除")
+        else:
+            del_action = None
+
+        if menu.isEmpty():
+            return
+
         action = menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
-        if action == del_action:
+        if action and action == del_action:
             reply = QMessageBox.question(
                 self, "削除の確認",
                 "このタスクを削除しますか？\nこの操作は元に戻せません。",
