@@ -15,11 +15,6 @@ from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor, QFont
 from app.ui.widgets.icon_utils import get_icon
 
-import matplotlib
-matplotlib.use("QtAgg")
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-
 from app.ui.generated.ui_stateresultverification import Ui_StateResultVerification
 from app.services.hg_config_service import DEFAULT_VERIFY_CHECKLIST
 
@@ -403,6 +398,11 @@ class TrendDialog(QDialog):
         spec: dict,
         unit: str,
     ) -> QWidget:
+        import matplotlib
+        matplotlib.use("QtAgg")
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+
         fig, ax = plt.subplots(figsize=(12, 4.5), dpi=96)
         fig.patch.set_facecolor("#ffffff")
         ax.set_facecolor("#ffffff")
