@@ -35,8 +35,7 @@ else:
 matplotlib.rcParams["axes.unicode_minus"] = False
 
 from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPixmap
-from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -44,7 +43,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QProgressBar,
     QStackedWidget,
     QTextBrowser,
     QToolButton,
@@ -599,109 +597,6 @@ def _ensure_data_path(app: QApplication) -> bool:
     return False
 
 
-class SplashScreen(QWidget):
-    """起動時に表示するスプラッシュスクリーン。"""
-
-    def __init__(self) -> None:
-        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-        self.setFixedSize(380, 260)
-
-        self.setStyleSheet("""
-            SplashScreen {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #1e3a5f, stop:1 #2563eb
-                );
-                border-radius: 16px;
-            }
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 36, 40, 32)
-        layout.setSpacing(12)
-
-        # ロゴ
-        logo_label = QLabel()
-        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_label.setStyleSheet("background: transparent;")
-        renderer = QSvgRenderer(":/icons/app-logo.svg")
-        if renderer.isValid():
-            pm = QPixmap(56, 56)
-            pm.fill(Qt.GlobalColor.transparent)
-            p = QPainter(pm)
-            renderer.render(p)
-            p.end()
-            logo_label.setPixmap(pm)
-        layout.addWidget(logo_label)
-
-        # タイトル
-        title = QLabel("Bunseki")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            "background: transparent; color: #ffffff; font-size: 26px; font-weight: bold;"
-        )
-        layout.addWidget(title)
-
-        # バージョン
-        ver = QLabel(f"v{APP_VERSION}")
-        ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ver.setStyleSheet("background: transparent; color: rgba(255,255,255,0.6); font-size: 12px;")
-        layout.addWidget(ver)
-
-        layout.addSpacing(8)
-
-        # プログレスバー
-        self._progress = QProgressBar()
-        self._progress.setFixedHeight(4)
-        self._progress.setRange(0, 0)  # インデターミネートモード
-        self._progress.setTextVisible(False)
-        self._progress.setStyleSheet("""
-            QProgressBar {
-                background: rgba(255,255,255,0.15);
-                border: none;
-                border-radius: 2px;
-            }
-            QProgressBar::chunk {
-                background: #60a5fa;
-                border-radius: 2px;
-            }
-        """)
-        layout.addWidget(self._progress)
-
-        # メッセージ
-        self._msg = QLabel("起動しています...")
-        self._msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._msg.setStyleSheet("background: transparent; color: rgba(255,255,255,0.7); font-size: 12px;")
-        layout.addWidget(self._msg)
-
-        # 画面中央に配置
-        self._center_on_screen()
-
-    def _center_on_screen(self) -> None:
-        screen = QApplication.primaryScreen()
-        if screen:
-            geo = screen.availableGeometry()
-            x = (geo.width() - self.width()) // 2 + geo.x()
-            y = (geo.height() - self.height()) // 2 + geo.y()
-            self.move(x, y)
-
-    def set_message(self, text: str) -> None:
-        self._msg.setText(text)
-        QApplication.processEvents()
-
-    def paintEvent(self, event) -> None:  # noqa: N802
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        gradient = QLinearGradient(0, 0, self.width(), self.height())
-        gradient.setColorAt(0, QColor("#1e3a5f"))
-        gradient.setColorAt(1, QColor("#2563eb"))
-        painter.setBrush(QBrush(gradient))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(self.rect(), 16, 16)
-        painter.end()
-
-
 def _login(app: QApplication) -> bool:
     """ログインダイアログを表示し、認証を行う。
 
@@ -720,6 +615,15 @@ def _login(app: QApplication) -> bool:
     return True
 
 
+def _close_pyinstaller_splash() -> None:
+    """PyInstaller のスプラッシュスクリーンを閉じる（ビルド版のみ）。"""
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+        pyi_splash.close()
+    except ImportError:
+        pass  # 開発時（python main.py）では存在しない
+
+
 def main() -> None:
     """アプリケーションを起動する。"""
     app = QApplication(sys.argv)
@@ -730,19 +634,11 @@ def main() -> None:
     app.setStyle("Fusion")
     app.setStyleSheet(GLOBAL_QSS)
 
-    # スプラッシュスクリーンを表示
-    splash = SplashScreen()
-    splash.show()
-    QApplication.processEvents()
+    # PyInstaller の展開時スプラッシュを閉じる
+    _close_pyinstaller_splash()
 
-    splash.set_message("設定を確認しています...")
     if not _ensure_data_path(app):
-        splash.close()
         sys.exit(0)
-
-    splash.set_message("ログイン画面を準備しています...")
-    # スプラッシュを閉じてからログイン表示
-    splash.close()
 
     if not _login(app):
         sys.exit(0)
