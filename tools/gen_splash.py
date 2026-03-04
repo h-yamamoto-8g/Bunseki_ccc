@@ -54,18 +54,10 @@ def _colorize_logo(logo: Image.Image, color: tuple) -> Image.Image:
 
 
 def main() -> None:
-    # グラデーション背景
+    # グラデーション背景（角丸なし・全面塗り）
     c1 = (30, 58, 95)    # #1e3a5f
     c2 = (37, 99, 235)   # #2563eb
     img = _gradient_image(WIDTH, HEIGHT, c1, c2).convert("RGBA")
-
-    # 角丸マスク
-    mask = Image.new("L", (WIDTH, HEIGHT), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle((0, 0, WIDTH - 1, HEIGHT - 1), radius=16, fill=255)
-    bg = Image.new("RGBA", (WIDTH, HEIGHT), (245, 247, 250, 255))
-    bg.paste(img, mask=mask)
-    img = bg
 
     # app-logo.svg を白色で描画
     logo_size = 64
@@ -95,17 +87,11 @@ def main() -> None:
     tw = bb[2] - bb[0]
     draw.text((cx - tw // 2, 128), "Bunseki", fill="white", font=font_title)
 
-    # バージョン
-    ver = "v1.0"
-    bb = draw.textbbox((0, 0), ver, font=font_sub)
-    tw = bb[2] - bb[0]
-    draw.text((cx - tw // 2, 166), ver, fill=(255, 255, 255, 150), font=font_sub)
-
     # メッセージ
     msg = "Loading..."
     bb = draw.textbbox((0, 0), msg, font=font_sub)
     tw = bb[2] - bb[0]
-    draw.text((cx - tw // 2, 218), msg, fill=(255, 255, 255, 180), font=font_sub)
+    draw.text((cx - tw // 2, 200), msg, fill=(255, 255, 255, 180), font=font_sub)
 
     # RGB に変換して保存
     out = img.convert("RGB")
