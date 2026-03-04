@@ -16,7 +16,7 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[("resources/assets/splash.png", "resources/assets")],
     hiddenimports=[
         # matplotlib QtAgg バックエンド
         "matplotlib.backends.backend_qtagg",

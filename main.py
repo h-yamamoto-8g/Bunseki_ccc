@@ -18,67 +18,176 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
 """
 from __future__ import annotations
 
+import pathlib
 import platform
 import sys
+import time
 from typing import Optional
 
-import builtins
-_original_import = builtins.__import__
+_SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
-import matplotlib
 
-matplotlib.use("QtAgg")
-if platform.system() == "Darwin":
-    matplotlib.rcParams["font.family"] = "Hiragino Sans"
-else:
-    matplotlib.rcParams["font.family"] = "Yu Gothic"
-matplotlib.rcParams["axes.unicode_minus"] = False
+def _boot_splash() -> None:
+    """QApplication + QSplashScreen を最速で起動し、重いインポートをその間に実行する。"""
+    # ── 最小限のインポートでスプラッシュ表示 ──────────────────────────────
+    from PySide6.QtCore import Qt, QElapsedTimer
+    from PySide6.QtGui import QPixmap
+    from PySide6.QtWidgets import QApplication, QSplashScreen
 
-from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer
-from PySide6.QtGui import QFont, QPixmap
-from PySide6.QtWidgets import (
-    QApplication,
-    QDialog,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QSplashScreen,
-    QStackedWidget,
-    QTextBrowser,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+    app = QApplication(sys.argv)
+    timer = QElapsedTimer()
+    timer.start()
 
-# PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
-builtins.__import__ = _original_import
+    # PyInstaller バンドル時は _MEIPASS、開発時は __file__ 基準
+    base = pathlib.Path(getattr(sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent))
+    splash_path = base / "resources" / "assets" / "splash.png"
+    pixmap = QPixmap(str(splash_path))
+    splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+    splash.show()
+    app.processEvents()
 
-import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
+    # ── スプラッシュ表示中に重いモジュールを読み込む ──────────────────────
+    import builtins
+    _original_import = builtins.__import__
 
-import app.config as _cfg
-from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
-from app.core.loader import DataLoader
-from app.services.task_service import TaskService
-from app.services.data_service import DataService
-from app.services.data_update_service import run_all as _run_data_update
-from app.services.hg_config_service import HgConfigService
-from app.services.job_service import JobService
-from app.services.manual_service import ManualService
-from app.ui.dialogs.logon_dialog import LogonDialog
-from app.ui.dialogs.setup_root_dialog import SetupRootDialog
-from app.ui.pages.data_page import DataPage
-from app.ui.pages.home.wrapper import HomePage
-from app.ui.pages.job_page import JobPage
-from app.ui.pages.library_page import LibraryPage
-from app.ui.pages.log_page import LogPage
-from app.ui.pages.news_page import NewsPage
-from app.services.user_service import UserService
-from app.ui.pages.settings.page import SettingsPage
-from app.ui.pages.tasks.wrapper import TasksPage
-from app.ui.styles import GLOBAL_QSS
-from app.ui.widgets.icon_utils import get_icon
-from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
+    import matplotlib
+    matplotlib.use("QtAgg")
+    if platform.system() == "Darwin":
+        matplotlib.rcParams["font.family"] = "Hiragino Sans"
+    else:
+        matplotlib.rcParams["font.family"] = "Yu Gothic"
+    matplotlib.rcParams["axes.unicode_minus"] = False
+    app.processEvents()
+
+    # PySide6 残りのインポート（shibokensupport の __import__ パッチ復元付き）
+    from PySide6.QtGui import QFont  # noqa: F811
+    app.processEvents()
+
+    # PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
+    builtins.__import__ = _original_import
+
+    import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
+    app.processEvents()
+
+    import app.config  # noqa: F401
+    from app.ui.styles import GLOBAL_QSS
+    app.processEvents()
+
+    # アプリ全体の外観設定
+    if platform.system() == "Darwin":
+        app.setFont(QFont("Hiragino Sans", 12))
+    else:
+        app.setFont(QFont("Yu Gothic UI", 10))
+    app.setStyle("Fusion")
+    app.setStyleSheet(GLOBAL_QSS)
+    app.processEvents()
+
+    # 残りのアプリモジュールを読み込む
+    _import_app_modules()
+    app.processEvents()
+
+    # ── 最低表示時間を保証 ────────────────────────────────────────────────
+    remaining = _SPLASH_MIN_MS - timer.elapsed()
+    if remaining > 0:
+        deadline = timer.elapsed() + remaining
+        while timer.elapsed() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+
+    splash.close()
+    return app
+
+
+def _import_app_modules() -> None:
+    """アプリケーション本体のモジュールを一括インポートする。
+
+    グローバルスコープに注入して MainWindow 等から参照可能にする。
+    """
+    g = globals()
+
+    from PySide6.QtCore import Qt, QSize, QTimer
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import (
+        QApplication,
+        QDialog,
+        QFrame,
+        QHBoxLayout,
+        QLabel,
+        QMainWindow,
+        QStackedWidget,
+        QTextBrowser,
+        QToolButton,
+        QVBoxLayout,
+        QWidget,
+    )
+
+    g["Qt"] = Qt
+    g["QSize"] = QSize
+    g["QTimer"] = QTimer
+    g["QFont"] = QFont
+    g["QApplication"] = QApplication
+    g["QDialog"] = QDialog
+    g["QFrame"] = QFrame
+    g["QHBoxLayout"] = QHBoxLayout
+    g["QLabel"] = QLabel
+    g["QMainWindow"] = QMainWindow
+    g["QStackedWidget"] = QStackedWidget
+    g["QTextBrowser"] = QTextBrowser
+    g["QToolButton"] = QToolButton
+    g["QVBoxLayout"] = QVBoxLayout
+    g["QWidget"] = QWidget
+
+    import app.config as _cfg
+    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
+    from app.core.loader import DataLoader
+    from app.services.task_service import TaskService
+    from app.services.data_service import DataService
+    from app.services.data_update_service import run_all as _run_data_update
+    from app.services.hg_config_service import HgConfigService
+    from app.services.job_service import JobService
+    from app.services.manual_service import ManualService
+    from app.ui.dialogs.logon_dialog import LogonDialog
+    from app.ui.dialogs.setup_root_dialog import SetupRootDialog
+    from app.ui.pages.data_page import DataPage
+    from app.ui.pages.home.wrapper import HomePage
+    from app.ui.pages.job_page import JobPage
+    from app.ui.pages.library_page import LibraryPage
+    from app.ui.pages.log_page import LogPage
+    from app.ui.pages.news_page import NewsPage
+    from app.services.user_service import UserService
+    from app.ui.pages.settings.page import SettingsPage
+    from app.ui.pages.tasks.wrapper import TasksPage
+    from app.ui.widgets.icon_utils import get_icon
+    from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
+
+    g["_cfg"] = _cfg
+    g["APP_VERSION"] = APP_VERSION
+    g["load_data_path"] = load_data_path
+    g["reload_paths"] = reload_paths
+    g["set_current_user"] = set_current_user
+    g["DataLoader"] = DataLoader
+    g["TaskService"] = TaskService
+    g["DataService"] = DataService
+    g["_run_data_update"] = _run_data_update
+    g["HgConfigService"] = HgConfigService
+    g["JobService"] = JobService
+    g["ManualService"] = ManualService
+    g["LogonDialog"] = LogonDialog
+    g["SetupRootDialog"] = SetupRootDialog
+    g["DataPage"] = DataPage
+    g["HomePage"] = HomePage
+    g["JobPage"] = JobPage
+    g["LibraryPage"] = LibraryPage
+    g["LogPage"] = LogPage
+    g["NewsPage"] = NewsPage
+    g["UserService"] = UserService
+    g["SettingsPage"] = SettingsPage
+    g["TasksPage"] = TasksPage
+    g["get_icon"] = get_icon
+    g["PAGE_INFO"] = PAGE_INFO
+    g["Sidebar"] = Sidebar
+    g["StepNavigation"] = StepNavigation
+
 
 # ─── ページインデックス ───────────────────────────────────────────────────────
 _PAGE_IDX: dict[str, int] = {
@@ -616,57 +725,17 @@ def _login(app: QApplication) -> bool:
     return True
 
 
-_SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
-
-
-def _show_splash(app: QApplication) -> QSplashScreen:
-    """QSplashScreen を表示して返す。"""
-    import pathlib
-
-    splash_path = pathlib.Path(__file__).resolve().parent / "resources" / "assets" / "splash.png"
-    pixmap = QPixmap(str(splash_path))
-    splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
-    splash.show()
-    app.processEvents()
-    return splash
-
-
 def main() -> None:
     """アプリケーションを起動する。"""
-    app = QApplication(sys.argv)
-
-    # スプラッシュを最速で表示
-    timer = QElapsedTimer()
-    timer.start()
-    splash = _show_splash(app)
-
-    if platform.system() == "Darwin":
-        app.setFont(QFont("Hiragino Sans", 12))
-    else:
-        app.setFont(QFont("Yu Gothic UI", 10))
-    app.setStyle("Fusion")
-    app.setStyleSheet(GLOBAL_QSS)
+    app = _boot_splash()
 
     if not _ensure_data_path(app):
         sys.exit(0)
-
-    # 最低表示時間を保証
-    remaining = _SPLASH_MIN_MS - timer.elapsed()
-    if remaining > 0:
-        import time
-        # イベントループを回しながら待機
-        deadline = timer.elapsed() + remaining
-        while timer.elapsed() < deadline:
-            app.processEvents()
-            time.sleep(0.01)
-
-    splash.close()
 
     if not _login(app):
         sys.exit(0)
 
     # ログイン後にデータ更新・正規化を実行
-    # 実装完了後は data_update_service.ENABLED = True に切り替える
     _run_data_update()
 
     window = MainWindow()
