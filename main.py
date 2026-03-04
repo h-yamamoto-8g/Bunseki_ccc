@@ -22,15 +22,24 @@ import sys
 
 # ------------------------------------------------------------------
 # PySide6 shibokensupport と six の競合回避
-# PySide6 のインポートフック (shibokensupport) が dateutil 経由で
-# 読み込まれる six._SixMetaPathImporter を inspect しようとして
-# AttributeError が発生する。pandas / matplotlib より先に除去する。
-# （PySide6 の __feature__ 機構は本アプリでは未使用のため影響なし）
+# shibokensupport が builtins.__import__ をラップし、全インポートで
+# feature_imported → _mod_uses_pyside → inspect.getsource() を実行する。
+# six._SixMetaPathImporter はソースファイルを持たないため getsource が
+# AttributeError で落ちる。_mod_uses_pyside を安全にラップして回避する。
 # ------------------------------------------------------------------
-sys.meta_path[:] = [
-    m for m in sys.meta_path
-    if "shibokensupport" not in getattr(type(m), "__module__", "")
-]
+try:
+    from shibokensupport import feature as _sbk_feature
+    _orig_mod_uses_pyside = _sbk_feature._mod_uses_pyside
+
+    def _safe_mod_uses_pyside(mod):
+        try:
+            return _orig_mod_uses_pyside(mod)
+        except (AttributeError, TypeError, OSError):
+            return False
+
+    _sbk_feature._mod_uses_pyside = _safe_mod_uses_pyside
+except (ImportError, AttributeError):
+    pass
 
 import platform
 from typing import Optional
