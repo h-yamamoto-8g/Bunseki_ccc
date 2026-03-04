@@ -47,6 +47,16 @@ from PySide6.QtWidgets import (
 # PySide6のshibokensupportがbuiltins.__import__をパッチしてsixと競合するため復元
 builtins.__import__ = _original_import
 
+# PyInstaller frozen環境ではshibokensupportのfeature検出を無効化する。
+# shibokensupport.feature._mod_uses_pyside が inspect.getsource() を呼び、
+# six._SixMetaPathImporter に _path 属性がなく AttributeError になるのを防止。
+if getattr(sys, "frozen", False):
+    try:
+        import shibokensupport.feature as _sbk_feature
+        _sbk_feature._mod_uses_pyside = lambda *_a, **_kw: False
+    except Exception:
+        pass
+
 # ─── 重いモジュールはスプラッシュ表示後に遅延インポート ─────────────────────
 # matplotlib, app.* モジュールは _load_app_modules() で読み込む
 # TYPE_CHECKING ブロック: 静的解析用（実行時は読み込まれない）
