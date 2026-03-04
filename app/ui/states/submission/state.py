@@ -27,15 +27,14 @@ from app.ui.widgets.icon_utils import get_icon
 
 # ── デザイントークン ──────────────────────────────────────────────────────────
 _BG2 = "#ffffff"
-_BG3 = "#f1f5f9"
-_TEXT = "#1e293b"
-_TEXT2 = "#475569"
-_TEXT3 = "#94a3b8"
+_BG3 = "#f9fafb"
+_TEXT = "#333333"
+_TEXT2 = "#6b7280"
+_TEXT3 = "#9ca3af"
 _ACCENT = "#3b82f6"
-_ACCENT_LIGHT = "#eff6ff"
 _DANGER = "#ef4444"
 _SUCCESS = "#10b981"
-_BORDER = "#e2e8f0"
+_BORDER = "#e5e7eb"
 
 
 class _RemoveButton(QPushButton):
@@ -47,13 +46,13 @@ class _RemoveButton(QPushButton):
         self._icon_hover = icon_hover
         self.setIcon(icon_normal)
         self.setIconSize(QSize(12, 12))
-        self.setFixedSize(18, 18)
+        self.setFixedSize(16, 16)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("削除")
         self.setStyleSheet(
             "QPushButton { background:transparent; border:none;"
             " min-height:0; min-width:0; padding:0; }"
-            "QPushButton:hover { background:rgba(239,68,68,0.10); border-radius:9px; }"
+            "QPushButton:hover { background:rgba(239,68,68,0.12); border-radius:4px; }"
         )
 
     def enterEvent(self, event):
@@ -113,109 +112,73 @@ class SubmissionUI(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         content = QWidget()
-        main_hl = QHBoxLayout(content)
-        main_hl.setContentsMargins(0, 0, 0, 0)
-        main_hl.setSpacing(16)
+        vl = QVBoxLayout(content)
+        vl.setContentsMargins(0, 0, 0, 0)
+        vl.setSpacing(16)
 
-        # ── 左カラム: コメント＋添付 ──
-        left_col = QWidget()
-        left_vl = QVBoxLayout(left_col)
-        left_vl.setContentsMargins(0, 0, 0, 0)
-        left_vl.setSpacing(14)
-        left_vl.addWidget(self._build_comment_section())
-        left_vl.addWidget(self._build_attachment_section())
-        left_vl.addStretch()
-        main_hl.addWidget(left_col, 1)
-
-        # ── 右カラム: 回覧フロー ──
-        right_col = QWidget()
-        right_vl = QVBoxLayout(right_col)
-        right_vl.setContentsMargins(0, 0, 0, 0)
-        right_vl.setSpacing(0)
-        right_vl.addWidget(self._build_flow_section())
-        right_vl.addStretch()
-        right_col.setFixedWidth(280)
-        main_hl.addWidget(right_col)
+        vl.addWidget(self._build_flow_section())
+        vl.addWidget(self._build_comment_section())
+        vl.addWidget(self._build_attachment_section())
+        vl.addStretch()
 
         scroll.setWidget(content)
         root.addWidget(scroll, 1)
         root.addSpacing(12)
         root.addWidget(self._build_button_bar())
 
-    # ── フローセクション (右カラム — 縦型ステッパー) ─────────────────────
+    # ── フローセクション ──────────────────────────────────────────────────
 
     def _build_flow_section(self) -> QFrame:
         frame = QFrame()
         frame.setStyleSheet(
-            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:10px; }}"
+            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
         )
         vl = QVBoxLayout(frame)
-        vl.setContentsMargins(16, 14, 16, 14)
-        vl.setSpacing(10)
+        vl.setContentsMargins(20, 16, 20, 16)
+        vl.setSpacing(16)
 
         lbl = QLabel("回覧フロー")
-        lbl.setFixedHeight(16)
-        lbl.setStyleSheet(
-            f"font-size:11px; font-weight:700; color:{_TEXT3}; border:none;"
-            " letter-spacing:1px; text-transform:uppercase;"
-        )
+        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         vl.addWidget(lbl)
 
-        # フロー図 — 縦型ステッパー
+        # フロー図
         self._flow_container = QWidget()
         self._flow_container.setStyleSheet("border:none;")
-        self._flow_layout = QVBoxLayout(self._flow_container)
-        self._flow_layout.setContentsMargins(4, 4, 4, 4)
-        self._flow_layout.setSpacing(0)
+        self._flow_layout = QHBoxLayout(self._flow_container)
+        self._flow_layout.setContentsMargins(8, 12, 8, 12)
+        self._flow_layout.setSpacing(6)
         self._flow_layout.addStretch()
         vl.addWidget(self._flow_container)
 
-        # ── 確認者追加行 ──
+        # 確認者追加行
         self._add_row = QWidget()
         self._add_row.setStyleSheet("border:none;")
-        add_vl = QVBoxLayout(self._add_row)
-        add_vl.setContentsMargins(0, 6, 0, 0)
-        add_vl.setSpacing(6)
+        add_hl = QHBoxLayout(self._add_row)
+        add_hl.setContentsMargins(0, 4, 0, 0)
+        add_hl.setSpacing(8)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"background:{_BORDER}; border:none; max-height:1px;")
-        add_vl.addWidget(sep)
-
-        add_lbl = QLabel("確認者を追加")
-        add_lbl.setStyleSheet(
-            f"font-size:11px; font-weight:600; color:{_TEXT3}; border:none;"
-        )
-        add_vl.addWidget(add_lbl)
-
-        add_hl = QHBoxLayout()
-        add_hl.setSpacing(6)
+        add_lbl = QLabel("確認者を追加:")
+        add_lbl.setStyleSheet(f"font-size:12px; font-weight:600; color:{_TEXT2};")
+        add_hl.addWidget(add_lbl)
 
         self._reviewer_combo = QComboBox()
-        self._reviewer_combo.setMinimumWidth(140)
-        self._reviewer_combo.setStyleSheet(
-            f"QComboBox {{ border:1px solid {_BORDER}; border-radius:6px;"
-            f" padding:4px 8px; font-size:12px; color:{_TEXT}; background:{_BG2}; }}"
-            f"QComboBox:focus {{ border-color:{_ACCENT}; }}"
-            f"QComboBox::drop-down {{ border:none; }}"
-        )
-        add_hl.addWidget(self._reviewer_combo, 1)
+        self._reviewer_combo.setMinimumWidth(180)
+        add_hl.addWidget(self._reviewer_combo)
 
         self._btn_add = QPushButton()
-        self._btn_add.setFixedSize(30, 30)
+        self._btn_add.setFixedSize(32, 32)
         self._btn_add.setIcon(get_icon(":/icons/add.svg", "#ffffff", 14))
         self._btn_add.setIconSize(QSize(14, 14))
         self._btn_add.setText("")
         self._btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_add.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:15px; min-height:0; }}"
+            f" border-radius:6px; font-size:16px; font-weight:700; min-height:0; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self._btn_add.clicked.connect(self._on_add_reviewer)
         add_hl.addWidget(self._btn_add)
-
-        add_vl.addLayout(add_hl)
+        add_hl.addStretch()
         vl.addWidget(self._add_row)
 
         return frame
@@ -225,18 +188,14 @@ class SubmissionUI(QWidget):
     def _build_comment_section(self) -> QFrame:
         frame = QFrame()
         frame.setStyleSheet(
-            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:10px; }}"
+            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
         )
         vl = QVBoxLayout(frame)
-        vl.setContentsMargins(16, 10, 16, 12)
-        vl.setSpacing(6)
+        vl.setContentsMargins(16, 14, 16, 14)
+        vl.setSpacing(8)
 
         lbl = QLabel("コメント")
-        lbl.setFixedHeight(16)
-        lbl.setStyleSheet(
-            f"font-size:11px; font-weight:700; color:{_TEXT3}; border:none;"
-            " letter-spacing:1px;"
-        )
+        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         vl.addWidget(lbl)
 
         self._comment_container = QWidget()
@@ -249,11 +208,11 @@ class SubmissionUI(QWidget):
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
         self._comment_edit = QPlainTextEdit()
-        self._comment_edit.setPlaceholderText("コメントを入力…")
-        self._comment_edit.setFixedHeight(64)
+        self._comment_edit.setPlaceholderText("コメントを入力して追加")
+        self._comment_edit.setFixedHeight(72)
         self._comment_edit.setStyleSheet(
-            f"QPlainTextEdit {{ border:1px solid {_BORDER}; border-radius:8px;"
-            f" padding:8px 10px; font-size:13px; color:{_TEXT}; background:{_BG2}; }}"
+            f"QPlainTextEdit {{ border:1px solid {_BORDER}; border-radius:6px;"
+            f" padding:8px; font-size:13px; color:{_TEXT}; background:{_BG2}; }}"
             f"QPlainTextEdit:focus {{ border-color:{_ACCENT}; }}"
         )
         input_row.addWidget(self._comment_edit, 1)
@@ -265,8 +224,7 @@ class SubmissionUI(QWidget):
         self._btn_comment_add.setText("")
         self._btn_comment_add.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_comment_add.setStyleSheet(
-            f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:16px; min-height:0; }}"
+            f"QPushButton {{ background:{_ACCENT}; color:white; border:none; border-radius:6px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self._btn_comment_add.clicked.connect(self._on_add_comment)
@@ -280,29 +238,25 @@ class SubmissionUI(QWidget):
     def _build_attachment_section(self) -> QFrame:
         frame = QFrame()
         frame.setStyleSheet(
-            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:10px; }}"
+            f"QFrame {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
         )
         vl = QVBoxLayout(frame)
-        vl.setContentsMargins(16, 10, 16, 12)
-        vl.setSpacing(6)
+        vl.setContentsMargins(16, 14, 16, 14)
+        vl.setSpacing(8)
 
         header = QHBoxLayout()
         header.setSpacing(8)
         lbl = QLabel("添付資料")
-        lbl.setFixedHeight(16)
-        lbl.setStyleSheet(
-            f"font-size:11px; font-weight:700; color:{_TEXT3}; border:none;"
-            " letter-spacing:1px;"
-        )
+        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         header.addWidget(lbl)
         header.addStretch()
         self._btn_attach = QPushButton("ファイルを追加")
-        self._btn_attach.setFixedHeight(26)
+        self._btn_attach.setFixedHeight(28)
         self._btn_attach.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_attach.setStyleSheet(
-            f"QPushButton {{ background:{_ACCENT_LIGHT}; color:{_ACCENT}; border:1px solid {_BORDER};"
-            f" padding:3px 12px; border-radius:6px; font-size:11px; font-weight:600; }}"
-            f"QPushButton:hover {{ background:#dbeafe; border-color:{_ACCENT}; }}"
+            f"QPushButton {{ background:{_BG3}; color:{_ACCENT}; border:1px solid {_BORDER};"
+            f" padding:4px 12px; border-radius:4px; font-size:12px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#eff6ff; border-color:{_ACCENT}; }}"
         )
         self._btn_attach.clicked.connect(self._on_add_attachment)
         header.addWidget(self._btn_attach)
@@ -313,7 +267,7 @@ class SubmissionUI(QWidget):
         self._att_container.setStyleSheet("border:none;")
         self._att_layout = QVBoxLayout(self._att_container)
         self._att_layout.setContentsMargins(0, 0, 0, 0)
-        self._att_layout.setSpacing(4)
+        self._att_layout.setSpacing(6)
         vl.addWidget(self._att_container)
 
         empty = QLabel("添付ファイルはありません")
@@ -332,22 +286,22 @@ class SubmissionUI(QWidget):
 
         _secondary = (
             f"QPushButton {{ background:{_BG3}; color:{_TEXT}; border:1px solid {_BORDER};"
-            f" padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; }}"
-            f"QPushButton:hover {{ background:#e2e8f0; }}"
+            f" padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#f3f4f6; }}"
         )
         _primary = (
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; }}"
+            f" padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         _danger = (
             f"QPushButton {{ background:{_BG2}; color:{_DANGER}; border:1px solid {_DANGER};"
-            f" padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; }}"
+            f" padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; }}"
             f"QPushButton:hover {{ background:#fef2f2; }}"
         )
         _success = (
             f"QPushButton {{ background:{_SUCCESS}; color:white; border:none;"
-            f" padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; }}"
+            f" padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; }}"
             f"QPushButton:hover {{ background:#059669; }}"
         )
 
@@ -504,18 +458,20 @@ class SubmissionUI(QWidget):
                 self.apply_mode(self._mode, self._current_reviewer_index)
 
     def _rebuild_flow(self, current_idx: int, highlight: bool) -> None:
-        """フロー図（縦型ステッパー: 起票者 → 確認者1 → ...）を再構築する。"""
+        """フロー図（起票者 → 確認者1 → ...）を再構築する。"""
         while self._flow_layout.count():
             item = self._flow_layout.takeAt(0)
             w = item.widget()
             if w:
                 w.deleteLater()
 
+        self._flow_layout.addStretch()
+
         # 起票者（常に完了スタイル）
         self._flow_layout.addWidget(self._make_node(self._creator, "起票者", state="done"))
 
         for i, name in enumerate(self._reviewers):
-            # コネクタ線（縦）
+            # コネクタ線
             passed = highlight and i <= current_idx
             self._flow_layout.addWidget(self._make_connector(passed))
 
@@ -552,69 +508,73 @@ class SubmissionUI(QWidget):
         state: str,
         removable_idx: int | None = None,
     ) -> QWidget:
-        """縦型ステッパー用のフローノードを生成する。
+        """フローノードを生成する。
 
         state: "active" | "done" | "pending"
-        横配置: [avatar] [name + role] [remove_btn?]
         """
         w = QWidget()
         w.setStyleSheet("border:none;")
-        hl = QHBoxLayout(w)
-        hl.setContentsMargins(0, 3, 0, 3)
-        hl.setSpacing(10)
+        w.setFixedWidth(92)
+        vl = QVBoxLayout(w)
+        vl.setContentsMargins(6, 0, 6, 0)
+        vl.setSpacing(4)
+        vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # ── アバター ──
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(0)
+        top_row.addStretch()
+        if removable_idx is not None:
+            rm = _RemoveButton(get_icon(":/icons/cancel.svg", "#cbd5e1", 12),
+                               get_icon(":/icons/cancel.svg", "#ef4444", 12))
+            rm.clicked.connect(lambda _=False, j=removable_idx: self._remove_reviewer(j))
+            top_row.addWidget(rm)
+        else:
+            spacer = QLabel()
+            spacer.setFixedSize(16, 16)
+            spacer.setStyleSheet("border:none; background:transparent;")
+            top_row.addWidget(spacer)
+        vl.addLayout(top_row)
+
         initial = name[0] if name else "?"
         avatar = QLabel(initial)
-        avatar.setFixedSize(38, 38)
+        avatar.setFixedSize(46, 46)
         avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if state == "active":
             avatar.setStyleSheet(
                 f"background:{_ACCENT}; color:white;"
-                f" border:2px solid {_ACCENT}; border-radius:19px;"
-                " font-size:15px; font-weight:bold;"
+                f" border:2px solid {_ACCENT}; border-radius:23px;"
+                " font-size:17px; font-weight:bold;"
             )
         elif state == "done":
             avatar.setStyleSheet(
-                "background:#dbeafe; color:#1d4ed8;"
-                " border:2px solid #93c5fd; border-radius:19px;"
-                " font-size:15px; font-weight:bold;"
+                "background:#e0f2fe; color:#0369a1;"
+                " border:2px solid #7dd3fc; border-radius:23px;"
+                " font-size:17px; font-weight:bold;"
             )
         else:
             avatar.setStyleSheet(
-                f"background:{_BG3}; color:{_TEXT3};"
-                f" border:2px solid {_BORDER}; border-radius:19px;"
-                " font-size:15px; font-weight:bold;"
+                f"background:{_BG3}; color:#94a3b8;"
+                f" border:2px solid {_BORDER}; border-radius:23px;"
+                " font-size:17px; font-weight:bold;"
             )
-        hl.addWidget(avatar)
-
-        # ── 名前・役割 ──
-        text_vl = QVBoxLayout()
-        text_vl.setContentsMargins(0, 0, 0, 0)
-        text_vl.setSpacing(1)
+        vl.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         nm = QLabel(name)
+        nm.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nm.setMaximumWidth(84)
+        nm.setWordWrap(False)
         if state == "active":
-            nm.setStyleSheet(f"font-size:13px; color:{_TEXT}; font-weight:600; border:none;")
+            nm.setStyleSheet(f"font-size:11px; color:{_TEXT}; font-weight:600;")
         else:
-            nm.setStyleSheet(f"font-size:13px; color:{_TEXT2}; border:none;")
-        text_vl.addWidget(nm)
+            nm.setStyleSheet("font-size:11px; color:#64748b;")
+        vl.addWidget(nm, alignment=Qt.AlignmentFlag.AlignCenter)
 
         rl = QLabel(role)
-        rl.setStyleSheet(f"font-size:10px; color:{_TEXT3}; border:none;")
-        text_vl.addWidget(rl)
-
-        hl.addLayout(text_vl, 1)
-
-        # ── 削除ボタン ──
-        if removable_idx is not None:
-            rm = _RemoveButton(
-                get_icon(":/icons/cancel.svg", "#cbd5e1", 12),
-                get_icon(":/icons/cancel.svg", "#ef4444", 12),
-            )
-            rm.clicked.connect(lambda _=False, j=removable_idx: self._remove_reviewer(j))
-            hl.addWidget(rm, alignment=Qt.AlignmentFlag.AlignVCenter)
+        rl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        rl.setStyleSheet("font-size:10px; color:#94a3b8;")
+        vl.addWidget(rl, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return w
 
@@ -643,19 +603,18 @@ class SubmissionUI(QWidget):
     def _make_comment_card(self, comment: dict) -> QFrame:
         card = QFrame()
         card.setStyleSheet(
-            f"QFrame {{ background:{_BG3}; border:none;"
-            f" border-left:3px solid {_ACCENT}; border-radius:4px; }}"
+            f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
         )
         vl = QVBoxLayout(card)
-        vl.setContentsMargins(10, 6, 8, 6)
-        vl.setSpacing(3)
+        vl.setContentsMargins(10, 8, 8, 8)
+        vl.setSpacing(6)
 
         top = QHBoxLayout()
         top.setContentsMargins(0, 0, 0, 0)
         top.setSpacing(6)
         author = str(comment.get("author", ""))
         top_lbl = QLabel(author or "不明ユーザー")
-        top_lbl.setStyleSheet(f"font-size:12px; color:{_ACCENT}; border:none; font-weight:600;")
+        top_lbl.setStyleSheet(f"font-size:12px; color:{_TEXT2}; border:none; font-weight:600;")
         top.addWidget(top_lbl)
         top.addStretch()
 
@@ -668,7 +627,7 @@ class SubmissionUI(QWidget):
             del_btn = QPushButton()
             del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
             del_btn.setIconSize(QSize(14, 14))
-            del_btn.setFixedSize(20, 20)
+            del_btn.setFixedSize(22, 22)
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             del_btn.setStyleSheet(
                 "QPushButton { background:transparent; border:none; }"
@@ -690,23 +649,23 @@ class SubmissionUI(QWidget):
 
     @staticmethod
     def _make_connector(passed: bool) -> QWidget:
-        """ノード間の縦コネクタ線を生成する。"""
+        """ノード間のコネクタ（線 + 矢印）を生成する。"""
         w = QWidget()
-        w.setFixedHeight(20)
+        w.setFixedWidth(26)
+        w.setFixedHeight(46)
         w.setStyleSheet("border:none;")
-        hl = QHBoxLayout(w)
-        hl.setContentsMargins(0, 0, 0, 0)
-        hl.setSpacing(0)
+        vl = QVBoxLayout(w)
+        vl.setContentsMargins(2, 0, 2, 0)
+        vl.setSpacing(0)
+        vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        color = "#93c5fd" if passed else _BORDER
-        line = QWidget()
-        line.setFixedWidth(2)
-        line.setStyleSheet(f"background:{color}; border:none; border-radius:1px;")
-
-        # アバター中央 (38/2 = 19px) に合わせてオフセット
-        hl.addSpacing(18)
-        hl.addWidget(line)
-        hl.addStretch()
+        color = "#60a5fa" if passed else "#cbd5e1"
+        arrow = QLabel("→")
+        arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        arrow.setStyleSheet(
+            f"color:{color}; font-size:16px; font-weight:700; border:none; background:transparent;"
+        )
+        vl.addWidget(arrow)
 
         return w
 
@@ -753,7 +712,7 @@ class SubmissionUI(QWidget):
             f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
         )
         hl = QHBoxLayout(card)
-        hl.setContentsMargins(10, 5, 6, 5)
+        hl.setContentsMargins(10, 6, 6, 6)
         hl.setSpacing(8)
 
         icon = QLabel()
@@ -777,7 +736,7 @@ class SubmissionUI(QWidget):
             del_btn = QPushButton()
             del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
             del_btn.setIconSize(QSize(14, 14))
-            del_btn.setFixedSize(20, 20)
+            del_btn.setFixedSize(22, 22)
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             del_btn.setToolTip("削除")
             del_btn.setStyleSheet(
