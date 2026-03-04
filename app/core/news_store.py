@@ -16,7 +16,10 @@ def _load() -> list[dict]:
     if not _news_path().exists():
         return []
     try:
-        return json.loads(_news_path().read_text(encoding="utf-8"))
+        data = json.loads(_news_path().read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return []
+        return [x for x in data if isinstance(x, dict)]
     except Exception:
         return []
 
