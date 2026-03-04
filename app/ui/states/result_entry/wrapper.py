@@ -10,6 +10,7 @@ from PySide6.QtCore import Signal
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.data_update_service import run_all as _run_data_update
+from app.ui.dialogs.loading_dialog import LoadingDialog
 from .state import ResultEntryUI
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,4 +78,7 @@ class ResultEntryState(QWidget):
 
     def _on_data_update(self) -> None:
         """「データ更新」ボタン押下時: データ更新・正規化を実行する。"""
-        _run_data_update()
+        dlg = LoadingDialog(_run_data_update, parent=self)
+        dlg.exec()
+        if dlg.error():
+            QMessageBox.warning(self, "データ更新エラー", dlg.error())

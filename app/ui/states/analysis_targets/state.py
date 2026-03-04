@@ -46,6 +46,10 @@ class AnalysisTargetsUI(QWidget):
         self._form = Ui_PageStateTarget()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.verticalLayout.setSpacing(8)
+        self._form.verticalLayout.setContentsMargins(8, 8, 8, 8)
+
         # ── 生成ヘッダーを除去 (タスク情報は共通ヘッダーで表示) ──────────
         self._form.verticalLayout.removeWidget(self._form.widget_header)
         self._form.widget_header.setVisible(False)

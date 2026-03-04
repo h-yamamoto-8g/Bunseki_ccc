@@ -70,7 +70,7 @@ _COLUMNS = [
     ("試験項目",       "valid_test_display_name"),
     ("データ",         "test_raw_data"),
     ("単位",           "test_unit_name"),
-    ("判定",           "test_judgment"),
+    ("判定",           "test_grade_code"),
 ]
 
 
@@ -374,9 +374,9 @@ class DataPage(QWidget):
                 text = self._format_cell(col_key, val)
                 item = QTableWidgetItem(text)
 
-                if col_key == "test_judgment":
+                if col_key == "test_grade_code":
                     judgment_str = str(val) if val is not None else ""
-                    if judgment_str not in ("NN", "", "nan", "None"):
+                    if judgment_str not in ("NN", "--", "", "nan", "None"):
                         item.setBackground(QColor("#fef2f2"))
                         item.setForeground(QColor(_DANGER))
                         font = item.font()

@@ -89,7 +89,7 @@ class _FilterTabs(QFrame):
             btn = QPushButton(tab)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._inactive_style())
-            btn.clicked.connect(lambda _, t=tab: self._select(t))
+            btn.clicked.connect(lambda _=False, t=tab: self._select(t))
             layout.addWidget(btn)
             self._btns[tab] = btn
         if tabs:
@@ -99,7 +99,8 @@ class _FilterTabs(QFrame):
         return (
             f"QPushButton {{ background:transparent; color:{_TEXT2};"
             f" border:none; padding:4px 12px; border-radius:5px;"
-            f" font-size:12px; font-weight:500; }}"
+            f" font-size:12px; font-weight:500;"
+            f" min-height:0; min-width:0; max-height:24px; }}"
             f"QPushButton:hover {{ background:{_BG4}; color:{_TEXT}; }}"
         )
 
@@ -107,7 +108,8 @@ class _FilterTabs(QFrame):
         return (
             f"QPushButton {{ background:{_BG2}; color:{_ACCENT};"
             f" border:none; padding:4px 12px; border-radius:5px;"
-            f" font-size:12px; font-weight:600; }}"
+            f" font-size:12px; font-weight:600;"
+            f" min-height:0; min-width:0; max-height:24px; }}"
         )
 
     def _select(self, tab: str):
@@ -333,9 +335,10 @@ class TasksPageUI(QWidget):
         _f.verticalLayout.setContentsMargins(0, 0, 0, 0)
         _f.verticalLayout.setSpacing(0)
 
-        # widget_filter スタイル
+        # widget_filter スタイル (セレクタ付きで子孫への伝播を防止)
+        _f.widget_filter.setObjectName("widget_filter")
         _f.widget_filter.setStyleSheet(
-            f"background:{_BG}; border-bottom:1px solid {_BORDER};"
+            f"QWidget#widget_filter {{ background:{_BG}; border-bottom:1px solid {_BORDER}; }}"
         )
         _f.horizontalLayout_2.setContentsMargins(20, 6, 20, 6)
 
@@ -358,8 +361,9 @@ class TasksPageUI(QWidget):
         self.count_lbl.setStyleSheet(f"color:{_TEXT3}; font-size:12px;")
         _f.horizontalLayout_2.addWidget(self.count_lbl)
 
-        # widget_table スタイル
-        _f.widget_table.setStyleSheet(f"background:{_BG};")
+        # widget_table スタイル (セレクタ付き)
+        _f.widget_table.setObjectName("widget_table")
+        _f.widget_table.setStyleSheet(f"QWidget#widget_table {{ background:{_BG}; }}")
         _f.verticalLayout_2.setContentsMargins(20, 12, 20, 12)
 
         # tableView → QTableWidget に置換
@@ -373,18 +377,22 @@ class TasksPageUI(QWidget):
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.task_table.setAlternatingRowColors(True)
         hh = self.task_table.horizontalHeader()
-        hh.setMinimumSectionSize(60)
+        hh.setMinimumSectionSize(40)
         for i, mode in enumerate([
-            QHeaderView.ResizeMode.ResizeToContents,  # 作成日時
+            QHeaderView.ResizeMode.Fixed,             # 作成日時
             QHeaderView.ResizeMode.Stretch,           # ホルダグループ
-            QHeaderView.ResizeMode.ResizeToContents,  # JOB番号
-            QHeaderView.ResizeMode.ResizeToContents,  # ステータス
-            QHeaderView.ResizeMode.ResizeToContents,  # 担当者
-            QHeaderView.ResizeMode.ResizeToContents,  # 最終更新
+            QHeaderView.ResizeMode.Stretch,           # JOB番号
+            QHeaderView.ResizeMode.Fixed,             # ステータス
+            QHeaderView.ResizeMode.Fixed,             # 担当者
+            QHeaderView.ResizeMode.Fixed,             # 最終更新
             QHeaderView.ResizeMode.Fixed,             # 操作
         ]):
             hh.setSectionResizeMode(i, mode)
-        self.task_table.setColumnWidth(6, 88)
+        self.task_table.setColumnWidth(0, 145)   # 作成日時: "2026-02-26 07:52"
+        self.task_table.setColumnWidth(3, 110)   # ステータス: icon + label
+        self.task_table.setColumnWidth(4, 100)   # 担当者
+        self.task_table.setColumnWidth(5, 145)   # 最終更新
+        self.task_table.setColumnWidth(6, 88)    # 操作ボタン
         vh = self.task_table.verticalHeader()
         vh.setVisible(False)
         vh.setDefaultSectionSize(36)   # 行の高さを確保
@@ -403,6 +411,7 @@ class TasksPageUI(QWidget):
     # ── Public API ────────────────────────────────────────────────────────────
 
     def fill_table(self, tasks: list[dict]) -> None:
+        self._tasks_by_id: dict[str, dict] = {t["task_id"]: t for t in tasks}
         self.task_table.setRowCount(0)
         icon_open = QIcon(":/icons/step.svg")
         icon_more = QIcon(":/icons/more.svg")
@@ -492,10 +501,20 @@ class TasksPageUI(QWidget):
         return _TakeoverDialog(task, parent=self)
 
     def _show_more_menu(self, btn: QPushButton, task_id: str) -> None:
+        task = getattr(self, "_tasks_by_id", {}).get(task_id, {})
+        is_mine = task.get("assigned_to", "") == _cfg.CURRENT_USER
+
         menu = QMenu(self)
-        del_action = menu.addAction(QIcon(":/icons/delete.svg"), "削除")
+        if is_mine:
+            del_action = menu.addAction(QIcon(":/icons/delete.svg"), "削除")
+        else:
+            del_action = None
+
+        if menu.isEmpty():
+            return
+
         action = menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
-        if action == del_action:
+        if action and action == del_action:
             reply = QMessageBox.question(
                 self, "削除の確認",
                 "このタスクを削除しますか？\nこの操作は元に戻せません。",

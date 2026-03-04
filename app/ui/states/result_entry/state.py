@@ -28,6 +28,10 @@ class ResultEntryUI(QWidget):
         self._form = Ui_PageStateEntry()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.verticalLayout_2.setSpacing(8)
+        self._form.verticalLayout_2.setContentsMargins(8, 8, 8, 8)
+
         # ── データ更新ボタンをアクションバー左端に追加 ──────────────────────
         self._btn_data_update = QPushButton("データ更新")
         self._btn_data_update.setIcon(get_icon(":/icons/data.svg", "#3b82f6"))

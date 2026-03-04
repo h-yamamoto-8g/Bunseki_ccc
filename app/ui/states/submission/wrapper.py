@@ -9,12 +9,14 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox, QApplication
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox
 from PySide6.QtCore import Signal
 
 import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.circulation_mail_service import CirculationMailService
+from app.ui.dialogs.loading_dialog import LoadingDialog
 from .state import SubmissionUI
 
 
@@ -38,6 +40,7 @@ class SubmissionState(QWidget):
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._mail_service = CirculationMailService(data_service)
         self._task: dict = {}
 
         self._ui = SubmissionUI()
@@ -145,10 +148,9 @@ class SubmissionState(QWidget):
 
         stored_paths = self._copy_attachments(task_id, attachments)
 
-        self.loading_changed.emit(True, "異常データを集計しています...")
-        QApplication.processEvents()
-        self._record_sigma_anomalies(task_id)
-        self.loading_changed.emit(False, "")
+        LoadingDialog(
+            lambda: self._record_sigma_anomalies(task_id), parent=self
+        ).exec()
 
         submission_data = (
             self._task.get("state_data", {}).get("submission", {})
@@ -164,17 +166,7 @@ class SubmissionState(QWidget):
 
         self._ui.apply_mode("sent_analyst", current_reviewer_index=0)
 
-        cc = self._collect_cc_recipients(exclude_to={reviewers[0]})
-        sent_via_outlook = self._open_outlook_email(
-            reviewers[0], base_comment, cc_emails=cc
-        )
-        if not sent_via_outlook:
-            QMessageBox.information(
-                self,
-                "送信完了",
-                f"確認者「{reviewers[0]}」に回覧しました。\n"
-                "（Outlook はWindows環境でのみ起動します）",
-            )
+        self._send_circulation_mail(reviewers[0], base_comment)
 
     def _on_forward(self) -> None:
         """確認者 → 次の確認者へ送信。"""
@@ -203,17 +195,7 @@ class SubmissionState(QWidget):
         mode, idx = self._determine_mode(self._task, readonly=False)
         self._ui.apply_mode(mode, current_reviewer_index=idx)
 
-        cc = self._collect_cc_recipients(exclude_to={next_reviewer})
-        sent_via_outlook = self._open_outlook_email(
-            next_reviewer, "", is_forward=True, cc_emails=cc
-        )
-        if not sent_via_outlook:
-            QMessageBox.information(
-                self,
-                "回覧",
-                f"次の確認者「{next_reviewer}」に回覧しました。\n"
-                "（Outlook はWindows環境でのみ起動します）",
-            )
+        self._send_circulation_mail(next_reviewer, "", is_forward=True)
 
     def _on_return(self) -> None:
         """確認者 → 分析者へ差し戻し。"""
@@ -297,19 +279,32 @@ class SubmissionState(QWidget):
         if not to_emails:
             return
 
-        # 宛先の代表名（メール本文の宛名用）
-        recipient_label = "関係者各位"
-
-        sent = self._open_outlook_email(
-            recipient_label, "", is_complete=True, to_emails=to_emails
+        result: dict = {}
+        LoadingDialog(
+            lambda: result.update(
+                anomalies=self._mail_service.detect_anomalies(task)
+            ),
+            parent=self,
+        ).exec()
+        anomalies = result.get("anomalies", [])
+        subject = self._mail_service.build_subject(
+            task, anomalies, is_complete=True
         )
-        if not sent:
-            QMessageBox.information(
-                self,
-                "完了",
-                "タスクを完了しました。\n"
-                "（Outlook はWindows環境でのみ起動します）",
-            )
+        html = self._mail_service.build_html(
+            task, "", anomalies, is_complete=True
+        )
+
+        # To: 分析者のみ、CC: 残りの確認者 + 異常メール受信者
+        creator_email = self._data_service.get_user_email(creator)
+        cc_emails = [e for e in to_emails if e != creator_email]
+        to_str, cc_str = self._mail_service.collect_to_cc(
+            task, creator, bool(anomalies),
+            to_emails_override=[creator_email] if creator_email else [],
+            extra_cc=cc_emails,
+        )
+        ok, err = self._mail_service.open_outlook(to_str, cc_str, subject, html)
+        if not ok:
+            QMessageBox.warning(self, "メール作成", err)
 
     def _on_add_comment(self, text: str) -> None:
         task_id = self._task.get("task_id", "")
@@ -422,241 +417,33 @@ class SubmissionState(QWidget):
         if records:
             self._data_service.save_anomaly_records(records)
 
-    # ── Outlook メール ────────────────────────────────────────────────────────
+    # ── 回覧メール ─────────────────────────────────────────────────────────
 
-    def _collect_cc_recipients(self, exclude_to: set[str] | None = None) -> list[str]:
-        """過去の分析者・確認者のメールアドレスを収集する（自分は除外）。"""
-        task = self._task
-        sd = task.get("state_data", {}).get("submission", {})
-        reviewers = sd.get("reviewers", [])
-        current_idx = sd.get("current_reviewer_index", 0)
-
-        names: set[str] = set()
-        # 分析者（起票者）
-        creator = task.get("created_by", "")
-        if creator:
-            names.add(creator)
-        # レビュー済み確認者（current_reviewer_index より前）
-        for name in reviewers[:current_idx]:
-            if name:
-                names.add(name)
-
-        # 自分を除外
-        names.discard(_cfg.CURRENT_USER)
-        # To に含まれるアドレスの名前を除外（重複防止）
-        if exclude_to:
-            names -= exclude_to
-
-        emails: list[str] = []
-        for name in names:
-            email = self._data_service.get_user_email(name)
-            if email:
-                emails.append(email)
-        return emails
-
-    def _open_outlook_email(
+    def _send_circulation_mail(
         self,
-        reviewer: str,
+        to_name: str,
         comment: str,
+        *,
         is_forward: bool = False,
-        is_complete: bool = False,
-        to_emails: list[str] | None = None,
-        cc_emails: list[str] | None = None,
-    ) -> bool:
-        """Outlook でメールを作成して表示する（Windows / pywin32 のみ）。"""
-        try:
-            import win32com.client as win32  # type: ignore
-        except ImportError:
-            return False
-
+    ) -> None:
+        """回覧 / 転送メールを作成して Outlook で表示する。"""
         task = self._task
-        task_name = task.get("task_name", "")
+        ms = self._mail_service
 
-        anomaly_rows = self._get_anomaly_rows_html()
-        has_anomaly = bool(anomaly_rows)
+        result: dict = {}
+        LoadingDialog(
+            lambda: result.update(anomalies=ms.detect_anomalies(task)),
+            parent=self,
+        ).exec()
+        anomalies = result.get("anomalies", [])
+        has_anomaly = bool(anomalies)
 
-        # 件名の構築
-        subject_prefix = "[Bunseki] "
-        if has_anomaly:
-            subject_prefix += "⚠ 異常データあり - "
-        if is_complete:
-            subject = f"{subject_prefix}タスク完了通知 - {task_name}"
-        else:
-            subject = f"{subject_prefix}分析結果の回覧 - {task_name}"
-
-        html_body = self._build_email_html(
-            task, reviewer, comment, anomaly_rows, is_forward, is_complete
+        to_str, cc_str = ms.collect_to_cc(task, to_name, has_anomaly)
+        subject = ms.build_subject(task, anomalies)
+        html = ms.build_html(
+            task, comment, anomalies, is_forward=is_forward
         )
 
-        # 異常がある場合、異常メール受信者を CC に追加
-        all_cc = list(cc_emails or [])
-        if has_anomaly:
-            anomaly_recipients = self._data_service.get_anomaly_mail_recipients()
-            # 既存の To / CC と重複しないアドレスのみ追加
-            existing = set(all_cc)
-            if to_emails:
-                existing.update(to_emails)
-            for addr in anomaly_recipients:
-                if addr not in existing:
-                    all_cc.append(addr)
-
-        # To アドレスの構築
-        if to_emails:
-            to_str = "; ".join(to_emails)
-        else:
-            reviewer_email = self._data_service.get_user_email(reviewer)
-            to_str = reviewer_email or reviewer
-
-        try:
-            outlook = win32.Dispatch("Outlook.Application")
-            mail = outlook.CreateItem(0)
-            mail.To = to_str
-            if all_cc:
-                mail.CC = "; ".join(all_cc)
-            mail.Subject = subject
-            mail.HTMLBody = html_body
-            mail.Display()
-            return True
-        except Exception as e:
-            QMessageBox.warning(
-                self, "Outlook エラー", f"メール作成に失敗しました:\n{e}"
-            )
-            return False
-
-    def _get_anomaly_rows_html(self) -> str:
-        """回覧対象タスクの2σ超過行をHTMLテーブル行として返す。"""
-        task = self._task
-        hg_code = task.get("holder_group_code", "")
-        jobs = task.get("job_numbers", [])
-        vsset_codes = (
-            task.get("state_data", {})
-            .get("analysis_targets", {})
-            .get("valid_sample_set_codes", [])
-        )
-        if not hg_code or not jobs:
-            return ""
-        df = self._data_service.get_result_data(hg_code, jobs, vsset_codes)
-        if df.empty:
-            return ""
-
-        rows_html = ""
-        for _, row in df.iterrows():
-            is_anomaly = self._data_service.calculate_anomaly(row, hg_code)
-            if is_anomaly is True:
-                rows_html += (
-                    "<tr style='background:#fff1f2;'>"
-                    "<td style='padding:4px 8px;'>"
-                    f"{row.get('valid_sample_display_name', '')}</td>"
-                    "<td style='padding:4px 8px;'>"
-                    f"{row.get('valid_test_display_name', '')}</td>"
-                    "<td style='padding:4px 8px; font-weight:bold; color:#dc2626;'>"
-                    f"{row.get('test_raw_data', '')}</td>"
-                    "<td style='padding:4px 8px;'>"
-                    f"{row.get('test_unit_name', '')}</td>"
-                    "</tr>"
-                )
-        return rows_html
-
-    def _build_email_html(
-        self,
-        task: dict,
-        reviewer: str,
-        comment: str,
-        anomaly_rows_html: str,
-        is_forward: bool,
-        is_complete: bool = False,
-    ) -> str:
-        """回覧/完了通知メールのHTML本文を生成する。"""
-        task_name = task.get("task_name", "")
-        hg_name = task.get("holder_group_name", "")
-        jobs_str = "、".join(task.get("job_numbers", []))
-        created_by = task.get("created_by", "")
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        if is_complete:
-            action_label = "タスク完了通知"
-            header_bg = "#166534"
-            greeting = f"{reviewer}"
-            body_text = "下記タスクの分析・確認が全て完了しましたのでお知らせいたします。"
-        elif is_forward:
-            action_label = "次の確認者への回覧"
-            header_bg = "#1e3a5f"
-            greeting = f"{reviewer} 様"
-            body_text = f"下記タスクの{action_label}が届きました。ご確認をお願いいたします。"
-        else:
-            action_label = "分析結果の回覧"
-            header_bg = "#1e3a5f"
-            greeting = f"{reviewer} 様"
-            body_text = f"下記タスクの{action_label}が届きました。ご確認をお願いいたします。"
-
-        warning_block = ""
-        if anomaly_rows_html:
-            warning_block = (
-                "<div style='background:#fef2f2; border:1px solid #fca5a5;"
-                " border-radius:6px; padding:12px 16px; margin:16px 0;'>"
-                "<p style='margin:0 0 8px; font-weight:bold; color:#dc2626;'>"
-                "⚠ 以下のサンプルで mean±2σ を超過するデータが検出されました"
-                "</p>"
-                "<table style='border-collapse:collapse; width:100%; font-size:13px;'>"
-                "<thead><tr style='background:#fee2e2;'>"
-                "<th style='padding:4px 8px; text-align:left;'>サンプル名</th>"
-                "<th style='padding:4px 8px; text-align:left;'>試験項目</th>"
-                "<th style='padding:4px 8px; text-align:left;'>データ</th>"
-                "<th style='padding:4px 8px; text-align:left;'>単位</th>"
-                f"</tr></thead><tbody>{anomaly_rows_html}</tbody></table>"
-                "</div>"
-            )
-
-        comment_block = ""
-        if comment.strip():
-            escaped = comment.replace(chr(10), "<br>")
-            comment_block = (
-                "<div style='background:#f8fafc; border-left:3px solid #3b82f6;"
-                " padding:8px 12px; margin:12px 0;'>"
-                f"<p style='margin:0; font-size:13px; color:#374151;'>{escaped}</p>"
-                "</div>"
-            )
-
-        complete_badge = ""
-        if is_complete:
-            complete_badge = (
-                "<div style='background:#f0fdf4; border:1px solid #86efac;"
-                " border-radius:6px; padding:12px 16px; margin:0 0 16px;'>"
-                "<p style='margin:0; font-weight:bold; color:#166534; font-size:14px;'>"
-                "✓ タスクが正常に完了しました</p>"
-                "</div>"
-            )
-
-        return (
-            "<html><body style='font-family:\"Segoe UI\",\"Yu Gothic UI\",sans-serif;"
-            " font-size:14px; color:#1e293b;'>"
-            "<div style='max-width:680px; margin:0 auto; background:#ffffff;'>"
-            f"<div style='background:{header_bg}; padding:16px 24px;"
-            " border-radius:8px 8px 0 0;'>"
-            f"<h2 style='margin:0; color:white; font-size:16px;'>"
-            f"Bunseki — {action_label}</h2>"
-            f"<p style='margin:4px 0 0; color:#94a3b8; font-size:12px;'>{now_str}</p>"
-            "</div>"
-            "<div style='padding:20px 24px; border:1px solid #e2e8f0; border-top:none;'>"
-            f"<p style='margin:0 0 12px;'>{greeting}</p>"
-            f"<p style='margin:0 0 16px;'>{body_text}</p>"
-            f"{complete_badge}"
-            "<table style='border-collapse:collapse; font-size:13px; margin-bottom:12px;'>"
-            "<tr><td style='padding:4px 8px; color:#64748b; width:120px;'>タスク名</td>"
-            f"<td style='padding:4px 8px; font-weight:bold;'>{task_name}</td></tr>"
-            "<tr><td style='padding:4px 8px; color:#64748b;'>ホルダグループ</td>"
-            f"<td style='padding:4px 8px;'>{hg_name}</td></tr>"
-            "<tr><td style='padding:4px 8px; color:#64748b;'>JOB番号</td>"
-            f"<td style='padding:4px 8px;'>{jobs_str}</td></tr>"
-            "<tr><td style='padding:4px 8px; color:#64748b;'>起票者</td>"
-            f"<td style='padding:4px 8px;'>{created_by}</td></tr>"
-            "</table>"
-            f"{warning_block}"
-            f"{comment_block}"
-            "</div>"
-            "<div style='background:#f8fafc; padding:10px 24px; border:1px solid #e2e8f0;"
-            " border-top:none; border-radius:0 0 8px 8px;'>"
-            "<p style='margin:0; font-size:11px; color:#94a3b8;'>"
-            f"このメールは Bunseki ver.{_cfg.APP_VERSION} から自動生成されました。"
-            "</p></div></div></body></html>"
-        )
+        ok, err = ms.open_outlook(to_str, cc_str, subject, html)
+        if not ok:
+            QMessageBox.warning(self, "メール作成", err)
