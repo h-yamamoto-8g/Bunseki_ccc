@@ -18,6 +18,7 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
 """
 from __future__ import annotations
 
+import math
 import pathlib
 import platform
 import sys
@@ -27,8 +28,8 @@ from typing import TYPE_CHECKING, Optional
 import builtins
 _original_import = builtins.__import__
 
-from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QRect
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -88,6 +89,90 @@ if TYPE_CHECKING:
 _cfg: app.config = None  # type: ignore[assignment]  # app.config (遅延)
 
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
+
+
+class LoadingOverlay(QWidget):
+    """白半透明背景 + 青いドットスピナーのオーバーレイ。"""
+
+    _DOT_COUNT = 8
+    _DOT_RADIUS = 5
+    _ORBIT_RADIUS = 20
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.resize(400, 200)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.setInterval(80)
+        self._timer.timeout.connect(self._tick)
+        self._msg = "データを読み込んでいます..."
+
+    def start(self) -> None:
+        self._center_on_screen()
+        self.show()
+        self._timer.start()
+        QApplication.processEvents()
+
+    def stop(self) -> None:
+        self._timer.stop()
+        self.close()
+
+    def _center_on_screen(self) -> None:
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            self.move(
+                geo.x() + (geo.width() - self.width()) // 2,
+                geo.y() + (geo.height() - self.height()) // 2,
+            )
+
+    def _tick(self) -> None:
+        self._angle = (self._angle + 1) % self._DOT_COUNT
+        self.update()
+        QApplication.processEvents()
+
+    def paintEvent(self, _event: object) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # 白半透明背景 (70%)
+        p.setBrush(QColor(255, 255, 255, 178))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(self.rect(), 12, 12)
+
+        cx = self.width() // 2
+        cy = self.height() // 2 - 16
+
+        # 青いドットを円形に配置、アクティブなドットを大きく濃く
+        for i in range(self._DOT_COUNT):
+            angle_rad = 2 * math.pi * i / self._DOT_COUNT - math.pi / 2
+            x = cx + self._ORBIT_RADIUS * math.cos(angle_rad)
+            y = cy + self._ORBIT_RADIUS * math.sin(angle_rad)
+
+            dist = (i - self._angle) % self._DOT_COUNT
+            if dist == 0:
+                alpha, r = 255, self._DOT_RADIUS
+            elif dist == 1 or dist == self._DOT_COUNT - 1:
+                alpha, r = 180, self._DOT_RADIUS - 1
+            elif dist == 2 or dist == self._DOT_COUNT - 2:
+                alpha, r = 100, self._DOT_RADIUS - 2
+            else:
+                alpha, r = 50, self._DOT_RADIUS - 2
+
+            p.setBrush(QColor(59, 130, 246, alpha))  # blue-500
+            p.drawEllipse(int(x - r), int(y - r), r * 2, r * 2)
+
+        # テキスト
+        p.setPen(QColor(51, 51, 51))
+        text_rect = QRect(0, cy + self._ORBIT_RADIUS + 12, self.width(), 30)
+        p.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, self._msg)
+
+        p.end()
 
 
 def _show_splash(qapp: QApplication) -> tuple[QSplashScreen | None, QElapsedTimer]:
@@ -766,22 +851,12 @@ def main() -> None:
         sys.exit(0)
 
     # ログイン後にデータ更新・正規化を実行 (ローディング表示付き)
-    loading_label = QLabel("  データを読み込んでいます...")
-    loading_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-    loading_label.setFixedSize(320, 70)
-    loading_label.setWindowFlags(
-        Qt.WindowType.SplashScreen | Qt.WindowType.WindowStaysOnTopHint
-    )
-    loading_label.setStyleSheet(
-        "background: #ffffff; color: #333333; font-size: 14px;"
-        "border: 1px solid #d0d0d0; border-radius: 8px; padding: 16px;"
-    )
-    loading_label.show()
-    qapp.processEvents()
+    overlay = LoadingOverlay()
+    overlay.start()
 
     _run_data_update()
 
-    loading_label.close()
+    overlay.stop()
 
     window = MainWindow()
     sys.exit(qapp.exec())
