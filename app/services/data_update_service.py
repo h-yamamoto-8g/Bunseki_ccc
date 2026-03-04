@@ -18,10 +18,14 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Final, Optional
+
+# Windows で子プロセスのコンソールウィンドウを表示しない
+_CREATE_NO_WINDOW: Final[int] = 0x08000000 if sys.platform == "win32" else 0
 
 from app.config import DATA_PATH
 
@@ -175,6 +179,7 @@ def run_data_update(domain_code: str = DOMAIN_CODE) -> None:
             text=True,
             check=False,
             cwd=str(exe_path.parent),
+            creationflags=_CREATE_NO_WINDOW,
         )
     except Exception as e:
         raise DataUpdateError(f"Extractor実行失敗: {e}") from e
@@ -235,6 +240,7 @@ def run_normalization() -> None:
         text=True,
         check=False,
         env=os.environ.copy(),   # 念のため明示
+        creationflags=_CREATE_NO_WINDOW,
     )
 
     if proc.returncode != 0:
