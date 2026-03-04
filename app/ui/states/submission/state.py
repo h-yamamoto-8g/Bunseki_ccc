@@ -141,20 +141,11 @@ class SubmissionUI(QWidget):
         lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
         vl.addWidget(lbl)
 
-        # フロー図
-        self._flow_container = QWidget()
-        self._flow_container.setStyleSheet("border:none;")
-        self._flow_layout = QHBoxLayout(self._flow_container)
-        self._flow_layout.setContentsMargins(8, 12, 8, 12)
-        self._flow_layout.setSpacing(6)
-        self._flow_layout.addStretch()
-        vl.addWidget(self._flow_container)
-
-        # 確認者追加行
+        # 確認者追加行（フロー図の上）
         self._add_row = QWidget()
         self._add_row.setStyleSheet("border:none;")
         add_hl = QHBoxLayout(self._add_row)
-        add_hl.setContentsMargins(0, 4, 0, 0)
+        add_hl.setContentsMargins(0, 0, 0, 4)
         add_hl.setSpacing(8)
 
         add_lbl = QLabel("確認者を追加:")
@@ -180,6 +171,15 @@ class SubmissionUI(QWidget):
         add_hl.addWidget(self._btn_add)
         add_hl.addStretch()
         vl.addWidget(self._add_row)
+
+        # フロー図（確認者追加の下）
+        self._flow_container = QWidget()
+        self._flow_container.setStyleSheet(f"border:none; background:{_BG2};")
+        self._flow_layout = QHBoxLayout(self._flow_container)
+        self._flow_layout.setContentsMargins(8, 12, 8, 12)
+        self._flow_layout.setSpacing(6)
+        self._flow_layout.addStretch()
+        vl.addWidget(self._flow_container)
 
         return frame
 
