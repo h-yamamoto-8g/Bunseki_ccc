@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional
 import builtins
 _original_import = builtins.__import__
 
-from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QRect
+from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QRect, QThread, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -88,6 +88,24 @@ if TYPE_CHECKING:
 _cfg: app.config = None  # type: ignore[assignment]  # app.config (遅延)
 
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
+
+
+class _DataUpdateWorker(QThread):
+    """別スレッドでデータ更新を実行し、完了/エラーをシグナルで通知。"""
+
+    finished = Signal()
+    error = Signal(str)
+
+    def __init__(self, func: object, parent: object = None) -> None:
+        super().__init__(parent)  # type: ignore[arg-type]
+        self._func = func
+
+    def run(self) -> None:
+        try:
+            self._func()  # type: ignore[operator]
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 class LoadingOverlay(QWidget):
@@ -870,9 +888,35 @@ def main() -> None:
     overlay = LoadingOverlay()
     overlay.start()
 
-    _run_data_update()
+    _update_error: list[str] = []
+    _update_done = False
 
+    worker = _DataUpdateWorker(_run_data_update)
+
+    def _on_finished() -> None:
+        nonlocal _update_done
+        _update_done = True
+
+    def _on_error(msg: str) -> None:
+        nonlocal _update_done
+        _update_error.append(msg)
+        _update_done = True
+
+    worker.finished.connect(_on_finished)
+    worker.error.connect(_on_error)
+    worker.start()
+
+    # イベントループを回しながらワーカー完了を待つ (アニメーション継続)
+    while not _update_done:
+        qapp.processEvents()
+        QThread.msleep(50)
+
+    worker.wait()
     overlay.stop()
+
+    if _update_error:
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(None, "データ更新エラー", _update_error[0])  # type: ignore[arg-type]
 
     window = MainWindow()
     sys.exit(qapp.exec())
