@@ -54,7 +54,7 @@ _cfg = None  # app.config (遅延)
 _SPLASH_MIN_MS = 1500  # スプラッシュ最低表示時間 (ms)
 
 
-def _show_splash(app: QApplication) -> tuple[QSplashScreen, QElapsedTimer]:
+def _show_splash(qapp: QApplication) -> tuple[QSplashScreen, QElapsedTimer]:
     """QSplashScreen を表示して返す。"""
     base = pathlib.Path(getattr(sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent))
     splash_path = base / "resources" / "assets" / "splash.png"
@@ -63,11 +63,11 @@ def _show_splash(app: QApplication) -> tuple[QSplashScreen, QElapsedTimer]:
     splash.show()
     timer = QElapsedTimer()
     timer.start()
-    app.processEvents()
+    qapp.processEvents()
     return splash, timer
 
 
-def _load_app_modules(app: QApplication) -> None:
+def _load_app_modules(qapp: QApplication) -> None:
     """スプラッシュ表示中に重いモジュールを読み込み、globals に注入する。"""
     g = globals()
 
@@ -78,15 +78,15 @@ def _load_app_modules(app: QApplication) -> None:
     else:
         matplotlib.rcParams["font.family"] = "Yu Gothic"
     matplotlib.rcParams["axes.unicode_minus"] = False
-    app.processEvents()
+    qapp.processEvents()
 
     import app.ui.generated.resources_rc  # noqa: F401  Qt リソース登録
-    app.processEvents()
+    qapp.processEvents()
 
     import app.config as _cfg_mod
     from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
     from app.ui.styles import GLOBAL_QSS
-    app.processEvents()
+    qapp.processEvents()
 
     from app.core.loader import DataLoader
     from app.services.task_service import TaskService
@@ -96,7 +96,7 @@ def _load_app_modules(app: QApplication) -> None:
     from app.services.job_service import JobService
     from app.services.manual_service import ManualService
     from app.services.user_service import UserService
-    app.processEvents()
+    qapp.processEvents()
 
     from app.ui.dialogs.logon_dialog import LogonDialog
     from app.ui.dialogs.setup_root_dialog import SetupRootDialog
@@ -110,7 +110,7 @@ def _load_app_modules(app: QApplication) -> None:
     from app.ui.pages.tasks.wrapper import TasksPage
     from app.ui.widgets.icon_utils import get_icon
     from app.ui.widgets.sidebar import PAGE_INFO, Sidebar, StepNavigation
-    app.processEvents()
+    qapp.processEvents()
 
     # globals に注入
     g["_cfg"] = _cfg_mod
@@ -642,7 +642,7 @@ class MainWindow(QMainWindow):
 
 
 
-def _ensure_data_path(app: QApplication) -> bool:
+def _ensure_data_path(qapp: QApplication) -> bool:
     """DATA_PATH が有効か確認し、未設定または無効ならダイアログで設定を促す。
 
     Returns:
@@ -661,7 +661,7 @@ def _ensure_data_path(app: QApplication) -> bool:
     return False
 
 
-def _login(app: QApplication) -> bool:
+def _login(qapp: QApplication) -> bool:
     """ログインダイアログを表示し、認証を行う。
 
     Returns:
@@ -681,23 +681,23 @@ def _login(app: QApplication) -> bool:
 
 def main() -> None:
     """アプリケーションを起動する。"""
-    app = QApplication(sys.argv)
+    qapp = QApplication(sys.argv)
 
     # スプラッシュを最速で表示
-    splash, timer = _show_splash(app)
+    splash, timer = _show_splash(qapp)
 
     # スプラッシュ表示中に重いモジュールをロード (matplotlib, app.*)
-    _load_app_modules(app)
+    _load_app_modules(qapp)
 
     # 外観設定（GLOBAL_QSS は _load_app_modules で読み込み済み）
     if platform.system() == "Darwin":
-        app.setFont(QFont("Hiragino Sans", 12))
+        qapp.setFont(QFont("Hiragino Sans", 12))
     else:
-        app.setFont(QFont("Yu Gothic UI", 10))
-    app.setStyle("Fusion")
-    app.setStyleSheet(GLOBAL_QSS)
+        qapp.setFont(QFont("Yu Gothic UI", 10))
+    qapp.setStyle("Fusion")
+    qapp.setStyleSheet(GLOBAL_QSS)
 
-    if not _ensure_data_path(app):
+    if not _ensure_data_path(qapp):
         sys.exit(0)
 
     # 最低表示時間を保証
@@ -705,19 +705,19 @@ def main() -> None:
     if remaining > 0:
         deadline = timer.elapsed() + remaining
         while timer.elapsed() < deadline:
-            app.processEvents()
+            qapp.processEvents()
             time.sleep(0.01)
 
     splash.close()
 
-    if not _login(app):
+    if not _login(qapp):
         sys.exit(0)
 
     # ログイン後にデータ更新・正規化を実行
     _run_data_update()
 
     window = MainWindow()
-    sys.exit(app.exec())
+    sys.exit(qapp.exec())
 
 
 if __name__ == "__main__":
