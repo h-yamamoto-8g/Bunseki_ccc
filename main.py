@@ -22,24 +22,28 @@ import sys
 
 # ------------------------------------------------------------------
 # PySide6 shibokensupport と six の競合回避
-# shibokensupport が builtins.__import__ をラップし、全インポートで
-# feature_imported → _mod_uses_pyside → inspect.getsource() を実行する。
-# six._SixMetaPathImporter はソースファイルを持たないため getsource が
-# AttributeError で落ちる。_mod_uses_pyside を安全にラップして回避する。
+# shibokensupport が全インポートに介入し、inspect.getsource() を実行する。
+# six._SixMetaPathImporter に _path 属性がないため repr() 生成時に
+# AttributeError が発生する。__import__ をラップして検出→修復→再試行する。
 # ------------------------------------------------------------------
-try:
-    from shibokensupport import feature as _sbk_feature
-    _orig_mod_uses_pyside = _sbk_feature._mod_uses_pyside
+import builtins as _builtins
 
-    def _safe_mod_uses_pyside(mod):
-        try:
-            return _orig_mod_uses_pyside(mod)
-        except (AttributeError, TypeError, OSError):
-            return False
+_orig_import = _builtins.__import__
 
-    _sbk_feature._mod_uses_pyside = _safe_mod_uses_pyside
-except (ImportError, AttributeError):
-    pass
+
+def _patched_import(name, *args, **kwargs):
+    try:
+        return _orig_import(name, *args, **kwargs)
+    except AttributeError as _exc:
+        if "_path" in str(_exc):
+            for _m in sys.meta_path:
+                if type(_m).__name__ == "_SixMetaPathImporter":
+                    type(_m)._path = None
+            return _orig_import(name, *args, **kwargs)
+        raise
+
+
+_builtins.__import__ = _patched_import
 
 import platform
 from typing import Optional
