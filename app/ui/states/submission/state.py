@@ -216,11 +216,9 @@ class SubmissionUI(QWidget):
 
         self._comment_container = QWidget()
         self._comment_container.setStyleSheet("border:none;")
-        self._comment_layout = QHBoxLayout(self._comment_container)
+        self._comment_layout = QVBoxLayout(self._comment_container)
         self._comment_layout.setContentsMargins(0, 4, 0, 4)
         self._comment_layout.setSpacing(6)
-        self._comment_layout.addStretch()
-        self._comment_layout.addStretch()
         vl.addWidget(self._comment_container)
 
         input_row = QHBoxLayout()
@@ -611,90 +609,75 @@ class SubmissionUI(QWidget):
             if w:
                 w.deleteLater()
 
-        self._comment_layout.addStretch()
-
         if not self._comments:
             empty = QLabel("コメントはまだありません")
             empty.setStyleSheet(f"font-size:12px; color:{_TEXT3}; border:none;")
             self._comment_layout.addWidget(empty)
-            self._comment_layout.addStretch()
             return
 
         for c in self._comments:
-            self._comment_layout.addWidget(self._make_comment_node(c))
+            self._comment_layout.addWidget(self._make_comment_card(c))
 
-        self._comment_layout.addStretch()
-
-    def _make_comment_node(self, comment: dict) -> QWidget:
-        """コメントをフローノード風のアイコン＋テキストで表示する。"""
+    def _make_comment_card(self, comment: dict) -> QFrame:
+        """添付資料カードと同じスタイルのコメント行。"""
         author = str(comment.get("author", ""))
         text = str(comment.get("text", ""))
+
+        card = QFrame()
+        card.setStyleSheet(
+            f"QFrame {{ background:{_BG3}; border:1px solid {_BORDER}; border-radius:6px; }}"
+        )
+        hl = QHBoxLayout(card)
+        hl.setContentsMargins(10, 6, 6, 6)
+        hl.setSpacing(8)
+
+        # アバター
         initial = author[0] if author else "?"
+        avatar = QLabel(initial)
+        avatar.setFixedSize(28, 28)
+        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        avatar.setStyleSheet(
+            "background:#e0f2fe; color:#0369a1;"
+            " border:1.5px solid #7dd3fc; border-radius:14px;"
+            " font-size:12px; font-weight:bold;"
+        )
+        hl.addWidget(avatar)
 
-        w = QWidget()
-        w.setStyleSheet("border:none;")
-        w.setFixedWidth(110)
-        vl = QVBoxLayout(w)
-        vl.setContentsMargins(4, 0, 4, 0)
-        vl.setSpacing(3)
-        vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # 著者名
+        nm = QLabel(author or "不明")
+        nm.setFixedWidth(80)
+        nm.setStyleSheet(f"font-size:12px; color:{_TEXT}; font-weight:600; border:none;")
+        hl.addWidget(nm)
 
-        # 削除ボタン行
-        top_row = QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.setSpacing(0)
-        top_row.addStretch()
+        # コメント本文
+        body = QLabel(text)
+        body.setWordWrap(True)
+        body.setStyleSheet(f"font-size:12px; color:{_TEXT}; border:none;")
+        hl.addWidget(body, 1)
 
+        # 削除ボタン
         can_delete = (
             self._can_comment
             and author == self._current_user
             and bool(comment.get("pending", False))
         )
         if can_delete:
-            del_btn = _RemoveButton(
-                get_icon(":/icons/cancel.svg", "#cbd5e1", 12),
-                get_icon(":/icons/cancel.svg", "#ef4444", 12),
+            del_btn = QPushButton()
+            del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
+            del_btn.setIconSize(QSize(14, 14))
+            del_btn.setFixedSize(22, 22)
+            del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setStyleSheet(
+                "QPushButton { background:transparent; border:none; }"
+                "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
             )
             comment_id = str(comment.get("id", ""))
             del_btn.clicked.connect(
                 lambda _=False, cid=comment_id: self.comment_delete_requested.emit(cid)
             )
-            top_row.addWidget(del_btn)
-        else:
-            spacer = QLabel()
-            spacer.setFixedSize(16, 16)
-            spacer.setStyleSheet("border:none; background:transparent;")
-            top_row.addWidget(spacer)
-        vl.addLayout(top_row)
+            hl.addWidget(del_btn)
 
-        # アバター（吹き出し風）
-        avatar = QLabel(initial)
-        avatar.setFixedSize(42, 42)
-        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        avatar.setStyleSheet(
-            f"background:#fef3c7; color:#92400e;"
-            f" border:2px solid #fcd34d; border-radius:21px;"
-            " font-size:16px; font-weight:bold;"
-        )
-        vl.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # 著者名
-        nm = QLabel(author or "不明")
-        nm.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        nm.setMaximumWidth(100)
-        nm.setWordWrap(False)
-        nm.setStyleSheet(f"font-size:11px; color:{_TEXT}; font-weight:600;")
-        vl.addWidget(nm, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # コメント本文
-        body = QLabel(text)
-        body.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        body.setMaximumWidth(100)
-        body.setWordWrap(True)
-        body.setStyleSheet(f"font-size:10px; color:{_TEXT2};")
-        vl.addWidget(body, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        return w
+        return card
 
     @staticmethod
     def _make_connector(passed: bool) -> QWidget:
