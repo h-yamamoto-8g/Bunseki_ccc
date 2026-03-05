@@ -1,12 +1,11 @@
 # Functional Requirements & Screen Specifications
-# 機能要件・画面仕様
 
 **Version**: 1.1
 **Last Updated**: 2026-03-01
 
 ---
 
-## 1. Application-Wide Specs / アプリ全体の仕様
+## 1. Application-Wide Specs
 
 ### Startup & Shutdown
 - Runs as standalone exe (no Python environment required)
@@ -20,31 +19,30 @@
 
 ### Calculation Rule
 - When calculating from `bunseki.csv::test_raw_data`, exclude string values. Use digit precision as-is from input data.
-<!-- JP: test_raw_dataを使用して計算する場合は、文字列を排除して計算する。桁数は入力されているデータをそのまま使用する。 -->
 
 ---
 
-## 2. Screen List / 画面一覧
+## 2. Screen List
 
-| Screen ID | Kind | Name (JP) | Description | Priority |
-|-----------|------|-----------|-------------|----------|
-| home | page | ホーム | Monthly schedule dashboard + today's tasks | Required |
-| tasks | page | タスク | Task creation and task list | Required |
-| data | page | データ | Historical data viewer | Required |
-| news | page | ニュース | Post/view work-related announcements | Required |
-| library | page | ライブラリ | Attached documents from circulation | Required |
-| log | page | ログ | Equipment and reagent logs | Required |
-| job | page | ジョブ | JOB number management | Required |
-| settings | page | 設定 | Edit settings.json, users.json | Required |
-| logon | dialog | ログオン | User login | Required |
-| setup | dialog | セットアップ | User-specific data path setup | Required |
-| tasks.task_ticket | state | 起票 | Task ticket creation | Required |
-| tasks.analysis_targets | state | 分析対象 | Sample list for analysis | Required |
-| tasks.analysis | state | 分析準備 | Pre/post analysis info and checklists | Required |
-| tasks.result_entry | state | データ入力 | Data entry | Required |
-| tasks.result_verification | state | データ確認 | Data verification + anomaly detection | Required |
-| tasks.submission | state | 回覧 | Circulation to reviewers | Required |
-| tasks.completed | state | 終了 | Task completed | Required |
+| Screen ID | Kind | Name | Description | Priority |
+|-----------|------|------|-------------|----------|
+| home | page | Home | Monthly schedule dashboard + today's tasks | Required |
+| tasks | page | Tasks | Task creation and task list | Required |
+| data | page | Data | Historical data viewer | Required |
+| news | page | News | Post/view work-related announcements | Required |
+| library | page | Library | Attached documents from circulation | Required |
+| log | page | Log | Equipment and reagent logs | Required |
+| job | page | Job | JOB number management | Required |
+| settings | page | Settings | Edit settings.json, users.json | Required |
+| logon | dialog | Logon | User login | Required |
+| setup | dialog | Setup | User-specific data path setup | Required |
+| tasks.task_ticket | state | Task Ticket | Task ticket creation | Required |
+| tasks.analysis_targets | state | Analysis Targets | Sample list for analysis | Required |
+| tasks.analysis | state | Analysis | Pre/post analysis info and checklists | Required |
+| tasks.result_entry | state | Result Entry | Data entry | Required |
+| tasks.result_verification | state | Result Verification | Data verification + anomaly detection | Required |
+| tasks.submission | state | Submission | Circulation to reviewers | Required |
+| tasks.completed | state | Completed | Task completed | Required |
 
 ### Screen Kind Definition
 - `page`: Shown in sidebar navigation
@@ -78,12 +76,7 @@
 Initial view shows task list + new task button. Display latest 100 tasks.
 
 **Content**:
-- Task table columns:
-
-| Created At | Holder Group | JOB Numbers | Status | Assignee | Last Updated | Actions |
-|-----------|-------------|------------|--------|----------|-------------|---------|
-| 2025-01-07 15:29 | SS | 250107W, 250106W | データ確認 | 山本輝 | 2025-01-08 10:12 | Open, Delete |
-
+- Task table columns: Created At, Holder Group, JOB Numbers, Status, Assignee, Last Updated, Actions
 - Status filter (All / In Progress / Completed / Mine / By Assignee)
 - "Load More" button for next 100 records
 
@@ -105,7 +98,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 - `task_ticket` and `analysis_targets` require "Edit" button to enable editing; saving resets subsequent states (with warning dialog)
 - After circulation to reviewer: `result_verification` and `submission` only are editable; others are read-only. Reviewer can send back to analyst for changes.
 
-**Proxy circulation** (代理回覧):
+**Proxy circulation**:
 - Available for non-completed tasks owned by other users
 - Proxy user can advance the workflow on behalf of original user
 - Proxy actions are recorded and visibly displayed
@@ -114,7 +107,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 ### [state] tasks.task_ticket
 
-**Purpose**: Create new task ticket. / 新規起票
+**Purpose**: Create new task ticket.
 
 **Content**:
 - Holder group dropdown
@@ -144,7 +137,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 ### [state] tasks.analysis_targets
 
-**Purpose**: View/edit sample list for this task. / 分析対象サンプルの確認
+**Purpose**: View/edit sample list for this task.
 
 **Modes**:
 - **View mode** (default): read-only
@@ -152,11 +145,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Content**:
 - Task name (header)
-- Sample table:
-
-| JOB Number | Sampling DateTime | Sample Name | Data Number | Median | Max | Min |
-|-----------|------------------|-------------|-------------|--------|-----|-----|
-| 250107W | 2025-01-07 09:00 | sample_0001 | 0 | 1.0 | 5.0 | 0 |
+- Sample table: JOB Number, Sampling DateTime, Sample Name, Data Number, Median, Max, Min
 
 **Actions**:
 - "Add" -> dropdown or free-text entry (free-text creates temporary ID, no calculation)
@@ -204,7 +193,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 **Purpose**: Data entry after analysis. (Minimal implementation for now)
 
 **Content**:
-- Message: "Please perform standard data entry." / 「通常のデータ入力を行なってください。」
+- Message: "Please perform standard data entry."
 
 **Actions**:
 - "Launch Lab-Aid" button -> start Lab-Aid application
@@ -222,14 +211,14 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 | Column | Display Name | Notes |
 |--------|-------------|-------|
-| valid_sample_display_name | サンプル名 | holds valid_sample_set_code |
-| valid_test_display_name | 試験項目名 | holds valid_test_display_name |
-| test_raw_data | データ | |
-| test_unit_name | 単位 | |
-| - | 最上限基準値 | min of test_upper_limit_spec_1~4 |
-| - | 最下限基準値 | max of test_lower_limit_spec_1~4 |
-| test_judgment | 異常フラグ | if NN: show calculated result (trend_enabled=true only); else show as-is |
-| - | トレンド | trend graph button |
+| valid_sample_display_name | Sample Name | holds valid_sample_set_code |
+| valid_test_display_name | Test Item | holds valid_test_display_name |
+| test_raw_data | Data | |
+| test_unit_name | Unit | |
+| - | Upper Limit | min of test_upper_limit_spec_1~4 |
+| - | Lower Limit | max of test_lower_limit_spec_1~4 |
+| test_judgment | Anomaly Flag | if NN: show calculated result (trend_enabled=true only); else show as-is |
+| - | Trend | trend graph button |
 
   - Color-coded anomaly detection results
   - Highlighted anomaly flags
@@ -250,10 +239,10 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 | Column | Display | Notes |
 |--------|---------|-------|
-| sample_sampling_date | 日時 | |
-| test_raw_data | データ | |
-| test_unit_name | 単位 | |
-| test_judgment | 判定 | NN -> OK, else show as-is |
+| sample_sampling_date | DateTime | |
+| test_raw_data | Data | |
+| test_unit_name | Unit | |
+| test_judgment | Judgment | NN -> OK, else show as-is |
 
 **Actions**:
 - Trend graph button -> popup dialog
@@ -299,21 +288,21 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Content table**:
 
-| Column | Display Name (JP) | Notes |
-|--------|-------------------|-------|
-| sample_request_number | 依頼番号 | |
-| sample_sampling_date | サンプル日時 | |
-| sample_job_number | JOB番号 | |
-| valid_sample_display_name | サンプル名 | |
-| valid_holder_display_name | ホルダ名 | |
-| valid_test_display_name | 試験項目名 | |
-| test_raw_data | データ | |
-| test_reported_data | データ_報告用 | |
-| test_unit_name | 単位 | |
-| test_upper_limit_spec_1~4 | 上限値_1~4 | |
-| test_lower_limit_spec_1~4 | 下限値_1~4 | |
-| test_judgment | 判定 | NN: show 2-sigma exceedance from saved list; non-NN takes priority |
-| - | アクション | Chart button |
+| Column | Display Name | Notes |
+|--------|-------------|-------|
+| sample_request_number | Request Number | |
+| sample_sampling_date | Sampling DateTime | |
+| sample_job_number | JOB Number | |
+| valid_sample_display_name | Sample Name | |
+| valid_holder_display_name | Holder Name | |
+| valid_test_display_name | Test Item | |
+| test_raw_data | Data | |
+| test_reported_data | Reported Data | |
+| test_unit_name | Unit | |
+| test_upper_limit_spec_1~4 | Upper Limit 1~4 | |
+| test_lower_limit_spec_1~4 | Lower Limit 1~4 | |
+| test_judgment | Judgment | NN: show 2-sigma exceedance from saved list; non-NN takes priority |
+| - | Action | Chart button |
 
 **Filters**: date range (calendar), request number (partial), JOB number (partial), sample name (multi-select dropdown), holder name (multi-select), test item (multi-select), judgment (multi-select)
 
@@ -410,7 +399,7 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 ---
 
-## 4. Common UI Specs / 共通UI仕様
+## 4. Common UI Specs
 
 ### Sidebar
 - Show only `kind=page` screens (no states or dialogs)

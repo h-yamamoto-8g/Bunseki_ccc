@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> This file is auto-loaded by Claude Code CLI.
+> Auto-loaded by Claude Code CLI.
 > Read this file and all docs under `docs/` before starting any implementation.
 
 ---
@@ -10,10 +10,6 @@
 Desktop tool (PySide6) for environmental wastewater analysis workflow support.
 Reads CSV/JSON from SharePoint-synced folders. Performs aggregation, threshold checks, visualization, and report output.
 Does NOT perform analysis itself — automates surrounding tasks (preparation, recording, reporting).
-
-<!-- JP: 製造所排水の環境分析業務を補助するPySide6製デスクトップツール。
-SharePoint同期フォルダ内のCSV・JSONを読み取り、集計・基準値判定・可視化・帳票出力を行う。
-「分析そのもの」は行わず、分析前後の付随業務（準備・記録・報告）を効率化することが目的。 -->
 
 Detailed specs: `docs/requirements.md`
 
@@ -42,11 +38,6 @@ Structure is flexible but follow these rules:
 - Do NOT write logic directly in UI files
 - Separate layers: UI > UI Wrapper > Service > Core (one-way dependency)
 - Organize by `[page]` and `[state]` hierarchy
-
-<!-- JP:
-- UIファイルに機能を直書きしない
-- UI > UIラッパー > service > coreで分離させ、依存関係を一方通行にする
-- 機能は[page]と[state]ごとに階層を分ける -->
 
 ---
 
@@ -128,10 +119,3 @@ NG: Read/write files directly from UI components
 - Native-feeling UI
 - Watch for font garbling in charts (JP font support)
 - Show loading screen during loads
-
-<!-- JP:
-- ホワイトベース(真っ白は避ける) / 文字色は#333333
-- グラフはリッチに(ただの画像の貼り付けはNG)
-- 軽い角丸 / 適度な余白 / 不必要に横いっぱい使用しない
-- 原色は使用しない / ネイティブ感のあるデザイン
-- グラフの文字化けには注意する / ロード中はロード画面を表示 -->

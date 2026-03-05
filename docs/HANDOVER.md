@@ -21,7 +21,7 @@
 Resolved at startup in `app/config.py` `_resolve_data_path()`. Priority:
 
 1. **User settings file** `~/.bunseki/settings.json` key `app_data_path`
-2. **Windows SharePoint default** `~/トクヤマグループ/環境分析課 - ドキュメント/app_data`
+2. **Windows SharePoint default** (SharePoint sync path for the team)
 3. **Non-Windows fallback** `~/app_data` (not expected to exist -> forces setup dialog)
 
 > Important: settings.json is stored in user's home (not SharePoint). Each machine can have different paths.
@@ -107,7 +107,7 @@ else:
 ```
 
 ### 3.2 DATA_PATH Default
-- **Windows**: `~/トクヤマグループ/チーム名 - ドキュメント/app_data` (SharePoint sync)
+- **Windows**: SharePoint sync path for the team
 - **macOS/Linux**: `~/app_data` (forces setup dialog)
 
 ### 3.3 File Open
@@ -240,11 +240,11 @@ if getattr(sys, "frozen", False):
 
 ```
 UI (pages/, states/, dialogs/)
-  ↓
+  |
 UI Wrapper (wrapper.py) — bridges UI events and services
-  ↓
+  |
 Service (services/) — business logic
-  ↓
+  |
 Core (core/) — data persistence (JSON/CSV read/write)
 ```
 
