@@ -1,642 +1,438 @@
+# Functional Requirements & Screen Specifications
 # 機能要件・画面仕様
 
-**バージョン**: 1.1  
-**最終更新**: 2026-03-01
+**Version**: 1.1
+**Last Updated**: 2026-03-01
 
 ---
 
-## 1. アプリ全体の仕様
+## 1. Application-Wide Specs / アプリ全体の仕様
 
-### 起動・終了
-- 実行ファイルでPython環境なしで運用
-- 起動時に `{app_data}/bunseki/config/settings.json` を読み込む（なければ設定画面をポップアップして再設定）
-- デフォルトで全画面表示
+### Startup & Shutdown
+- Runs as standalone exe (no Python environment required)
+- On startup, load `{app_data}/bunseki/config/settings.json` (if missing, show setup dialog)
+- Default: fullscreen
 
-### ウィンドウ構成
-- メインウィンドウ1枚（タブ切り替え方式）
-- ウィンドウ最小サイズ: 1280 × 800px
-- タイトルバー: 「Bunseki ver.{バージョン}」
+### Window
+- Single main window with tab switching
+- Minimum size: 1280 x 800px
+- Title bar: "Bunseki ver.{version}"
 
-### 分析結果の計算について
-- `bunseki.csv::test_raw_data`を使用してデータを計算する場合は、文字列を排除して計算する。桁数は入力されているデータをそのまま使用する。
+### Calculation Rule
+- When calculating from `bunseki.csv::test_raw_data`, exclude string values. Use digit precision as-is from input data.
+<!-- JP: test_raw_dataを使用して計算する場合は、文字列を排除して計算する。桁数は入力されているデータをそのまま使用する。 -->
 
 ---
 
-## 2. 画面一覧
+## 2. Screen List / 画面一覧
 
-| 画面ID                      | kind   | 名前     | 概要                                          | 優先度 |
-| ------------------------- | ------ | ------ | ------------------------------------------- | --- |
-| home                      | page   | ホーム    | 当月の予定表と本日のタスク概要を表示するダッシュボード                 | 必須  |
-| tasks                     | page   | タスク    | 新規タスクの起票と全体のタスクリストの表示                       | 必須  |
-| data                      | page   | データ    | 過去データ一覧の確認                                  | 必須  |
-| news                      | page   | ニュース   | 業務に関連する連絡事項を投稿・閲覧                           | 必須  |
-| library                   | page   | ライブラリ  | 回覧した時の添付資料を一覧で                              | 必須  |
-| log                       | page   | ログ     | 分析装置や試薬のログ                                  | 必須  |
-| job                       | page   | ジョブ    | 分析に必要なJOB番号を設定                              | 必須  |
-| settings                  | page   | 設定     | setting.jsonやusers.json等の編集                 | 必須  |
-| logon                     | dialog | ログオン   | ユーザーとしてログオン                                 | 必須  |
-| setup                     | dialog | セットアップ | ユーザー特有のデータパスを設定                             | 必須  |
-| tasks.task_ticket         | state  | 起票     | タスクの起票条件の入力                                 | 必須  |
-| tasks.analysis_targets    | state  | 分析対象   | そのタスクで分析する対象のサンプルを表示                        | 必須  |
-| tasks.analysis            | state  | 分析準備   | 分析に必要な情報を提供し、ユーザーの分析終了を待つ                   | 必須  |
-| tasks.result_entry        | state  | データ入力  | データを入力する画面                                  | 必須  |
-| tasks.result_verification | state  | データ確認  | データの確認と自動異常検知を行う                            | 必須  |
-| tasks.submission          | state  | 回覧     | 分析結果を添付して確認者へ回覧<br>また、確認者は次の確認者へ回覧もしくは終了させる | 必須  |
-| tasks.completed           | state  | 終了     | 終了                                          | 必須  |
+| Screen ID | Kind | Name (JP) | Description | Priority |
+|-----------|------|-----------|-------------|----------|
+| home | page | ホーム | Monthly schedule dashboard + today's tasks | Required |
+| tasks | page | タスク | Task creation and task list | Required |
+| data | page | データ | Historical data viewer | Required |
+| news | page | ニュース | Post/view work-related announcements | Required |
+| library | page | ライブラリ | Attached documents from circulation | Required |
+| log | page | ログ | Equipment and reagent logs | Required |
+| job | page | ジョブ | JOB number management | Required |
+| settings | page | 設定 | Edit settings.json, users.json | Required |
+| logon | dialog | ログオン | User login | Required |
+| setup | dialog | セットアップ | User-specific data path setup | Required |
+| tasks.task_ticket | state | 起票 | Task ticket creation | Required |
+| tasks.analysis_targets | state | 分析対象 | Sample list for analysis | Required |
+| tasks.analysis | state | 分析準備 | Pre/post analysis info and checklists | Required |
+| tasks.result_entry | state | データ入力 | Data entry | Required |
+| tasks.result_verification | state | データ確認 | Data verification + anomaly detection | Required |
+| tasks.submission | state | 回覧 | Circulation to reviewers | Required |
+| tasks.completed | state | 終了 | Task completed | Required |
 
-### 画面種別（kind）定義 | kind | 意味 | サイドバー表示
+### Screen Kind Definition
+- `page`: Shown in sidebar navigation
+- `state`: Sub-screen within tasks workflow (not in sidebar)
+- `dialog`: Modal dialog (not in sidebar)
+
 ---
 
 ## [page] home
 
-**目的**: 自分がやるべきことと当月全体の状況をひと目で把握するダッシュボード。
+**Purpose**: Dashboard showing monthly schedule and today's pending tasks.
 
-**表示内容**:
-- 当月の予定表（QWebView）
-    - 当月の予定表Excelをwebで表示
-- 現在、進行中のタスクを一覧表示(自分のと他人ので分別)
-    - ステータス内訳（`tasks.{state}`の名前）
-- 新規タスクの起票(tasks.task_ticketへの遷移)
+**Content**:
+- Monthly schedule (QWebView rendering Excel)
+- Active task list (separated: own tasks vs others')
+  - Status breakdown by `tasks.{state}` name
+- New task button (navigates to `tasks.task_ticket`)
 
-**操作**:
-- 新規タスク作成ボタンをクリックすることで`tasks.task_ticket`に遷移
-- タスク一覧のレコードをダブルクリックすることで進行中の`tasks.{state}`に遷移
+**Actions**:
+- "New Task" button -> navigate to `tasks.task_ticket`
+- Double-click task row -> navigate to that task's current `tasks.{state}`
 
-**エラー・例外**:
--  再開したい進行中のタスクが見つからなかった場合は、その旨を赤い警告バナーで表 示して、再起票ボタンを設置する
-	- 再起票ボタンが押された時は、新規タスクボタンと同じく`tasks.task_ticket`遷移
+**Errors**:
+- If active task not found: red warning banner + re-create button -> `tasks.task_ticket`
+
 ---
 
-### [page] tasks
+## [page] tasks
 
-**目的**: タスクと分析業務の一連の流れ（起票 -> サンプルリスト -> 分析 -> データ入力 -> レポート -> 回覧 -> 終了）を管理する中心ページ。
-業務フローを始める前の初期ページでは、タスク一覧と新規タスク起票ボタンを表示する。
-タスク一覧は一覧表示で最新100件を取表示する。
+**Purpose**: Central page for task workflow management.
+Initial view shows task list + new task button. Display latest 100 tasks.
 
-表示内容**:
-- タスク一覧テーブル（列：タスク名 / ホルダグループ名 / JOB番号 / ステータス / 担当者 / 最終更新日 / Action）
+**Content**:
+- Task table columns:
 
-| 作成日時             | ホルダーグループ名 | JOB番号            | ステータス | 担当者 | 最終更新日            | アクション  |
-| ---------------- | --------- | ---------------- | ----- | --- | ---------------- | ------ |
-| 2025-01-07 15:29 | SS        | 250107W, 250106W | データ確認 | 山本輝 | 2025-01-08 10:12 | 開く, 削除 |
+| Created At | Holder Group | JOB Numbers | Status | Assignee | Last Updated | Actions |
+|-----------|-------------|------------|--------|----------|-------------|---------|
+| 2025-01-07 15:29 | SS | 250107W, 250106W | データ確認 | 山本輝 | 2025-01-08 10:12 | Open, Delete |
 
-- ステータスフィルタ（全件 / 進行中 / 終了/ 自分 / 担当者）
-- 最新100件を表示(さらに読み込むで追加の100件を表示する。)
+- Status filter (All / In Progress / Completed / Mine / By Assignee)
+- "Load More" button for next 100 records
 
-**操作**:
-- 「新規作成」ボタン -> `tasks.task_ticket` へ遷移
-- 一覧の行をダブルクリック or Actionボタンクリック-> そのタスクの現在のstateに遷移（中断していた続きから再開）
-- ステータスフィルタの切り替え -> 一覧を絞り込む
-- さらに表示ボタンをクリックして追加の100件を表示
+**Actions**:
+- "New" button -> `tasks.task_ticket`
+- Double-click row or Action button -> navigate to task's current state
+- Filter toggle -> filter list
+- "Load More" -> additional 100 records
 
-#### state遷移フロー
+### State Transition Flow
 
 ```
-[tasks.task_ticket]: 新規起票
-      ↓
-[tasks.analysis_targets]: 分析対象サンプルの確認
-      ↓
-[tasks.analysis]: 分析準備情報の提供・分析終了待ち
-      ↓
-[tasks.result_entry]: データ入力
-      ↓
-[tasks.result_verification]: データ確認・自動異常検知
-      ↓
-[tasks.submission]: 回覧・承認
-      ↓
-[tasks.completed]: 終了
+task_ticket -> analysis_targets -> analysis -> result_entry -> result_verification -> submission -> completed
 ```
 
-**前stateへの戻りルール**:
-- すべてのstateからの他のstateへ行き来することができる
-- 戻った先のstateは`tasks.task_ticket`と `tasks.analysis_targets`を除いて編集可能である。
-- `task_ticket`と`tasks.analysis_targets`を変更したい場合は「編集」ボタンを押して **編集モード** に切り替える。変更内容を保存した場合は、編集済み表示をする。
-- `tasks.task_ticket`と`tasks.analysis_targets`に戻って編集を保存した場合は、ダイアログで警告を出し、OKならそれ以降のstateを初期化する。
-- 回覧後の確認者は`tasks.result_verification`と`tasks.submission`以外を編集無効(読み取り専用)とする。変更が必要な場合は差し戻しをして分析者に変更をしてもらう。
+**Navigation rules**:
+- All states are navigable from any other state
+- States except `task_ticket` and `analysis_targets` are editable when revisited
+- `task_ticket` and `analysis_targets` require "Edit" button to enable editing; saving resets subsequent states (with warning dialog)
+- After circulation to reviewer: `result_verification` and `submission` only are editable; others are read-only. Reviewer can send back to analyst for changes.
 
-**代理回覧**
-- 別ユーザーが代理で業務フローを編集・実行できる機能
-- 終了していないタスクかつ自分以外のタスクの場合は、「代理回覧」ボタンを表示
-- 押した場合は、元ユーザーの代わりにフローを進めることができる。
-- 代理ユーザーが発生した場合は、それを記録して他の人からもわかるように表示する。
+**Proxy circulation** (代理回覧):
+- Available for non-completed tasks owned by other users
+- Proxy user can advance the workflow on behalf of original user
+- Proxy actions are recorded and visibly displayed
 
 ---
 
-#### [state] tasks.task_ticket
+### [state] tasks.task_ticket
 
-**目的**: 新規起票
+**Purpose**: Create new task ticket. / 新規起票
 
-**表示内容**:
-- ホルダグループ選択(ドロップダウンリスト)
-- JOB番号選択(JOB番号入力欄と追加ボタン)
-- ニュースに一覧(ホルダグループを切り替えるとホルダグループで絞り込み)
+**Content**:
+- Holder group dropdown
+- JOB number input + add button (tag-style)
+- News list (filtered by selected holder group)
 
-**データソース:**
-- ファイル: `holder_groups.json`
-- ホルダグループ
-	- `holder_groups.json > items[].holder_group_name`の全て
+**Data source**:
+- File: `holder_groups.json`
+- Holder groups: `holder_groups.json > items[].holder_group_name`
 
-**モード**:
-- 起表示は編集可能
-- 別ステータスを進行中は読み取り専用で「編集」ボタンで編集可能になるが、保存すると以降のstateを初期化
-- 確認者へ回覧後は編集も無効
+**Modes**:
+- New: editable
+- From another state: read-only, "Edit" button enables editing (saving resets subsequent states)
+- After circulation: fully locked
 
-**操作**:
-- 「起票」ボタン -> 新しいタスクを作成し `tasks.analysis_targets` へ遷移
-- JOB番号追加ボタン「+」をクリックでJOB番号入力欄に記載されているJOB番号をタグのように追加(初期値で管理者が設定したものが入っている)
-- 起票した時に重要なニュースは強制でポップアップ表示(開いていなければ)
+**Actions**:
+- "Create" button -> create task, navigate to `tasks.analysis_targets`
+- "+" button -> add JOB number tag (default from admin settings)
+- On creation: force-popup important news if not yet viewed
 
-**補足:**
-- タスクIDは`{起票日時}_{ホルダグループコード}`
-- タスク名は`{起票日時}_{ホルダグループ名}`
-- 選択したホルダグループの`holder_groups.json::holder_group_code`を保持する
-
-**前のstate**: なし（タスクページへ戻る）  
-**次のstate**: `tasks.analysis_targets`
+**Notes**:
+- Task ID: `{creation_datetime}_{holder_group_code}`
+- Task name: `{creation_datetime}_{holder_group_name}`
+- Persist selected `holder_group_code` from `holder_groups.json::holder_group_code`
 
 ---
 
-#### [state] tasks.analysis_targets
+### [state] tasks.analysis_targets
 
-**目的**: このタスクで分析するサンプルの一覧を確認する。
+**Purpose**: View/edit sample list for this task. / 分析対象サンプルの確認
 
-**モード**:
-- **表示モード**（デフォルト）: 読み取り専用
-- **編集モード**: 「編集」ボタンで切り替え。サンプルの追加・削除が可能 (編集した場合には編集済み表示をする)追加・削除したサンプルは記録する。
-	- 別ステータスを進行中に編集した場合は、警告を出してから以降のstateを初期化
-	- 確認者へ回覧後は編集無効
+**Modes**:
+- **View mode** (default): read-only
+- **Edit mode**: "Edit" button enables add/delete samples (marked as edited). Editing from another state resets subsequent states with warning. Locked after circulation.
 
-**表示内容**:
-- タスク名（ヘッダー部）
-- 分析対象サンプル一覧
+**Content**:
+- Task name (header)
+- Sample table:
 
-| JOB番号   | サンプリング日時         | サンプル名       | データ番号 | 中央値 | 最大値 | 最小値 |
-| ------- | ---------------- | ----------- | ----- | --- | --- | --- |
-| 250107W | 2025-01-07 09:00 | sample_0001 | 0     | 1.0 | 5.0 | 0   |
+| JOB Number | Sampling DateTime | Sample Name | Data Number | Median | Max | Min |
+|-----------|------------------|-------------|-------------|--------|-----|-----|
+| 250107W | 2025-01-07 09:00 | sample_0001 | 0 | 1.0 | 5.0 | 0 |
 
-**操作**:
-- 「追加」ボタン -> サンプル名をドロップダウンリストで追加か自由記入で追加
-	- 自由記入の場合はタスク内限定で一時的に独自IDを内部で作成する。
-	- 自由記入の場合は計算をしない。
-- 「削除」ボタン -> サンプルのレコードを削除
-- 「印刷」ボタン -> 横向きで1ページに列が入り切るように印刷(縦はページを跨いでも良い)
-- 「次へ」ボタン -> tasks.analysis へ遷移
-- 「戻る」ボタン -> `tasks.task_ticket` へ遷移（表示モードで開く）
+**Actions**:
+- "Add" -> dropdown or free-text entry (free-text creates temporary ID, no calculation)
+- "Delete" -> remove sample record
+- "Print" -> landscape print, fit columns to page width
+- "Next" -> `tasks.analysis`
+- "Back" -> `tasks.task_ticket` (view mode)
 
-**データソース:**
-- サンプル一覧テーブル
-	- ファイル: `bunseki.csv`
-	- サンプル取得の条件:
-	    - `bunseki.csv::holder_group_code` = `tasks.task_ticket` で選択した `holder_group_code`
-	    - `job_number` が選択したJOB番号リストのいずれかに一致（OR検索）
-	    - 重複なし
-	- データの集計データの条件(AND検索)
-		- サンプル条件で取得した`valid_sample_set_code`に該当
-		- `trend_enabled`がtrue
-		- `sample_sampling_date`が直近5年分
-- サンプル追加
-	- ファイル: `valid_samples.json`
-	- 条件
-		- `items[].is_active`がtrueの`items[].display_name`を`items[].sort_order`の順番で表示
+**Data source**:
+- Sample table file: `bunseki.csv`
+  - Filter: `holder_group_code` matches selected + `job_number` in selected list (OR) + no duplicates
+  - Aggregation data: matching `valid_sample_set_code`, `trend_enabled` = true, `sample_sampling_date` within last 5 years (AND)
+- Sample add dropdown file: `valid_samples.json`
+  - Filter: `items[].is_active` = true, sorted by `sort_order`, display `display_name`
 
-**補足:**
-- ここで表示したサンプルの`bunseki.csv::valid_sample_set_code`を保持する。
-- `bunseki.csv`にデータ番号列がない場合は全て0にする。
-`
-**前のstate**: `tasks.task_ticket  
-**次のstate**: `tasks.analysis`
+**Notes**:
+- Persist `bunseki.csv::valid_sample_set_code` for selected samples
+- If `bunseki.csv` has no data number column, default all to 0
 
 ---
 
-#### [state] tasks.analysis
+### [state] tasks.analysis
 
-**目的**: 分析に必要な情報（マニュアルやツールのリンクや分析前後に必要な確認項目）をユーザーに提供し、ユーザーが実際の分析を終えるまで待機する。
+**Purpose**: Provide analysis info (manuals, tools, checklists) and wait for user to complete analysis.
 
-**表示内容**:
-- 分析基準書のリンク
-- 関連マニュアルのリンク
-- 業務ツールのリンク
-- 分析前確認リスト
-- 分析後確認リスト
+**Content**:
+- Pre-analysis:
+  - Links: analysis standards, related manuals, work tools
+  - Checklist (may not exist for some analysis types)
+- Post-analysis:
+  - Logs: equipment, reagents (may not exist for some types)
+  - Checklist (may not exist for some types)
 
-- 分析前
-	- リンク類
-		- 分析作業基準書のリンク
-		- 関連マニュアルのリンク
-		- 業務ツールのリンク
-	- チェックリスト(分析項目によっては存在しない可能性あり)
-- 分析後
-	- ログ(分析項目によっては存在しない可能性あり)
-		- 分析装置
-		- 作成試薬
-	- チェックリスト(分析項目によっては存在しない可能性あり)
-
-**操作**:
-- リンク全般 -> Webリンクとファイルパスがある。
-	- 必要に応じて開く方を切り替える
-- ログページのと同様(ログが存在する分析項目の場合は、ログを残さないと次へ進めない)
-- 分析前後の確認リスト -> チェックボックスにチェックをいれる
-	- 全てにチェックが入っていないと次に進めない
-	- 一括チェックボタンを配置
-	- 確認者へ回覧後は編集不可
-- 「次へ」ボタン -> `tasks.result_entry` へ遷移
-- 「戻る」ボタン -> `tasks.analysis_targets` へ遷移（表示モードで開く）
-
-**前のstate**: `tasks.analysis_targets`  
-**次のstate**: `tasks.result_entry`
+**Actions**:
+- Links: switch between web URL and file path as needed
+- Log entry (same as log page; required if log exists for this analysis type)
+- Checklists: checkboxes, all must be checked to proceed. Bulk-check button available. Locked after circulation.
+- "Next" -> `tasks.result_entry`
+- "Back" -> `tasks.analysis_targets` (view mode)
 
 ---
 
-#### [state] tasks.result_entry
+### [state] tasks.result_entry
 
-**目的**: 分析が終わったデータを入力する。(開発は後回しで今回は下記の薄い実装で終了)
+**Purpose**: Data entry after analysis. (Minimal implementation for now)
 
-**表示内容**:
-- 「通常のデータ入力を行なってください。」というメッセージ
+**Content**:
+- Message: "Please perform standard data entry." / 「通常のデータ入力を行なってください。」
 
-**操作**:
-- 「Lab-Aidの起動」ボタン -> Lab-Aidの起動
-- 「入力完了」ボタン -> `tasks.result_verification`に遷移
-
-**前のstate**: `tasks.analysis`  
-**次のstate**: `tasks.result_verification`
+**Actions**:
+- "Launch Lab-Aid" button -> start Lab-Aid application
+- "Entry Complete" -> `tasks.result_verification`
 
 ---
 
-#### [state] tasks.result_verification
+### [state] tasks.result_verification
 
-**目的**: 入力されたデータを確認し、自動異常検知の結果を提示する。
+**Purpose**: Verify entered data with automatic anomaly detection.
 
-**表示内容**:
-- valid_holder_display_nameごとタブを作り下記を表示
-	- 入力データの一覧表示（読み取り専用）
+**Content**:
+- Tabs per `valid_holder_display_name`, each showing:
+  - Data table (read-only):
 
-| 列名                        | 表示名    | 備考                                                      |
-| ------------------------- | ------ | ------------------------------------------------------- |
-| valid_sample_display_name | サンプル名  | valid_sample_set_codeを保持                                |
-| valid_test_display_name   | 試験項目名  | valid_test_display_nameを保持                              |
-| test_raw_data             | データ    |                                                         |
-| test_unit_name            | 単位     |                                                         |
-| -                         | 最上限基準値 | test_upper_limit_spec_1~4で一番値が小さいもの                     |
-| -                         | 最下限基準値 | test_lower_limit_spec_1~4で一番値が大きいもの                     |
-| test_judgment             | 異常フラグ  | NN以外ならそのまま表示、NNなら計算結果を表示(`trend_enabled` = trueのものだけ計算) |
-| -                         | トレンド   | トレンド表示ボタン                                               |
+| Column | Display Name | Notes |
+|--------|-------------|-------|
+| valid_sample_display_name | サンプル名 | holds valid_sample_set_code |
+| valid_test_display_name | 試験項目名 | holds valid_test_display_name |
+| test_raw_data | データ | |
+| test_unit_name | 単位 | |
+| - | 最上限基準値 | min of test_upper_limit_spec_1~4 |
+| - | 最下限基準値 | max of test_lower_limit_spec_1~4 |
+| test_judgment | 異常フラグ | if NN: show calculated result (trend_enabled=true only); else show as-is |
+| - | トレンド | trend graph button |
 
-	- 自動異常検知の結果（business-logic.md の判定ロジックに基づく色分け表示）
-	- 異常フラグが立った項目のハイライト
-- チェックボックスの確認項目
+  - Color-coded anomaly detection results
+  - Highlighted anomaly flags
+- Confirmation checkboxes
 
-**データソース**
-- ファイル: `bunseki.csv`
-- 分析結果として使用するデータの取得条件( OR )
-	- `bunseki.csv::holder_group_code` = `[state]tasks.task_ticket` で選択した `holder_group_code`
-	- `job_number` で選択したJOB番号リストのいずれかに一致（OR検索）
-	- 重複なし
-- 計算に使用するデータの取得条件( AND )
-	- `[state]tasks.task_ticket`で保持した `holder_group_code` = `bunseki.csv::holder_group_code`
-	- `trend_enabled` = true
-	- `[state]tasks.analysis_targets`で保持した `valid_sample_set_code` = `bunseki.csv::valid_sample_set_code`
-	- `sample_sampling_date`が分析対象のデータから過去5年分
-	- `test_raw_data`の文字列を削除して数字のみ残したものを使用する
-- グラフに使用するデータの取得条件(AND)
-	- `[state]tasks.task_ticket`で保持した `holder_group_code` = `bunseki.csv::holder_group_code`
-	- `[state]tasks.analysis_targets`で保持した `valid_sample_set_code` = `bunseki.csv::valid_sample_set_code`
-	- `sample_sampling_date`が分析対象のデータから過去5年分
-	- `test_raw_data`の文字列を削除して数字のみ残したものを使用する
-	- グラフの表示対象の `valid_test_code` = `bunseki.csv::valid_test_code`
+**Data source**:
+- File: `bunseki.csv`
+- Analysis result data (OR): `holder_group_code` match + `job_number` match + no duplicates
+- Calculation data (AND): `holder_group_code` + `trend_enabled` = true + `valid_sample_set_code` match + `sample_sampling_date` last 5 years + numeric-only from `test_raw_data`
+- Graph data (AND): same as calculation + `valid_test_code` match
 
-**グラフ:**
-- 文字化けに注意
-- ただのグラフ画像の添付は避ける
-- カーソルを合わせている位置のデータをカーソル上にコメントで表示
-- 最上下限(赤点線)と平均+-2σ(オレンジ点線)の表示
-- グラフ下に作成に使用したデータをテーブルで表示(異常データは強調表示)
+**Chart requirements**:
+- No font garbling (JP font support)
+- No plain image paste — interactive charts
+- Tooltip showing data at cursor position
+- Upper/lower limits (red dashed) + mean +/- 2 sigma (orange dashed)
+- Data table below chart (anomalous data highlighted)
 
-| 列名                                       | 表示名 | 補足                 |
-| ---------------------------------------- | --- | ------------------ |
-| bunseki.csv::sample_sampling_date_sample | 日時  |                    |
-| bunsek.csv::test_raw_data                | データ |                    |
-| bunseki.csv::test_unit_name              | 単位  |                    |
-| bunseki.csv::test_judgment               | 判定  | NNならOK、それ以外はそのまま表示 |
+| Column | Display | Notes |
+|--------|---------|-------|
+| sample_sampling_date | 日時 | |
+| test_raw_data | データ | |
+| test_unit_name | 単位 | |
+| test_judgment | 判定 | NN -> OK, else show as-is |
 
-**操作**:
-- トレンドグラフボタン -> ポップアップダイアログで表示
-- 「回覧へ」ボタン -> 確認項目にチェックがついているか確認し、`tasks.submission` へ遷移
-
-**前のstate**: `tasks.result_entry`  
-**次のstate**: `tasks.submission`（確認完了時）/ `tasks.result_entry`（修正時）
+**Actions**:
+- Trend graph button -> popup dialog
+- "To Circulation" -> verify checkboxes, navigate to `tasks.submission`
 
 ---
 
-#### [state] tasks.submission
+### [state] tasks.submission
 
-**目的**: 分析結果を添付ファイルとともに確認者へ回覧する。確認者は次の確認者へ回覧するか、タスクを終了させる。
+**Purpose**: Circulate results with attachments to reviewers.
 
-**表示内容**:
-- 添付ファイルフィールド
-	- ドラッグ＆ドロップかダイアログから添付
-	- 何も添付されていない場合は、フィールドをクリックでダイアログ表示
-	- 添付されたファイルは、フィールド内にファイル名で添付したことがわかるデザインで表示
-	- 添付されたファイルはタスクIDから逆引きできるように `{app_data}`内に保存
-- 回覧フロー(分析者 -> 確認者は確定で、確認者の人数は可変)
-- コメント記入欄
+**Content**:
+- Attachment field (drag & drop or dialog; files saved in `{app_data}` keyed by task ID)
+- Circulation flow (analyst -> reviewer(s), variable number of reviewers)
+- Comment field
 
-**回覧:**
-- SMTPなどの直接送信は前提にしない（Outlook起動/メール作成）
-- pywin32を使用する
-- HTMLでデザインしたツールからの通知であることがわかるようにする。(公式感？)
-- メールを作成して表示(ユーザーが送信)
-- メールを作成した時点でステータスを変更
-- 異常が出ているサンプルをがあれば回覧メールを警告デザインにする
-	- テーブルで異常が出たサンプル一覧を表示する。
-	- テーブルの列は `[state]tasks.result_verification`で表示したデーブルを異常があるもののみで絞り込んだもの
-- 平均+-2σを超過したものは、超過リストに記録して `[page]data`で2σ超過を表示できるようにする。`bunseki.csv`から下記を取得して保存(事前に保持しておくのが好ましい)
-	- sample_request_number
-	- sample_job_number
-	- valid_sample_set_code
-	- valid_holder_set_code
-	- valid_test_set_code
+**Circulation**:
+- No direct SMTP — use Outlook via pywin32 (create + display email, user sends)
+- HTML-designed notification email (professional appearance)
+- Status changes when email is created
+- If anomalies exist: warning-style email with anomaly table (filtered from result_verification table)
+- Items exceeding mean +/- 2 sigma: record to anomaly list for `[page] data` display. Save from `bunseki.csv`: `sample_request_number`, `sample_job_number`, `valid_sample_set_code`, `valid_holder_set_code`, `valid_test_set_code`
 
-**操作**:
-ロール：起票者
-- 「送信」ボタン -> 確認者に通知し、自分の操作は完了
-
-ロール：確認者
-- 「次へ回覧」ボタン -> 次の確認者を選択して回覧
-- 「終了」ボタン -> `tasks.completed` へ遷移
-
-**前のstate**: `tasks.result_verification`  
-**次のstate**: `tasks.completed`（終了時）
+**Actions**:
+- Role: Creator -> "Send" button (notifies reviewer, creator's work is done)
+- Role: Reviewer -> "Forward" (select next reviewer) or "Complete" -> `tasks.completed`
 
 ---
 
-#### [state] tasks.completed
+### [state] tasks.completed
 
-**目的**: タスクが正式に完了したことを表示する。
+**Purpose**: Display task completion status.
 
-**表示内容**:
-- 完了メッセージ
-- 終了内容サマリー
+**Content**: Completion message + summary.
 
-**操作**:
-- 「タスクに戻る」ボタン -> tasks へ遷移
-
-**前のstate**: `tasks.submission`  
-**次のstate**: なし
+**Actions**: "Back to Tasks" -> tasks page
 
 ---
 
-### [page] data
+## [page] data
 
-**目的**: 過去の分析データを一覧で確認・検索する。
+**Purpose**: View/search historical analysis data.
 
-**表示内容**:
+**Content table**:
 
-| 列名                        | 表示名     | 備考                                                                      |
-| ------------------------- | ------- | ----------------------------------------------------------------------- |
-| sample_request_number     | 依頼番号    |                                                                         |
-| sample_sampling_date      | サンプル日時  |                                                                         |
-| sample_job_number         | JOB番号   |                                                                         |
-| valid_sample_display_name | サンプル名   |                                                                         |
-| valid_holder_display_name | ホルダ名    |                                                                         |
-| valid_test_display_name   | 試験項目名   |                                                                         |
-| test_raw_data             | データ     |                                                                         |
-| test_reported_data        | データ_報告用 |                                                                         |
-| test_unit_name            | 単位      |                                                                         |
-| test_upper_limit_spec_1   | 上限値_1   |                                                                         |
-| test_upper_limit_spec_2   | 上限値_2   |                                                                         |
-| test_upper_limit_spec_3   | 上限値_3   |                                                                         |
-| test_upper_limit_spec_4   | 上限値_4   |                                                                         |
-| test_lower_limit_spec_1   | 下限値_1   |                                                                         |
-| test_lower_limit_spec_2   | 下限値_2   |                                                                         |
-| test_lower_limit_spec_3   | 下限値_3   |                                                                         |
-| test_lower_limit_spec_4   | 下限値_4   |                                                                         |
-| test_judgment             | 判定      | NNのものは`[state]tasks.submission`で保存した2σ超過リストから2σ超過を表示する。(NN以外であればそちらを優先) |
-| -                         | アクション   | グラフ作成ボタン                                                                |
+| Column | Display Name (JP) | Notes |
+|--------|-------------------|-------|
+| sample_request_number | 依頼番号 | |
+| sample_sampling_date | サンプル日時 | |
+| sample_job_number | JOB番号 | |
+| valid_sample_display_name | サンプル名 | |
+| valid_holder_display_name | ホルダ名 | |
+| valid_test_display_name | 試験項目名 | |
+| test_raw_data | データ | |
+| test_reported_data | データ_報告用 | |
+| test_unit_name | 単位 | |
+| test_upper_limit_spec_1~4 | 上限値_1~4 | |
+| test_lower_limit_spec_1~4 | 下限値_1~4 | |
+| test_judgment | 判定 | NN: show 2-sigma exceedance from saved list; non-NN takes priority |
+| - | アクション | Chart button |
 
-**フィルタ**
-- 期間をカレンダーから選択(表示は簡易的な表示: 2025-01-10)
-- 依頼番号の入力欄(部分一致)
-- JOB番号の入力欄(部分一致)
-- サンプル名のドロップダウンリスト(複数選択)
-- ホルダ名のドロップダウンリスト(複数選択)
-- 試験項目名のドロップダウンリスト(複数選択)
-- 判定のドロップダウンリスト(複数選択)
+**Filters**: date range (calendar), request number (partial), JOB number (partial), sample name (multi-select dropdown), holder name (multi-select), test item (multi-select), judgment (multi-select)
 
-**操作**:
-- グラフボタンで`[state]tasks.result_verification`のグラフ作成と同じ機能
-- 各種フィルター機能
-- CSVでエクスポートする機能
-	- 全データを出力するのか、フィルタリング済みのデータを出力するのか聞く
-	- ダウンロードに出力する
-	- 出力したら、保存先を表示するボタンをクリックしてダウンロードフォルダーを開けるようにする。
+**Actions**:
+- Chart button: same as `tasks.result_verification` chart
+- CSV export (prompt: all data or filtered; save to Downloads; show "open folder" button)
 
 ---
 
-### [page] news
+## [page] news
 
-**目的**: 業務に関連する連絡事項を投稿・閲覧する。
+**Purpose**: Post/view work-related announcements.
 
-**表示内容**:
-- 表示内容
-	- ◯(非選択)塗りつぶしの◯(選択済み)
-	- ID
-	- 発行日時
-	- タイトル
-	- 内容
-	- 対象の ホルダーグループ(複数でタグ形式)
-	- フラグ(重要かどうか)
-	- 強制表示期間(フラグが立っていれば入力)
-	- アクション(編集)
-- 機能
-	- 起票時
-		- 資料添付(`{app_data}`に保存)
-		- リンク入力
-	- 一覧
-		- 選択済みのニュースの削除(警告)
-		- 選択済みのニュースのメール共有(HTMLでメールを作成して表示。ユーザーが送信する。宛先はアクティブユーザー全員)
+**Content**:
+- Fields: checkbox, ID, posted date, title, content, target holder groups (tags), important flag, forced display period (if flagged), action (edit)
+- Features: file attachment (saved in `{app_data}`), link input
+- List actions: delete selected (with warning), email selected (HTML email via Outlook to all active users)
 
-**フィルタ:**
-よくあるニュース機能のフィルタ(おすすめで)
-
-**操作**:
-- よくあるニュースや掲示板の機能をおすすめで
-- メール送信
-- 削除
+**Filters**: Standard news/bulletin board filters.
 
 ---
 
-### [page] library
+## [page] library
 
-**目的**: 回覧時に添付された資料を一覧で管理・閲覧する。
+**Purpose**: Browse/manage documents attached during task circulation.
 
-**表示内容**:
-- タスクIDごとの添付資料の一覧
+**Content**: Attachments listed by task ID.
 
-**フィルタ:**
-- ホルダグループ
-- 期間
-- ユーザー
+**Filters**: holder group, date range, user.
 
-**操作**:
-- 選択したタスクの一括ダウンロード
-- ファイルを読み取り専用で開く
-- ファイルのダウンロード
-- その他おすすめ
+**Actions**: Bulk download by task, open read-only, download file.
 
 ---
 
-### [page] log
+## [page] log
 
-**目的**: 分析装置や試薬の使用ログを記録・確認する。
+**Purpose**: Record/view equipment and reagent usage logs.
 
-**表示内容**:
-- 装置ログ
-	- 装置名の選択
-	- 装置ごとに設定で変更可能
-		- 設定項目
-			- 列(全て文字列で可変)
-			- ホルダグループコード
-			- 管理担当者
-			- 電話番号
-		- 下記は表示項目の例(基本的に文字列)
-			- ID
-			- 日時
-			- 使用時間(分)
-			- ユーザー
-			- 備考
-- 試薬ログ
-	- ホルダグループごとに作成する試薬を設定可能
-		- 設定項目
-			- ID
-			- 試薬名
-			- 設定期限(1ヶ月単位で任意設定)
-			- 備考
-		- 表示項目
-			- ID
-			- 試薬名
-			- 作成者
-			- 保存期限(最終作成びから設定されている保存期限で計算)
-			- 最新作成日
-			- 設置期限
-			- ステータス
-		- 期限が1ヶ月以内なら黄色
-		- 期限切れなら赤
+**Content**:
+- Equipment log: select equipment; configurable columns per equipment (all string, variable). Config: columns, holder group code, manager, phone number. Example fields: ID, datetime, usage time (min), user, notes.
+- Reagent log: configurable per holder group. Config: ID, reagent name, expiry period (monthly), notes. Display: ID, reagent name, creator, storage expiry (calculated), last creation date, expiry period, status. Yellow if expiring within 1 month, red if expired.
 
-**操作**:
-- 装置と試薬のデータ入力
-- 新規装置と試薬の追加と削除
+**Actions**: Add/edit log entries, add/delete equipment and reagents.
 
 ---
 
-### [page] job
+## [page] job
 
-**目的**: 分析に必要なJOB番号を設定・管理する。
+**Purpose**: Manage JOB numbers for analysis.
 
-**表示内容**:
-- ID
-- JOB番号(単一)
-- 開始日
-- 終了日
+**Content**: ID, JOB number (single), start date, end date.
 
-**操作**:
-- 追加、削除、編集
+**Actions**: Add, delete, edit.
 
 ---
 
-### [page] settings
+## [page] settings
 
-**目的**: アプリの動作設定を編集・保存する。(管理者のみ開ける)
+**Purpose**: Edit application settings. (Admin only)
 
-**表示内容**:
-- settings.json の編集フォーム（項目は data-spec.md 参照）
-- users.json の編集テーブル（ユーザー追加・削除・編集）
+**Content**:
+- settings.json edit form
+- users.json edit table (add/delete/edit users)
 
-**設定項目:**
-- ユーザー設定
-- ホルダグループごとの設定
-	- `[state] tasks.analysis`
-		- 作業基準書のリンク(複数可変)
-		- 関連マニュアルのリンク(複数可変)
-		- 業務ツールリンク(複数可変)
-		- 分析前後チェックリストの設定(複数可変)
-	- `[state] tasks.result_entry`
-		- Lab-Aidリンク
-	- その他ユーザーによって設定させても良いものを考えて実装して
-- その他ユーザーによって設定させても良いものを考えて実装して
-- `{app_data}`のパス
-``
-**操作**:
-- 各項目を編集して「保存」ボタン -> ファイルに書き込む
-- 「キャンセル」ボタン -> 変更を破棄して元の値に戻す
+**Configurable items**:
+- User settings
+- Per holder group:
+  - `tasks.analysis`: standard doc links, manual links, tool links, pre/post checklists (all variable count)
+  - `tasks.result_entry`: Lab-Aid link
+  - Other user-configurable items (implement as appropriate)
+- `{app_data}` path
+
+**Actions**: "Save" -> write to file; "Cancel" -> discard changes.
 
 ---
 
-### [dialog] logon
+## [dialog] logon
 
-**目的**: アプリ起動時にユーザーを識別してログオンする。
+**Purpose**: User authentication on startup.
 
-**表示内容**:
-- ID
-- パスワード
+**Content**: ID, password fields.
 
-**操作**:
-- 「ログオン」ボタン -> 認証成功時にメインウィンドウを表示する
-- 認証失敗時 -> エラーメッセージを表示して再入力を促す
-- キャンセル / 閉じる -> アプリを終了する
+**Actions**: "Login" -> show main window on success; error message on failure; cancel/close -> exit app.
 
 ---
 
-### [dialog] setup
+## [dialog] setup
 
-**目的**: ユーザー固有のデータパス（SharePointフォルダのローカル同期先）を設定する。
+**Purpose**: Set user-specific data paths (SharePoint sync folder).
 
-**表示内容**:
-- SharePointルートパスの入力欄（フォルダ選択ダイアログ付き）
-- 出力先フォルダの入力欄（フォルダ選択ダイアログ付き）
+**Content**: SharePoint root path input (folder picker), output folder input (folder picker).
 
-**操作**:
-- フォルダ選択ボタン -> OS標準のフォルダ選択ダイアログを開く
-- 「保存」ボタン -> settings.json に書き込み、ダイアログを閉じる
-- 「キャンセル」ボタン -> 変更を破棄してダイアログを閉じる（初回時はアプリ終了）
+**Actions**: Folder picker -> OS native dialog; "Save" -> write to settings.json; "Cancel" -> discard (exit app if first-time).
 
 ---
 
-## 4. 共通UI仕様
+## 4. Common UI Specs / 共通UI仕様
 
-### サイドバー
-- kind=page の画面のみ表示する（state・dialog は表示しない）
-- 現在表示中の page をハイライト表示する
-- アイコンで各ページを表示する
+### Sidebar
+- Show only `kind=page` screens (no states or dialogs)
+- Highlight current page
+- Icon-based navigation
 
-### `tasks.{state}`
-- 画面上部中心にアイコンで表示
-- ステータスアイコン群の左右に切り替えボタン
-- アクティブのものはステータスの表示名も表示
-- リンクになっていて移動できる
-- タスク名を左端に表示
-- 右側にユーザー名
-- タスクページ以外グレーアウトしたアイコン
-- 内容は縦長になっても良い。
-- 一番下には次へと戻るを下部中央で表示(切り替えボタンと同じ機能)
+### Task State Header (`tasks.{state}`)
+- State icons centered at top with left/right navigation buttons
+- Active state shows its display name
+- States are clickable links
+- Task name on left, user name on right
+- Non-task pages: greyed-out icons
+- Content may be vertically scrollable
+- "Next" and "Back" buttons at bottom center
 
-### ステータスバー（メインウィンドウ下部）
-- 現在の処理状態を表示する（例：「読み込み中...」「準備完了」）
+### Status Bar (main window bottom)
+- Shows current processing state (e.g., "Loading...", "Ready")
 
-### エラーダイアログ
-- 予期しないエラーは `QMessageBox.critical` でスタックトレース付きで表示する
-- エラーログは `{app_data}/bunseki/logs/app.log` に記録する
-#### エラー・例外
-- SharePointフォルダが見つからない場合：赤いバナーで警告を表示する
-	- 警告の中にデータルートをセットアップするボタンを設置し、クリックしたら`setup`ダイアログに遷移して、セットアップが終了したらデータの再読み込みをする。
-- エラー: 赤いバナーで警告を表示する
-	- エラー内容と管理者へ連絡することを記載し、エラーログのダウンロードボタンを表示
-### デザイン
-- 軽い角丸
-- 適度な余白を取る
-- 不必要に横いっぱい使用しない
-- 原色は使用しない
-- 文字は白か#333333
-- ネイティブ感のあるデザイン
-- グラフの文字化けには注意する
-- ロード中はロード画面を表示して
+### Error Dialog
+- Unexpected errors: `QMessageBox.critical` with stack trace
+- Error log: `{app_data}/bunseki/logs/app.log`
+
+### Error Handling
+- SharePoint folder not found: red warning banner + setup button -> `setup` dialog -> reload data
+- Errors: red warning banner with error details + "contact admin" message + error log download button
