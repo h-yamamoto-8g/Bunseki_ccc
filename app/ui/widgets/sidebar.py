@@ -324,6 +324,7 @@ class StepNavigation(QWidget):
         super().__init__(parent)
         self.setFixedHeight(62)
         self.setObjectName("widget_step")
+        self.setAutoFillBackground(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_buttons: dict[str, _CircleButton] = {}
         self._active_step: str = ""
@@ -399,7 +400,7 @@ class StepNavigation(QWidget):
                 btn.setIcon(get_icon(svg_path, _EDITED_FG))
                 btn.set_circle_style(_EDITED_BG, _EDITED_BORDER)
             elif progress_idx >= 0 and i < progress_idx:
-                btn.setIcon(get_icon(svg_path, _SUCCESS_FG))
+                btn.setIcon(get_icon(svg_path, _TEXT2))
                 btn.set_circle_style(_SUCCESS_BG)
             else:
                 btn.setIcon(get_icon(svg_path, _TEXT2))
