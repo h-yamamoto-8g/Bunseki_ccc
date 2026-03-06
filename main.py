@@ -10,7 +10,7 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
           │   └─ browser_guide   (ガイドテキスト)
           └─ widget_main
              ├─ widget_header    (50px 固定高)
-             ├─ widget_step      (52px 固定高, ステップナビ横並び, タスク時のみ表示)
+             ├─ widget_step      (62px 固定高, ステップナビ横並び, タスク時のみ表示)
              ├─ stack_pages      (QStackedWidget, 8ページ)
              └─ widget_statusbar (35px 固定高)
 
