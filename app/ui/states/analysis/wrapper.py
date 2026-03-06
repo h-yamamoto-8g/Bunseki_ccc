@@ -43,6 +43,14 @@ class AnalysisState(QWidget):
         post_saved = sd.get("post_checks", [False] * len(self._ui._post_checks))
         self._ui.restore_checks(pre_saved, post_saved, readonly)
 
+    def set_state_done(self, done: bool) -> None:
+        """完了済みステートなら完了ボタンを無効化して「完了済み」にする。"""
+        if done:
+            self._ui.finish_btn.setEnabled(False)
+            self._ui.finish_btn.setText("完了済み")
+        else:
+            self._ui.finish_btn.setText("完了")
+
     def _on_finish(self, pre_checks: list, post_checks: list) -> None:
         self._task = self._task_service.save_analysis(
             self._task["task_id"], pre_checks, post_checks

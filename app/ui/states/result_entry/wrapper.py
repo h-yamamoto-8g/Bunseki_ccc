@@ -58,6 +58,14 @@ class ResultEntryState(QWidget):
         self._task = task
         self._ui.set_readonly(readonly)
 
+    def set_state_done(self, done: bool) -> None:
+        """完了済みステートなら完了ボタンを無効化して「完了済み」にする。"""
+        if done:
+            self._ui._form.btn_next.setEnabled(False)
+            self._ui._form.btn_next.setText("完了済み")
+        else:
+            self._ui._form.btn_next.setText("完了")
+
     def _on_done(self) -> None:
         self._task = self._task_service.save_result_entry(self._task["task_id"])
         self.go_next.emit()
