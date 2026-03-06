@@ -303,7 +303,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_ACCENT};
                         border: none;
-                        border-radius: 50%;
+                        border-radius: 21px;
                     }}
                 """)
             elif edited:
@@ -313,7 +313,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_EDITED_BG};
                         border: 1px solid {_EDITED_BORDER};
-                        border-radius: 50%;
+                        border-radius: 21px;
                     }}
                     QToolButton:hover {{
                         background: #fde68a;
@@ -326,7 +326,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_SUCCESS_BG};
                         border: none;
-                        border-radius: 50%;
+                        border-radius: 21px;
                     }}
                 """)
             else:
@@ -336,7 +336,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_MUTED_BG};
                         border: 1px solid {_BORDER};
-                        border-radius: 50%;
+                        border-radius: 21px;
                     }}
                     QToolButton:hover {{
                         background: #e5e7eb;
