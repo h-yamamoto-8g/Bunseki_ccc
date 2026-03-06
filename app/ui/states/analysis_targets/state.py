@@ -14,6 +14,7 @@ from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor
 
 from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 from app.ui.generated.ui_stateanalysistargets import Ui_PageStateTarget
 
@@ -114,8 +115,8 @@ class AnalysisTargetsUI(QWidget):
             hh.setSectionResizeMode(i, mode)
         self.table.setColumnWidth(6, 44)
         vh = self.table.verticalHeader()
-        vh.setVisible(False)
         vh.setDefaultSectionSize(36)
+        enable_row_numbers_and_sort(self.table, self._on_sort_column)
         tgt_layout.addWidget(self.table)
 
         # ── シグナル接続 ──────────────────────────────────────────────────
@@ -166,6 +167,22 @@ class AnalysisTargetsUI(QWidget):
         self.edited_badge.setVisible(True)
         self.content_edited.emit()
         self._refresh_table()
+
+    # ── Sort ─────────────────────────────────────────────────────────────────
+
+    _TARGET_SORT_KEYS = [
+        "sample_job_number", "sample_sampling_date", "valid_sample_display_name",
+    ]
+
+    def _on_sort_column(self, col: int, ascending: bool) -> None:
+        if not hasattr(self, "_samples"):
+            return
+        if col < len(self._TARGET_SORT_KEYS):
+            key = self._TARGET_SORT_KEYS[col]
+            self._samples.sort(
+                key=lambda s: str(s.get(key, "")), reverse=not ascending,
+            )
+            self._refresh_table()
 
     # ── Internal ──────────────────────────────────────────────────────────────
 

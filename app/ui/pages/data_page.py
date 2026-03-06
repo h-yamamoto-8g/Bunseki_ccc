@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from app.services.data_service import DataService
 from app.ui.states.result_verification.state import TrendDialog
 from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 
 def _build_placeholder(widget: QWidget, title: str, description: str = "") -> None:
@@ -220,7 +221,7 @@ class DataPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(36)
-        self.table.verticalHeader().setVisible(False)
+        enable_row_numbers_and_sort(self.table, self._on_sort_column)
 
         header = self.table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -337,6 +338,14 @@ class DataPage(QWidget):
     def _on_load_all(self) -> None:
         if self._all_df is not None:
             self._display_limit = len(self._all_df)
+        self._refresh_table()
+
+    def _on_sort_column(self, col: int, ascending: bool) -> None:
+        if self._all_df is not None and 0 <= col < len(_COLUMNS):
+            col_key = _COLUMNS[col][1]
+            self._all_df = self._all_df.sort_values(
+                col_key, ascending=ascending, na_position="last",
+            )
         self._refresh_table()
 
     def _refresh_table(self) -> None:

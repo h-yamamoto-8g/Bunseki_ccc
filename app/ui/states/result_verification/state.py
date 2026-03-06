@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor, QFont
 from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 from app.ui.generated.ui_stateresultverification import Ui_StateResultVerification
 from app.services.hg_config_service import DEFAULT_VERIFY_CHECKLIST
@@ -137,7 +138,27 @@ class ResultVerificationUI(QWidget):
             QHeaderView::section { background:#f1f5f9; font-weight:bold; color:#475569;
                                     padding:6px; border:none; border-bottom:1px solid #e2e8f0; }
         """)
-        table.verticalHeader().setVisible(False)
+        # ソート用データを保持
+        table._source_df = df  # type: ignore[attr-defined]
+        table._hg_code = hg_code  # type: ignore[attr-defined]
+
+        def _on_sort(col: int, ascending: bool, tbl: QTableWidget = table) -> None:
+            src_df: pd.DataFrame = tbl._source_df  # type: ignore[attr-defined]
+            hg: str = tbl._hg_code  # type: ignore[attr-defined]
+            _SORT_COLS = [
+                "valid_sample_display_name", "valid_test_display_name",
+                "test_raw_data", "test_unit_name",
+            ]
+            if col < len(_SORT_COLS):
+                col_key = _SORT_COLS[col]
+                tbl._source_df = src_df.sort_values(  # type: ignore[attr-defined]
+                    col_key, ascending=ascending, na_position="last",
+                )
+            tbl.setRowCount(0)
+            for _, r in tbl._source_df.iterrows():  # type: ignore[attr-defined]
+                self._add_data_row(tbl, r, hg)
+
+        enable_row_numbers_and_sort(table, _on_sort)
 
         for _, row in df.iterrows():
             self._add_data_row(table, row, hg_code)
