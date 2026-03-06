@@ -565,7 +565,6 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """シグナルとスロットを接続し、初期状態を設定する。"""
         self.sidebar.page_changed.connect(self._on_page_change)
-        self.sidebar.guide_toggle_requested.connect(self._toggle_guide)
         self.btn_add_task.clicked.connect(self._open_new_task)
         self.step_nav.step_clicked.connect(self._on_step_clicked)
         self.step_nav.toggle_requested.connect(self._toggle_guide)
@@ -782,7 +781,6 @@ class MainWindow(QMainWindow):
         self._guide_expanded = not self._guide_expanded
         self.frame_subcontents.setVisible(self._guide_expanded)
         self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 0)
-        self.sidebar.set_guide_expanded(self._guide_expanded)
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。

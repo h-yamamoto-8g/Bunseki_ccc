@@ -144,7 +144,6 @@ class Sidebar(QWidget):
     """
 
     page_changed = Signal(str)
-    guide_toggle_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -165,29 +164,6 @@ class Sidebar(QWidget):
         vl.setSpacing(2)
         vl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # サイドコンテンツ開閉ボタン
-        self.btn_toggle_guide = QToolButton()
-        self.btn_toggle_guide.setFixedSize(44, 44)
-        self.btn_toggle_guide.setIconSize(QSize(24, 24))
-        self.btn_toggle_guide.setIcon(
-            get_icon(":/icons/bulging-left.svg", _TEXT2, size=24)
-        )
-        self.btn_toggle_guide.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle_guide.setToolTip("ガイドパネルの開閉")
-        self.btn_toggle_guide.setStyleSheet("""
-            QToolButton {
-                background: transparent;
-                border: none;
-            }
-            QToolButton:hover {
-                background: #e5e7eb;
-                border-radius: 10px;
-            }
-        """)
-        self.btn_toggle_guide.clicked.connect(
-            lambda: self.guide_toggle_requested.emit()
-        )
-        vl.addWidget(self.btn_toggle_guide, alignment=Qt.AlignmentFlag.AlignHCenter)
         vl.addSpacing(10)
 
         for page_id, (name, svg_path) in PAGE_INFO.items():
@@ -222,10 +198,6 @@ class Sidebar(QWidget):
         for pid, btn in self._buttons.items():
             btn.set_active(pid == page_id)
 
-    def set_guide_expanded(self, expanded: bool) -> None:
-        """開閉状態に合わせてトグルボタンのアイコンを切り替える。"""
-        svg = ":/icons/bulging-left.svg" if expanded else ":/icons/bulging-right.svg"
-        self.btn_toggle_guide.setIcon(get_icon(svg, _TEXT2, size=24))
 
 
 class StepNavigation(QWidget):
