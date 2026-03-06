@@ -86,7 +86,9 @@ class DataLoader:
         for _, row in unique.iterrows():
             vsset = row["valid_sample_set_code"]
             req_no = row.get("sample_request_number", "")
-            stats = self._sample_stats(holder_group_code, vsset)
+            vhset = row.get("valid_holder_set_code", "")
+            vtset = row.get("valid_test_set_code", "")
+            stats = self._sample_stats(vsset, vhset, vtset)
             results.append(
                 {
                     "valid_sample_set_code": vsset,
@@ -99,11 +101,12 @@ class DataLoader:
             )
         return results
 
-    def _sample_stats(self, holder_group_code: str, vsset_code: str) -> dict:
+    def _sample_stats(self, vsset_code: str, vhset_code: str, vtset_code: str) -> dict:
         df = self.df
         mask = (
-            (df["holder_group_code"] == holder_group_code)
-            & (df["valid_sample_set_code"].str.upper() == vsset_code.upper())
+            (df["valid_sample_set_code"].str.upper() == vsset_code.upper())
+            & (df["valid_holder_set_code"].str.upper() == str(vhset_code).upper())
+            & (df["valid_test_set_code"].str.upper() == str(vtset_code).upper())
             & (df["trend_enabled"] == True)
         )
         nums = self._numeric_values(df[mask]["test_raw_data"])
