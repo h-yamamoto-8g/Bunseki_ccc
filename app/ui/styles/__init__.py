@@ -42,7 +42,7 @@ QWidget#widget_main {
 }
 
 /* ── ヘッダー ── */
-QWidget#widget_header {
+QWidget#widget_header, QWidget#subcontents_header {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
 }

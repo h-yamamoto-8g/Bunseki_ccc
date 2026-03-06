@@ -469,40 +469,11 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # ── ガイドヘッダー ──
-        self._guide_header = QWidget()
-        self._guide_header.setObjectName("guide_header")
-        self._guide_header.setFixedHeight(40)
-        self._guide_header.setStyleSheet(
-            "#guide_header { background: #dbeafe; border-bottom: 1px solid #bfdbfe; }"
-        )
-        hl = QHBoxLayout(self._guide_header)
-        hl.setContentsMargins(8, 4, 8, 4)
-        hl.setSpacing(8)
-
-        self.btn_guide_close = QToolButton()
-        self.btn_guide_close.setFixedSize(28, 28)
-        self.btn_guide_close.setIconSize(QSize(18, 18))
-        self.btn_guide_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_guide_close.setIcon(
-            get_icon(":/icons/bulging-left.svg", "#1e40af")
-        )
-        self.btn_guide_close.setStyleSheet(
-            "QToolButton { background: transparent; border: none; border-radius: 4px; }"
-            "QToolButton:hover { background: #bfdbfe; }"
-        )
-        self.btn_guide_close.setToolTip("ガイドパネルを閉じる")
-        self.btn_guide_close.clicked.connect(self._toggle_guide)
-        hl.addWidget(self.btn_guide_close)
-
-        self.label_guide_title = QLabel()
-        self.label_guide_title.setObjectName("label_guide_title")
-        self.label_guide_title.setStyleSheet(
-            "#label_guide_title { color: #1e3a5f; font-size: 13px; font-weight: 600; }"
-        )
-        hl.addWidget(self.label_guide_title, 1)
-
-        layout.addWidget(self._guide_header)
+        # ヘッダーと同じ高さのスペーサー (50px) で上端を揃える
+        header_spacer = QWidget()
+        header_spacer.setFixedHeight(50)
+        header_spacer.setObjectName("subcontents_header")
+        layout.addWidget(header_spacer)
 
         # browser_guide: 現在のタスク向けガイドテキスト
         self.browser_guide = QTextBrowser()
