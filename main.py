@@ -870,6 +870,10 @@ class MainWindow(QMainWindow):
         """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
         if not hasattr(self, "_resize_handle"):
             return
+        # ガイドパネルが閉じているときはハンドルを非表示にする
+        if not self._guide_expanded:
+            self._resize_handle.setVisible(False)
+            return
         geo = self.frame_subcontents.geometry()
         hw = self._resize_handle.width()
         self._resize_handle.setGeometry(
