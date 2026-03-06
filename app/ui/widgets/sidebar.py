@@ -144,6 +144,7 @@ class Sidebar(QWidget):
     """
 
     page_changed = Signal(str)
+    guide_toggle_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -190,6 +191,33 @@ class Sidebar(QWidget):
             self._buttons[page_id] = btn
 
         vl.addStretch()
+
+        # ガイドパネル開閉ボタン
+        self.btn_guide_toggle = QToolButton()
+        self.btn_guide_toggle.setFixedSize(36, 36)
+        self.btn_guide_toggle.setIconSize(QSize(16, 16))
+        self.btn_guide_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_guide_toggle.setToolTip("ガイドパネルを閉じる")
+        self.btn_guide_toggle.setIcon(
+            get_icon(":/icons/bulging-left.svg", _TEXT2)
+        )
+        self.btn_guide_toggle.setStyleSheet(f"""
+            QToolButton {{
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+            }}
+            QToolButton:hover {{
+                background: #f3f4f6;
+            }}
+        """)
+        self.btn_guide_toggle.clicked.connect(
+            lambda: self.guide_toggle_requested.emit()
+        )
+        vl.addWidget(
+            self.btn_guide_toggle, alignment=Qt.AlignmentFlag.AlignHCenter
+        )
+
         outer.addLayout(vl)
         outer.addStretch()
 
@@ -213,6 +241,19 @@ class Sidebar(QWidget):
         for pid, btn in self._buttons.items():
             btn.set_active(pid == page_id)
 
+    def set_guide_expanded(self, expanded: bool) -> None:
+        """ガイドパネルの展開状態に応じてトグルアイコンを更新する。"""
+        if expanded:
+            self.btn_guide_toggle.setIcon(
+                get_icon(":/icons/bulging-left.svg", _TEXT2)
+            )
+            self.btn_guide_toggle.setToolTip("ガイドパネルを閉じる")
+        else:
+            self.btn_guide_toggle.setIcon(
+                get_icon(":/icons/bulging-right.svg", _TEXT2)
+            )
+            self.btn_guide_toggle.setToolTip("ガイドパネルを開く")
+
 
 class StepNavigation(QWidget):
     """タスクのステップナビゲーション（横並び、ヘッダーバー）。
@@ -221,11 +262,9 @@ class StepNavigation(QWidget):
 
     Signals:
         step_clicked (str): ステップがクリックされた時に state_id を送出する。
-        toggle_requested (): 余白クリックでガイドパネル開閉を要求する。
     """
 
     step_clicked = Signal(str)
-    toggle_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -379,10 +418,3 @@ class StepNavigation(QWidget):
         self._edited_steps.clear()
         self._update_styles()
 
-    def mousePressEvent(self, event) -> None:
-        """余白クリックでガイドパネル開閉シグナルを送出する。
-
-        子ウィジェット（ステップボタン）がイベントを消費した場合は呼ばれない。
-        """
-        super().mousePressEvent(event)
-        self.toggle_requested.emit()
