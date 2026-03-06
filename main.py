@@ -781,6 +781,8 @@ class MainWindow(QMainWindow):
         self._guide_expanded = not self._guide_expanded
         self.frame_subcontents.setVisible(self._guide_expanded)
         self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 0)
+        border = "1px solid #e5e7eb" if self._guide_expanded else "none"
+        self.frame_subcontents.setStyleSheet(f"#frame_subcontents {{ border-right: {border}; }}")
         self.sidebar.set_guide_expanded(self._guide_expanded)
 
     def _show_manual(self, key: str) -> None:
