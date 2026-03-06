@@ -51,7 +51,8 @@ class AnalysisUI(QWidget):
         )
 
         # ナビゲーション接続
-        self._form.btn_back.clicked.connect(self.back_requested)
+        self._form.btn_back.setVisible(False)
+        self._form.btn_next.setText("完了")
         self._form.btn_next.clicked.connect(self._on_finish)
 
         # エイリアス (restore_checks でVisible制御に使用)
@@ -86,7 +87,6 @@ class AnalysisUI(QWidget):
             cb.setChecked(bool(val))
             cb.setEnabled(not readonly)
         self._form.btn_next.setVisible(not readonly)
-        self._form.btn_back.setVisible(not readonly)
         self._form.btn_before_all_checked.setVisible(not readonly)
         self._form.btn_after_all_checked.setVisible(not readonly)
         self._update_finish_btn()

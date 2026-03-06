@@ -120,7 +120,8 @@ class AnalysisTargetsUI(QWidget):
 
         # ── シグナル接続 ──────────────────────────────────────────────────
         self.edit_btn.clicked.connect(self.edit_requested)
-        self._form.btn_back.clicked.connect(self.back_requested)
+        self._form.btn_back.setVisible(False)
+        self._form.btn_next.setText("完了")
         self._form.btn_next.clicked.connect(self._go_next)
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -145,9 +146,8 @@ class AnalysisTargetsUI(QWidget):
         self.edit_btn.setVisible(visible)
 
     def set_nav_visible(self, visible: bool) -> None:
-        """次へ/戻るボタンの表示を制御する。"""
+        """完了ボタンの表示を制御する。"""
         self._form.btn_next.setVisible(visible)
-        self._form.btn_back.setVisible(visible)
 
     def add_free_sample(self, name: str) -> None:
         if name and name not in self._added_samples:
