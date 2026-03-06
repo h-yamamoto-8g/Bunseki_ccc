@@ -247,7 +247,7 @@ class AnalysisTargetsUI(QWidget):
                 lambda _=False, c=code, f=free: self.delete_row_requested.emit(c, f)
             )
             cell_l.addWidget(del_btn)
-            self.table.setCellWidget(row, 6, cell_w)
+            self.table.setCellWidget(row, 7, cell_w)
 
     def _go_next(self) -> None:
         visible_codes = [
