@@ -431,20 +431,33 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         root.addWidget(self.sidebar)
 
-        # ② メインエリア (サブコンテンツ + widget_main) ──────────────────
-        main_area = QHBoxLayout()
-        main_area.setContentsMargins(0, 0, 0, 0)
-        main_area.setSpacing(0)
+        # ② 右側エリア (ヘッダー + コンテンツ行 + ステータスバー) ─────────
+        right_area = QWidget()
+        right_area.setObjectName("widget_right_area")
+        right_vl = QVBoxLayout(right_area)
+        right_vl.setContentsMargins(0, 0, 0, 0)
+        right_vl.setSpacing(0)
 
-        # ── frame_subcontents (ガイド + ステップナビ) ──────────────────
+        # ヘッダー (全幅)
+        right_vl.addWidget(self._build_header())
+
+        # コンテンツ行 (サブコンテンツ + widget_main)
+        content_row = QHBoxLayout()
+        content_row.setContentsMargins(0, 0, 0, 0)
+        content_row.setSpacing(0)
+
         self.frame_subcontents = self._build_subcontents()
-        main_area.addWidget(self.frame_subcontents)
+        content_row.addWidget(self.frame_subcontents)
 
-        # ── widget_main (ヘッダー + スタック + ステータスバー) ──────────
         widget_main = self._build_widget_main()
-        main_area.addWidget(widget_main, 3)
+        content_row.addWidget(widget_main, 3)
 
-        root.addLayout(main_area)
+        right_vl.addLayout(content_row, 1)
+
+        # ステータスバー (全幅)
+        right_vl.addWidget(self._build_statusbar())
+
+        root.addWidget(right_area, 1)
 
         # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
         self._resize_handle = _ResizeHandle(
@@ -519,7 +532,7 @@ class MainWindow(QMainWindow):
         return frame
 
     def _build_widget_main(self) -> QWidget:
-        """widget_main (ヘッダー + ステップナビ + スタック + ステータスバー) を構築する。
+        """widget_main (ステップナビ + スタック) を構築する。
 
         Returns:
             構築した QWidget。
@@ -530,8 +543,6 @@ class MainWindow(QMainWindow):
         vl.setContentsMargins(0, 0, 0, 0)
         vl.setSpacing(0)
 
-        vl.addWidget(self._build_header())
-
         # widget_step: ステップナビゲーション（横並び、タスクモード時のみ表示）
         self.step_nav = StepNavigation()
         self.step_nav.setObjectName("widget_step")
@@ -539,7 +550,6 @@ class MainWindow(QMainWindow):
         vl.addWidget(self.step_nav)
 
         vl.addWidget(self._build_stack())
-        vl.addWidget(self._build_statusbar())
 
         return widget
 
