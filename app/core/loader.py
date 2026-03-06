@@ -91,7 +91,7 @@ class DataLoader:
                     "valid_sample_set_code": vsset,
                     "valid_sample_display_name": row.get("valid_sample_display_name", vsset),
                     "sample_job_number": row.get("sample_job_number", ""),
-                    "sample_sampling_date": self._fmt_date(row.get("sample_sampling_date")),
+                    "sample_sampling_date": self._fmt_date(row.get("sample_sampling_date"), include_time=True),
                     **stats,
                 }
             )
@@ -388,13 +388,16 @@ class DataLoader:
             return None
 
     @staticmethod
-    def _fmt_date(val) -> str:
+    def _fmt_date(val, include_time: bool = False) -> str:
         if val is None or (isinstance(val, float) and np.isnan(val)):
             return ""
         s = str(int(float(val)))
         # YYYYMMDDHHMMSS or YYYYMM...
         if len(s) >= 8:
-            return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            base = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            if include_time and len(s) >= 12:
+                base += f" {s[8:10]}:{s[10:12]}"
+            return base
         if len(s) >= 6:
             return f"{s[:4]}-{s[4:6]}"
         return s
