@@ -345,8 +345,8 @@ class StepNavigation(QWidget):
         色分けルール:
         - 表示中のステップ (_active_step): 青塗り
         - 編集済み: アンバー塗り
-        - タスクの実際の進捗 (_current_state) 以前: 緑塗り（完了済み）
-        - _current_state より先: グレー（色をつけない）
+        - タスクの実際の進捗 (_current_state) 以前: 薄緑背景・グレーアイコン（完了済み）
+        - _current_state より先: グレー背景（未到達）
         """
         step_ids = [s[0] for s in STEP_DEFS]
         # タスクの実際の進捗位置で完了済み判定する
@@ -362,44 +362,48 @@ class StepNavigation(QWidget):
 
             if state_id == self._active_step:
                 btn.setIcon(get_icon(svg_path, "#ffffff"))
+                btn.set_circle_style(_ACCENT)
                 btn.setStyleSheet(f"""
                     QToolButton {{
-                        background: {_ACCENT};
+                        background: transparent;
                         border: none;
                         border-radius: 22px;
                     }}
                 """)
             elif edited:
                 btn.setIcon(get_icon(svg_path, _EDITED_FG))
+                btn.set_circle_style(_EDITED_BG, _EDITED_BORDER)
                 btn.setStyleSheet(f"""
                     QToolButton {{
-                        background: {_EDITED_BG};
-                        border: 1px solid {_EDITED_BORDER};
+                        background: transparent;
+                        border: none;
                         border-radius: 22px;
                     }}
                     QToolButton:hover {{
-                        background: #fde68a;
+                        background: transparent;
                     }}
                 """)
             elif progress_idx >= 0 and i < progress_idx:
-                btn.setIcon(get_icon(svg_path, _SUCCESS_FG))
+                btn.setIcon(get_icon(svg_path, _TEXT2))
+                btn.set_circle_style(_SUCCESS_BG)
                 btn.setStyleSheet(f"""
                     QToolButton {{
-                        background: {_SUCCESS_BG};
+                        background: transparent;
                         border: none;
                         border-radius: 22px;
                     }}
                 """)
             else:
                 btn.setIcon(get_icon(svg_path, _TEXT2))
+                btn.set_circle_style(_MUTED_BG, _BORDER)
                 btn.setStyleSheet(f"""
                     QToolButton {{
-                        background: {_MUTED_BG};
-                        border: 1px solid {_BORDER};
+                        background: transparent;
+                        border: none;
                         border-radius: 22px;
                     }}
                     QToolButton:hover {{
-                        background: #e5e7eb;
+                        background: transparent;
                     }}
                 """)
 
