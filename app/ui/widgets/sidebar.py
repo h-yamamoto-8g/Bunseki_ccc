@@ -229,7 +229,7 @@ class StepNavigation(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(62)
+        self.setFixedHeight(50)
         self.setObjectName("widget_step")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_buttons: dict[str, QToolButton] = {}
@@ -242,7 +242,7 @@ class StepNavigation(QWidget):
     def _setup_ui(self) -> None:
         """UIを構築する。"""
         hl = QHBoxLayout(self)
-        hl.setContentsMargins(20, 10, 20, 9)
+        hl.setContentsMargins(20, 4, 20, 4)
         hl.setSpacing(0)
         hl.addStretch()
 
