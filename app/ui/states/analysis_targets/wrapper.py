@@ -83,6 +83,14 @@ class AnalysisTargetsState(QWidget):
                 self._ui.set_editable(True)
                 self._ui.show_edit_btn(False)
 
+    def set_state_done(self, done: bool) -> None:
+        """完了済みステートなら完了ボタンを無効化して「完了済み」にする。"""
+        if done:
+            self._ui._form.btn_next.setEnabled(False)
+            self._ui._form.btn_next.setText("完了済み")
+        else:
+            self._ui._form.btn_next.setText("完了")
+
     # ── Handlers ─────────────────────────────────────────────────────────────
 
     def _on_print(self) -> None:

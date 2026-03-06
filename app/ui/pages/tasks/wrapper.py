@@ -256,6 +256,14 @@ class TasksPage(QWidget):
         except ValueError:
             return False
 
+    def _is_past_state(self, target: str, task: dict) -> bool:
+        """target がタスクの current_state より前（完了済み）のステートか判定する。"""
+        current = task.get("current_state", "")
+        try:
+            return STATE_ORDER.index(target) < STATE_ORDER.index(current)
+        except ValueError:
+            return False
+
     def _navigate_to_state(self, state: str, task: dict) -> None:
         readonly = self._task_service.is_task_readonly(task)
         # 自分のタスクでなければ閲覧専用
@@ -265,20 +273,27 @@ class TasksPage(QWidget):
         preview = not readonly and self._is_future_state(state, task)
         if preview:
             readonly = True
+        # このステートが既に完了済みか
+        state_done = self._is_past_state(state, task)
 
         if state == "task_setup":
             if self._task_service.is_setup_done(task):
                 self.setup_state.open_existing(task, readonly=readonly)
             else:
                 self.setup_state.open_new()
+            self.setup_state.set_state_done(state_done)
         elif state == "analysis_targets":
             self.targets_state.load_task(task, readonly=readonly)
+            self.targets_state.set_state_done(state_done)
         elif state == "analysis":
             self.analysis_state.load_task(task, readonly=readonly)
+            self.analysis_state.set_state_done(state_done)
         elif state == "result_entry":
             self.entry_state.load_task(task, readonly=readonly)
+            self.entry_state.set_state_done(state_done)
         elif state == "result_verification":
             self.verify_state.load_task(task, readonly=readonly)
+            self.verify_state.set_state_done(state_done)
         elif state == "submission":
             self.submission_state.load_task(task, readonly=readonly)
         elif state == "completed":

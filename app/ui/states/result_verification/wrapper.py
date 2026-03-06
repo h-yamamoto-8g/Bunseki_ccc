@@ -65,6 +65,14 @@ class ResultVerificationState(QWidget):
         saved = sd.get("checks", [False] * len(verify_items))
         self._ui.restore_checks(saved, readonly)
 
+    def set_state_done(self, done: bool) -> None:
+        """完了済みステートなら完了ボタンを無効化して「完了済み」にする。"""
+        if done:
+            self._ui.next_btn.setEnabled(False)
+            self._ui.next_btn.setText("完了済み")
+        else:
+            self._ui.next_btn.setText("完了")
+
     def _on_next(self, checks: list) -> None:
         self._task = self._task_service.save_result_verification(
             self._task["task_id"], checks

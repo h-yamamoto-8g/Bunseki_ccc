@@ -76,6 +76,14 @@ class TaskSetupState(QWidget):
         self._ui.set_task_data(hg_code, job_numbers)
         self._ui.show_existing_mode(readonly)
 
+    def set_state_done(self, done: bool) -> None:
+        """完了済みステートなら完了ボタンを無効化して「完了済み」にする。"""
+        if done:
+            self._ui._btn_next.setEnabled(False)
+            self._ui._btn_next.setText("完了済み")
+        else:
+            self._ui._btn_next.setText("完了")
+
     # ── Handlers ─────────────────────────────────────────────────────────────
 
     def _on_edit_requested(self) -> None:
