@@ -37,7 +37,7 @@ class TaskSetupUI(QWidget):
         self._form.setupUi(self)
 
         # 「進む」ボタンを btn_create の後ろに追加
-        self._btn_next = QPushButton("進む")
+        self._btn_next = QPushButton("完了")
         self._btn_next.setMinimumSize(QSize(100, 50))
         self._btn_next.setMaximumSize(QSize(100, 50))
         self._btn_next.setVisible(False)
@@ -54,7 +54,7 @@ class TaskSetupUI(QWidget):
         self._form.btn_create.clicked.connect(self._on_primary_btn)
 
         # 「次へ →」ボタンを動的に追加（起票完了後のナビゲーション用）
-        self._btn_next = QPushButton("次へ →")
+        self._btn_next = QPushButton("完了")
         self._btn_next.setMinimumSize(QSize(100, 50))
         self._btn_next.setMaximumSize(QSize(100, 50))
         self._btn_next.setVisible(False)

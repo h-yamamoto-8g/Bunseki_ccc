@@ -326,6 +326,7 @@ class SubmissionUI(QWidget):
         self._btn_back = QPushButton("← 戻る")
         self._btn_back.setStyleSheet(_secondary)
         self._btn_back.clicked.connect(self.back_requested)
+        self._btn_back.setVisible(False)
         hl.addWidget(self._btn_back)
 
         self._btn_reclaim = QPushButton("取り戻し")
@@ -437,7 +438,7 @@ class SubmissionUI(QWidget):
         self._rebuild_attachments()
 
         # ボタン
-        self._btn_back.setVisible(mode == "edit")
+        self._btn_back.setVisible(False)
         self._btn_send.setVisible(mode == "edit")
         self._btn_reclaim.setVisible(mode == "sent_analyst")
         self._btn_return.setVisible(mode in ("reviewer_mid", "reviewer_last"))

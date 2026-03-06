@@ -42,11 +42,11 @@ class ResultEntryUI(QWidget):
         self._form.horizontalLayout_5.insertWidget(0, self._btn_data_update)
 
         self._form.btn_labaid.clicked.connect(self.labaid_requested)
-        self._form.btn_back.clicked.connect(self.back_requested)
+        self._form.btn_back.setVisible(False)
+        self._form.btn_next.setText("完了")
         self._form.btn_next.clicked.connect(self.done_requested)
 
     def set_readonly(self, readonly: bool) -> None:
         self._form.btn_next.setVisible(not readonly)
-        self._form.btn_back.setVisible(not readonly)
         self._form.btn_labaid.setVisible(not readonly)
         self._btn_data_update.setVisible(not readonly)

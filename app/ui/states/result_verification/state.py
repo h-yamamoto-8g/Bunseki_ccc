@@ -52,7 +52,8 @@ class ResultVerificationUI(QWidget):
         self._build_checks(list(DEFAULT_VERIFY_CHECKLIST))
 
         self._form.btn_next.setEnabled(False)
-        self._form.btn_back.clicked.connect(self.back_requested)
+        self._form.btn_back.setVisible(False)
+        self._form.btn_next.setText("完了")
         self._form.btn_next.clicked.connect(self._on_next)
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -109,7 +110,6 @@ class ResultVerificationUI(QWidget):
             cb.setChecked(v)
             cb.setEnabled(not readonly)
         self.next_btn.setVisible(not readonly)
-        self._form.btn_back.setVisible(not readonly)
         self._update_next_btn()
 
     # ── Internal ──────────────────────────────────────────────────────────────
