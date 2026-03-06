@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from PySide6.QtGui import QPainter, QPainterPath, QBrush, QColor as _QColor
+from PySide6.QtGui import QPainter, QPainterPath, QBrush, QColor as _QColor, QPen
 
 from app.ui.widgets.icon_utils import get_icon
 
@@ -279,21 +279,34 @@ class _CircleButton(QToolButton):
     def paintEvent(self, event) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = self.rect().adjusted(1, 1, -1, -1)
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        center = rect.center()
+        radius = min(rect.width(), rect.height()) / 2.0
 
         # 円形背景
         path = QPainterPath()
-        path.addEllipse(r.toRectF() if hasattr(r, "toRectF") else r)
+        path.addEllipse(center.x() - radius, center.y() - radius,
+                        radius * 2, radius * 2)
         p.fillPath(path, QBrush(self._bg_color))
 
         # 円形ボーダー
         if self._border_color:
-            p.setPen(self._border_color)
-            p.drawEllipse(r)
+            p.setPen(QPen(self._border_color, 1))
+            p.drawEllipse(center.x() - radius, center.y() - radius,
+                          radius * 2, radius * 2)
+
+        # アイコン（中央に描画）
+        ico = self.icon()
+        if not ico.isNull():
+            sz = self.iconSize()
+            pm = ico.pixmap(sz)
+            x = (self.width() - pm.width()) // 2
+            y = (self.height() - pm.height()) // 2
+            p.drawPixmap(x, y, pm)
 
         p.end()
-        # アイコンは QToolButton のデフォルト描画に任せる
-        super().paintEvent(event)
+        # super().paintEvent を呼ばない — QToolButton のデフォルト描画が
+        # 四角い背景を塗ってしまうのを防ぐ
 
 
 class StepNavigation(QWidget):
