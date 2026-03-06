@@ -391,9 +391,15 @@ class MainWindow(QMainWindow):
         frame.setObjectName("frame_subcontents")
         frame.setMaximumWidth(400)
 
-        layout = QHBoxLayout(frame)
+        layout = QVBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+
+        # ヘッダーと同じ高さのスペーサー (50px) で上端を揃える
+        header_spacer = QWidget()
+        header_spacer.setFixedHeight(50)
+        header_spacer.setObjectName("subcontents_header")
+        layout.addWidget(header_spacer)
 
         # browser_guide: 現在のタスク向けガイドテキスト
         self.browser_guide = QTextBrowser()
