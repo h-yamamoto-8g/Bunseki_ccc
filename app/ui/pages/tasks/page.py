@@ -324,20 +324,20 @@ class TasksPageUI(QWidget):
 
         # ステート表示時の左右ナビゲーション付きレイアウト
         state_row = QHBoxLayout()
-        state_row.setContentsMargins(0, 0, 0, 0)
-        state_row.setSpacing(0)
+        state_row.setContentsMargins(16, 0, 16, 0)
+        state_row.setSpacing(8)
 
         nav_btn_qss = (
             f"QPushButton {{ background:{_BG2}; border:1px solid {_BORDER};"
-            f" border-radius:6px; padding:0; }}"
+            f" border-radius:8px; padding:0; }}"
             f"QPushButton:hover {{ background:{_BG4}; border-color:{_ACCENT}; }}"
             f"QPushButton:disabled {{ background:{_BG3}; border-color:{_BORDER}; opacity:0.4; }}"
         )
 
         self._btn_view_prev = QPushButton()
         self._btn_view_prev.setIcon(QIcon(":/icons/left.svg"))
-        self._btn_view_prev.setIconSize(QSize(20, 20))
-        self._btn_view_prev.setFixedWidth(36)
+        self._btn_view_prev.setIconSize(QSize(28, 28))
+        self._btn_view_prev.setFixedWidth(48)
         self._btn_view_prev.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_view_prev.setToolTip("前のステートを表示")
         self._btn_view_prev.setStyleSheet(nav_btn_qss)
@@ -352,8 +352,8 @@ class TasksPageUI(QWidget):
 
         self._btn_view_next = QPushButton()
         self._btn_view_next.setIcon(QIcon(":/icons/right.svg"))
-        self._btn_view_next.setIconSize(QSize(20, 20))
-        self._btn_view_next.setFixedWidth(36)
+        self._btn_view_next.setIconSize(QSize(28, 28))
+        self._btn_view_next.setFixedWidth(48)
         self._btn_view_next.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_view_next.setToolTip("次のステートを表示")
         self._btn_view_next.setStyleSheet(nav_btn_qss)

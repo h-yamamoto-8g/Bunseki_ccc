@@ -319,10 +319,6 @@ class TasksPage(QWidget):
 
     def _update_view_nav(self, state: str, task: dict, readonly: bool) -> None:
         """閲覧用の左右ナビゲーションボタンの表示状態を更新する。"""
-        # readonly のときだけ閲覧ナビゲーションを表示する
-        if not readonly:
-            self._ui.set_view_nav_visible(False)
-            return
         viewable = self._get_viewable_states(task)
         if len(viewable) <= 1:
             self._ui.set_view_nav_visible(False)
