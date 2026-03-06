@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional
 import builtins
 _original_import = builtins.__import__
 
-from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QRect, QThread, Signal
+from PySide6.QtCore import Qt, QElapsedTimer, QEvent, QSize, QTimer, QRect, QThread, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -440,18 +440,20 @@ class MainWindow(QMainWindow):
         self.frame_subcontents = self._build_subcontents()
         main_area.addWidget(self.frame_subcontents)
 
-        # ── リサイズハンドル ──────────────────────────────────────────
-        self._resize_handle = _ResizeHandle(
-            self.frame_subcontents,
-            on_width_changed=self._on_guide_width_changed,
-        )
-        main_area.addWidget(self._resize_handle)
-
         # ── widget_main (ヘッダー + スタック + ステータスバー) ──────────
         widget_main = self._build_widget_main()
         main_area.addWidget(widget_main, 3)
 
         root.addLayout(main_area)
+
+        # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
+        self._resize_handle = _ResizeHandle(
+            self.frame_subcontents,
+            on_width_changed=self._on_guide_width_changed,
+            parent=central,
+        )
+        self._resize_handle.raise_()
+        self.frame_subcontents.installEventFilter(self)
 
     def _build_subcontents(self) -> QFrame:
         """frame_subcontents (ガイドパネル) を構築する。
@@ -469,9 +471,10 @@ class MainWindow(QMainWindow):
 
         # ── ガイドヘッダー ──
         self._guide_header = QWidget()
+        self._guide_header.setObjectName("guide_header")
         self._guide_header.setFixedHeight(40)
         self._guide_header.setStyleSheet(
-            "background: #f0f4ff; border-bottom: 1px solid #e5e7eb;"
+            "#guide_header { background: #f0f4ff; border-bottom: 1px solid #e5e7eb; }"
         )
         hl = QHBoxLayout(self._guide_header)
         hl.setContentsMargins(8, 4, 8, 4)
@@ -493,8 +496,9 @@ class MainWindow(QMainWindow):
         hl.addWidget(self.btn_guide_close)
 
         self.label_guide_title = QLabel()
+        self.label_guide_title.setObjectName("label_guide_title")
         self.label_guide_title.setStyleSheet(
-            "color: #333333; font-size: 13px; font-weight: 600; background: transparent;"
+            "#label_guide_title { color: #333333; font-size: 13px; font-weight: 600; }"
         )
         hl.addWidget(self.label_guide_title, 1)
 
@@ -877,6 +881,28 @@ class MainWindow(QMainWindow):
         frame = self._SPINNER_FRAMES[self._loading_frame]
         self.label_loading.setText(f"{frame}  {self._loading_msg}")
 
+    def eventFilter(self, obj: object, event: object) -> bool:
+        """frame_subcontents のリサイズ/移動に追従してハンドルを再配置する。"""
+        if obj is self.frame_subcontents and event.type() in (
+            QEvent.Type.Resize, QEvent.Type.Move,
+        ):
+            self._update_handle_pos()
+        return super().eventFilter(obj, event)  # type: ignore[arg-type]
+
+    def _update_handle_pos(self) -> None:
+        """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
+        if not hasattr(self, "_resize_handle"):
+            return
+        geo = self.frame_subcontents.geometry()
+        hw = self._resize_handle.width()
+        self._resize_handle.setGeometry(
+            geo.right() + 1 - hw // 2,
+            geo.top(),
+            hw,
+            geo.height(),
+        )
+        self._resize_handle.raise_()
+
     def _on_guide_width_changed(self, width: int) -> None:
         """リサイズハンドルによる横幅変更時に幅を記憶する。"""
         self._guide_width = width
@@ -885,9 +911,11 @@ class MainWindow(QMainWindow):
         """ガイドパネルの展開/折りたたみを切り替える。"""
         self._guide_expanded = not self._guide_expanded
         self.sidebar.set_guide_expanded(self._guide_expanded)
+        header_layout = self._guide_header.layout()
 
         if self._guide_expanded:
             # 展開: ヘッダー + コンテンツを表示、幅を復元
+            header_layout.setContentsMargins(8, 4, 8, 4)
             self.browser_guide.setVisible(True)
             self.label_guide_title.setVisible(True)
             self.btn_guide_close.setIcon(
@@ -897,8 +925,9 @@ class MainWindow(QMainWindow):
             self.frame_subcontents.setFixedWidth(self._guide_width)
             self._resize_handle.setVisible(True)
         else:
-            # 折りたたみ: アイコンだけ表示
+            # 折りたたみ: ヘッダーにアイコンだけ表示（位置を維持）
             self._guide_width = self.frame_subcontents.width()
+            header_layout.setContentsMargins(4, 4, 0, 4)
             self.browser_guide.setVisible(False)
             self.label_guide_title.setVisible(False)
             self.btn_guide_close.setIcon(
