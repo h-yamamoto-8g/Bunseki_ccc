@@ -563,8 +563,8 @@ class MainWindow(QMainWindow):
         self.btn_active_page.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
-        self.btn_active_page.setIconSize(QSize(18, 18))
-        self.btn_active_page.setIcon(get_icon(":/icons/home.svg", "#333333"))
+        self.btn_active_page.setIconSize(QSize(24, 24))
+        self.btn_active_page.setIcon(get_icon(":/icons/home.svg", "#333333", size=24))
         self.btn_active_page.setText("ホーム")
         self.btn_active_page.setFixedHeight(34)
         hl.addWidget(self.btn_active_page)
@@ -585,8 +585,8 @@ class MainWindow(QMainWindow):
         self.btn_add_task.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
-        self.btn_add_task.setIconSize(QSize(16, 16))
-        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff"))
+        self.btn_add_task.setIconSize(QSize(20, 20))
+        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff", size=20))
         self.btn_add_task.setText("新規作成")
         self.btn_add_task.setFixedHeight(34)
         hl.addWidget(self.btn_add_task)
@@ -707,7 +707,7 @@ class MainWindow(QMainWindow):
 
         name, svg_path = PAGE_INFO.get(page_id, ("", ""))
         self.btn_active_page.setText(name)
-        self.btn_active_page.setIcon(get_icon(svg_path, "#333333") if svg_path else self.btn_active_page.icon())
+        self.btn_active_page.setIcon(get_icon(svg_path, "#333333", size=24) if svg_path else self.btn_active_page.icon())
         self.label_active_tasks_name.clear()
         self.step_nav.clear()
 
@@ -738,7 +738,7 @@ class MainWindow(QMainWindow):
             self.sidebar.set_active("tasks")
             self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
             self.btn_active_page.setText("タスク")
-            self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+            self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333", size=24))
         self.tasks_page.navigate_to_state(state_id)
 
     def _open_new_task(self) -> None:
@@ -746,7 +746,7 @@ class MainWindow(QMainWindow):
         self.sidebar.set_active("tasks")
         self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
         self.btn_active_page.setText("タスク")
-        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333", size=24))
         self.label_active_tasks_name.clear()
         self.step_nav.clear()
         self.tasks_page.start_new_task()
@@ -760,7 +760,7 @@ class MainWindow(QMainWindow):
         self.sidebar.set_active("tasks")
         self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
         self.btn_active_page.setText("タスク")
-        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333", size=24))
         self.tasks_page.resume_task(task_id)
 
     def _go_home(self) -> None:
@@ -816,11 +816,11 @@ class MainWindow(QMainWindow):
         self.btn_add_task.clicked.disconnect()
         self.btn_add_task.clicked.connect(self.tasks_page.request_handover)
         self.btn_add_task.setText("引き継ぎ")
-        self.btn_add_task.setIcon(get_icon(":/icons/switch.svg", "#ffffff"))
+        self.btn_add_task.setIcon(get_icon(":/icons/switch.svg", "#ffffff", size=20))
         # btn_active_page: ページ名 → "一覧へ戻る"
         self.btn_active_page.clicked.connect(self._back_to_task_list)
         self.btn_active_page.setText("一覧へ戻る")
-        self.btn_active_page.setIcon(get_icon(":/icons/return.svg", "#333333"))
+        self.btn_active_page.setIcon(get_icon(":/icons/return.svg", "#333333", size=24))
 
     def _exit_task_mode(self) -> None:
         """共通ヘッダーをタスク編集モードから通常モードに戻す。"""
@@ -832,14 +832,14 @@ class MainWindow(QMainWindow):
         self.btn_add_task.clicked.disconnect()
         self.btn_add_task.clicked.connect(self._open_new_task)
         self.btn_add_task.setText("新規作成")
-        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff"))
+        self.btn_add_task.setIcon(get_icon(":/icons/add.svg", "#ffffff", size=20))
         # btn_active_page: "一覧へ戻る" → "タスク"
         try:
             self.btn_active_page.clicked.disconnect(self._back_to_task_list)
         except RuntimeError:
             pass
         self.btn_active_page.setText("タスク")
-        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333"))
+        self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333", size=24))
 
     def _set_handover_available(self, available: bool) -> None:
         """引き継ぎボタンの有効/無効を切り替える。"""
