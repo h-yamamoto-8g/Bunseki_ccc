@@ -242,7 +242,7 @@ class StepNavigation(QWidget):
     def _setup_ui(self) -> None:
         """UIを構築する。"""
         hl = QHBoxLayout(self)
-        hl.setContentsMargins(20, 13, 20, 13)
+        hl.setContentsMargins(20, 10, 20, 9)
         hl.setSpacing(0)
         hl.addStretch()
 
@@ -259,8 +259,8 @@ class StepNavigation(QWidget):
                 hl.addWidget(line, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             btn = QToolButton()
-            btn.setFixedSize(36, 36)
-            btn.setIconSize(QSize(18, 18))
+            btn.setFixedSize(43, 43)
+            btn.setIconSize(QSize(20, 20))
             btn.setToolTip(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setObjectName(f"btn_step_{state_id}")
@@ -303,7 +303,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_ACCENT};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                 """)
             elif edited:
@@ -313,7 +313,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_EDITED_BG};
                         border: 1px solid {_EDITED_BORDER};
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                     QToolButton:hover {{
                         background: #fde68a;
@@ -326,7 +326,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_SUCCESS_BG};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                 """)
             else:
@@ -336,7 +336,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_MUTED_BG};
                         border: 1px solid {_BORDER};
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                     QToolButton:hover {{
                         background: #e5e7eb;
