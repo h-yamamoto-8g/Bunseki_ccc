@@ -1,109 +1,121 @@
 # CLAUDE.md
 
-このファイルはClaude Code CLIが自動で読み込む設定ファイルです。
-**実装を始める前に必ずこのファイルと docs/ 配下の全ドキュメントを読んでください。**
+> Auto-loaded by Claude Code CLI.
+> Read this file and all docs under `docs/` before starting any implementation.
 
 ---
 
-## プロジェクト概要
+## Project Overview
 
-製造所排水の環境分析業務を補助するPySide6製デスクトップツール。
-SharePoint同期フォルダ内のCSV・JSONを読み取り、集計・基準値判定・可視化・帳票出力を行う。
-「分析そのもの」は行わず、分析前後の付随業務（準備・記録・報告）を効率化することが目的。
+Desktop tool (PySide6) for environmental wastewater analysis workflow support.
+Reads CSV/JSON from SharePoint-synced folders. Performs aggregation, threshold checks, visualization, and report output.
+Does NOT perform analysis itself — automates surrounding tasks (preparation, recording, reporting).
 
-詳細仕様：
-- 機能要件・画面仕様 → `docs/requirements.md`
-
----
-
-## 技術スタック
-
-| 項目        | 内容                                |
-| --------- | --------------------------------- |
-| 言語        | Python                            |
-| UIフレームワーク | PySide6                           |
-| データ処理     | pandas                            |
-| グラフ描画     | matplotlib                        |
-| 帳票出力      | openpyxl                          |
-| 設定管理      | pydantic-settings                 |
-| テスト       | pytest                            |
-| パッケージ管理   | pip + requirements.txt（poetryは不可） |
-
-上記以外のライブラリを追加する場合は、有名どころを利用して。
+Detailed specs: `docs/requirements.md`
 
 ---
 
-## ディレクトリ構成
+## Tech Stack
 
-基本的にはお任せする。
-しかし、下記ルールに従ってください。
-- UIファイルに機能を直書きしない
-- UI > UIラッパー > service > coreで分離させ、依存関係を一方通行にする。
-- 機能は`[page]`と`[state]`ごとに階層を分ける(最適な方法を考えて)
+| Item | Value |
+|------|-------|
+| Language | Python |
+| UI Framework | PySide6 |
+| Data Processing | pandas |
+| Charts | matplotlib |
+| Reports | openpyxl |
+| Config | pydantic-settings |
+| Tests | pytest |
+| Package Manager | pip + requirements.txt (no poetry) |
+
+Use well-known libraries if adding new dependencies.
+
 ---
 
-## コーディング規約
+## Directory Structure
 
-### 命名規則
+Structure is flexible but follow these rules:
+- Do NOT write logic directly in UI files
+- Separate layers: UI > UI Wrapper > Service > Core (one-way dependency)
+- Organize by `[page]` and `[state]` hierarchy
+
+---
+
+## Coding Conventions
+
+### Naming
+
 ```
-クラス名:    PascalCase          例: WastewaterAnalyzer
-関数・変数:  snake_case          例: load_csv_data
-定数:        UPPER_SNAKE_CASE    例: MAX_RETRY_COUNT
-ファイル名:  snake_case.py       例: data_reader.py
-プライベート: アンダースコア接頭辞 例: _parse_row()
+Classes:     PascalCase          e.g. WastewaterAnalyzer
+Functions:   snake_case          e.g. load_csv_data
+Constants:   UPPER_SNAKE_CASE    e.g. MAX_RETRY_COUNT
+Files:       snake_case.py       e.g. data_reader.py
+Private:     underscore prefix   e.g. _parse_row()
 ```
 
-### Pythonスタイル
-- **型ヒント必須**: すべての関数に引数・戻り値の型ヒントを書く
-- **docstring必須**: すべてのpublic関数・クラスにGoogle形式docstringを書く
-- **例外処理**: 例外を握りつぶさない。ログを残してからUIに通知する
-- **マジックナンバー禁止**: 数値リテラルは定数か設定ファイルに切り出す
-- フォーマッター: black（行長: 100）
+### Python Style
+
+- **Type hints required**: all function args and return types
+- **Docstrings required**: Google-style for all public functions/classes
+- **Exception handling**: never swallow exceptions; log then notify UI
+- **No magic numbers**: extract to constants or config
+- Formatter: black (line length: 100)
 - Linter: flake8
 
-### PySide6固有ルール
-- UIとビジネスロジックを分離する（ui/, ui_rapper/, core/, service/ は相互に独立させる）
-- ui/に直接サービスやロジックを書かない
-- シグナル/スロットの接続は __init__ または _connect_signals() メソッドにまとめる
-- 重い処理（ファイル読み込み・集計）は QThread または QRunnable で非同期実行し、UIをブロックしない
-- ウィジェットのサイズはハードコードせず、レイアウトマネージャーで管理する
+### PySide6 Rules
+
+- Separate UI from business logic (`ui/`, `ui_wrapper/`, `core/`, `service/` are independent)
+- No service/logic code in `ui/`
+- Signal/slot connections in `__init__` or `_connect_signals()`
+- Heavy operations (file I/O, aggregation) must run in QThread/QRunnable — never block UI
+- Widget sizing via layout managers, no hardcoded sizes
 
 ---
 
-## 実装手順（必ず守ること）
+## Implementation Workflow (mandatory)
 
 ```
-1. 実装前: docs/ の関連ドキュメントを読む
-2. 実装前: 既存コードの構造を確認してから追加・変更する
-3. 実装中: 一度に複数の機能を実装しない（1機能ずつ完成させる）
-4. 実装後: 作成・変更したモジュールのユニットテストを追加する
-5. 実装後: pytest を実行してテストが通ることを確認する
+1. Before: Read related docs under docs/
+2. Before: Review existing code structure before adding/changing
+3. During: Implement one feature at a time
+4. After:  Add unit tests for created/changed modules
+5. After:  Run pytest and confirm all tests pass
 ```
 
 ---
 
-## よくある間違い（やってはいけないこと）
+## Common Mistakes (do NOT do these)
 
 ```
-NG: SharePointパスをコードにハードコードする
-    → settings.json の sharepoint_root_path を参照すること
+NG: Hardcode SharePoint paths
+    -> Use sharepoint_root_path from settings.json
 
-NG: QThread を使わずにメインスレッドでファイルI/Oを実行する
-    → UIがフリーズする。必ずワーカースレッドを使う
+NG: File I/O on main thread without QThread
+    -> UI freezes. Always use worker threads.
 
-NG: pandas の SettingWithCopyWarning を無視する
-    → .copy() を使って明示的にコピーする
+NG: Ignore pandas SettingWithCopyWarning
+    -> Use .copy() explicitly
 
-NG: テストなしで core/ のロジックを変更する
-    → business-logic.md の仕様と一致しているかテストで確認する
+NG: Change core/ logic without tests
+    -> Verify against spec with tests
 
-NG: UIコンポーネントから直接ファイルを読み書きする
-    → core/ のモジュールを経由すること
+NG: Read/write files directly from UI components
+    -> Go through core/ modules
 ```
 
-## デザインについて
-- resourceはレイアウトをある程度決めたものである
-- デザインはあなたの方で調整して
-- ホワイトベース(真っ白は避ける)
-- 文字色は#333333
-- グラフはリッチに(ただの画像の貼り付けはNG)
+---
+
+## Design Guidelines
+
+- Resources define approximate layout — adjust design yourself
+- White-based theme (avoid pure white)
+- Text color: #333333
+- Charts must be rich/interactive (no plain image paste)
+- Light rounded corners
+- Adequate spacing
+- Don't stretch content full-width unnecessarily
+- No primary/saturated colors
+- Text: white or #333333
+- Native-feeling UI
+- Watch for font garbling in charts (JP font support)
+- Show loading screen during loads

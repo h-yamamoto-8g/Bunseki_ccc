@@ -1,55 +1,52 @@
-# 引き継ぎ書 — 類似アプリ開発に向けて
+# Handover Document — For Similar App Development
 
-> 本ドキュメントは Bunseki_ccc の開発で得た知見をまとめたものです。
-> 類似アプリを Claude Code CLI / claude.ai で新規開発する際の参考資料として使用してください。
-
----
-
-## 1. プロジェクト概要
-
-- **目的**: 製造所排水の環境分析業務を補助する PySide6 製デスクトップアプリ
-- **配布方法**: PyInstaller で **ワンファイル exe** にビルドし、**SharePoint** 経由で配布
-- **データ共有**: `app_data/` フォルダを SharePoint 同期フォルダに配置し、複数ユーザーで共有
-- **開発環境**: macOS / **本番環境**: Windows 10/11
+> Lessons learned from Bunseki_ccc development.
+> Reference for building similar apps with Claude Code CLI / claude.ai.
 
 ---
 
-## 2. app_data の仕組み（最重要）
+## 1. Project Overview
 
-### 2.1 DATA_PATH の解決チェーン
+- **Purpose**: PySide6 desktop app for environmental wastewater analysis workflow
+- **Distribution**: PyInstaller one-file exe via SharePoint
+- **Data sharing**: `app_data/` folder on SharePoint-synced directory, shared across users
+- **Dev environment**: macOS / **Production**: Windows 10/11
 
-`app/config.py` の `_resolve_data_path()` で起動時に決まる。優先順位:
+---
 
-1. **ユーザー設定ファイル** `~/.bunseki/settings.json` の `app_data_path` キー
-2. **Windows SharePoint 規定パス** `~/トクヤマグループ/環境分析課 - ドキュメント/app_data`
-3. **非 Windows フォールバック** `~/app_data`（存在しないことを想定→設定ダイアログ表示）
+## 2. app_data Architecture (Critical)
 
-```
-重要: settings.json はユーザーのホームに保存される（SharePoint 上ではない）。
-各マシンごとに異なるパスを持てる設計。
-```
+### 2.1 DATA_PATH Resolution Chain
 
-### 2.2 app_data ディレクトリ構成
+Resolved at startup in `app/config.py` `_resolve_data_path()`. Priority:
+
+1. **User settings file** `~/.bunseki/settings.json` key `app_data_path`
+2. **Windows SharePoint default** (SharePoint sync path for the team)
+3. **Non-Windows fallback** `~/app_data` (not expected to exist -> forces setup dialog)
+
+> Important: settings.json is stored in user's home (not SharePoint). Each machine can have different paths.
+
+### 2.2 app_data Directory Structure
 
 ```
 DATA_PATH/
-├── _common/                          ← 全ユーザー共有（読み取り専用的に使う）
+├── _common/                          # Shared (read-only usage)
 │   ├── master_data/source/
-│   │   ├── holder_groups.json        ← HG マスタ
-│   │   ├── valid_samples.json        ← 試料マスタ
-│   │   ├── valid_holders.json        ← HG バリデーション
-│   │   └── valid_tests.json          ← 検査項目マスタ
+│   │   ├── holder_groups.json        # Holder group master
+│   │   ├── valid_samples.json        # Sample master
+│   │   ├── valid_holders.json        # Holder validation
+│   │   └── valid_tests.json          # Test item master
 │   ├── data/lab_aid/
-│   │   ├── raw/                      ← Extractor 出力（生データ CSV）
-│   │   └── normalized/bunseki.csv    ← ETL 出力（正規化済み）
+│   │   ├── raw/                      # Extractor output (raw CSV)
+│   │   └── normalized/bunseki.csv    # ETL output (normalized)
 │   └── tools/
-│       ├── lab_aid_extractor/dist/   ← 外部 exe ツール
-│       └── lab_aid_etl/dist/         ← 外部 exe ツール
-└── bunseki/                          ← アプリ固有データ
+│       ├── lab_aid_extractor/dist/   # External exe tool
+│       └── lab_aid_etl/dist/         # External exe tool
+└── bunseki/                          # App-specific data
     ├── config/
-    │   ├── users.json                ← ユーザーアカウント（SHA-256 ハッシュ）
-    │   └── hg_config.json            ← HG チェックリスト設定
-    ├── tasks/tasks.json              ← タスク（業務案件）データ
+    │   ├── users.json                # User accounts (SHA-256 hashed)
+    │   └── hg_config.json            # Holder group checklist config
+    ├── tasks/tasks.json              # Task (workflow) data
     ├── data/anomalies.json
     ├── news/news.json
     ├── jobs/jobs.json
@@ -57,47 +54,46 @@ DATA_PATH/
     └── logs/
 ```
 
-### 2.3 致命的だったバグ: DATA_PATH がインポート時に固定される問題
+### 2.3 Critical Bug: DATA_PATH Cached at Import Time
 
-**全 store モジュールが `from app.config import DATA_PATH` でモジュールレベル定数としてキャッシュしていた。**
-`reload_paths()` で config を更新しても、各 store の変数は古い値のまま。
+All store modules cached `DATA_PATH` as module-level constants via `from app.config import DATA_PATH`. Calling `reload_paths()` did NOT update stores.
 
-**解決策**: 全 store で関数経由の遅延評価に変更:
+**Fix**: Use lazy evaluation via function calls in all stores:
 
 ```python
-# NG: モジュールレベルで固定される
+# BAD: fixed at module level
 from app.config import DATA_PATH
 TASKS_FILE = DATA_PATH / "bunseki" / "tasks" / "tasks.json"
 
-# OK: 呼び出し時に最新の DATA_PATH を参照
+# GOOD: reads latest DATA_PATH on each call
 import app.config as _cfg
 def _tasks_file():
     return _cfg.DATA_PATH / "bunseki" / "tasks" / "tasks.json"
 ```
 
-**新規アプリでもこのパターンを必ず踏襲すること。**
+**Always use this pattern in new apps.**
 
-### 2.4 添付ファイルパスは相対パスで保存
+### 2.4 Attachment Paths Must Be Relative
 
-SharePoint 経由で共有するため、各ユーザーのローカルパスは異なる。
+SharePoint sharing means local paths differ per user.
 
 ```python
-# 保存時: DATA_PATH からの相対パスに変換
+# Save: convert to relative path from DATA_PATH
 rel = str(dest.relative_to(_cfg.DATA_PATH))
 
-# 読み込み時: 相対パスなら DATA_PATH を付加
+# Load: prepend DATA_PATH if relative
 if not p.is_absolute():
     p = _cfg.DATA_PATH / p
 ```
 
 ---
 
-## 3. 開発環境 (macOS) と本番環境 (Windows) の違い
+## 3. Dev (macOS) vs Production (Windows) Differences
 
-### 3.1 フォント
+### 3.1 Fonts
 
-| 環境 | Qt フォント | matplotlib フォント |
-|------|-----------|-------------------|
+| Env | Qt Font | matplotlib Font |
+|-----|---------|-----------------|
 | macOS | Hiragino Sans 12pt | Hiragino Sans |
 | Windows | Yu Gothic UI 10pt | Yu Gothic |
 
@@ -110,12 +106,11 @@ else:
     matplotlib.rcParams["font.family"] = "Yu Gothic"
 ```
 
-### 3.2 DATA_PATH デフォルト
+### 3.2 DATA_PATH Default
+- **Windows**: SharePoint sync path for the team
+- **macOS/Linux**: `~/app_data` (forces setup dialog)
 
-- **Windows**: `~/トクヤマグループ/チーム名 - ドキュメント/app_data`（SharePoint 同期パス）
-- **macOS / Linux**: `~/app_data`（存在しない前提→設定ダイアログ強制表示）
-
-### 3.3 ファイルオープン
+### 3.3 File Open
 
 ```python
 if platform.system() == "Darwin":
@@ -126,85 +121,73 @@ else:
     subprocess.Popen(["xdg-open", str(path)])
 ```
 
-### 3.4 外部ツール
+### 3.4 External Tools
+`lab_aid_extract.exe` / `lab_aid_etl.exe` are Windows-only. Disable via `data_update_service.py` `ENABLED = False` on macOS.
 
-`lab_aid_extract.exe` / `lab_aid_etl.exe` は Windows 専用。
-macOS 開発時は `data_update_service.py` の `ENABLED = False` で無効化する。
-
-### 3.5 開発時の注意
-
-- **mac で動作確認 → Windows で exe ビルド → SharePoint で配布** のフロー
-- macOS で問題なくても Windows で崩れるケースが多い（フォントサイズ、パス区切り文字）
-- `Path` オブジェクトを使えばパス区切りは自動処理されるが、文字列結合は NG
+### 3.5 Dev Notes
+- Test on mac -> build exe on Windows -> distribute via SharePoint
+- Windows may break layout even if macOS works fine (font sizes, path separators)
+- Use `Path` objects; never concatenate path strings
 
 ---
 
-## 4. ワンファイル exe (PyInstaller) のポイント
+## 4. One-File exe (PyInstaller)
 
-### 4.1 ビルドコマンド
+### 4.1 Build Command
 
 ```bash
 pip install pyinstaller
 pyinstaller bunseki.spec
-# → dist/Bunseki.exe（単体で動作するワンファイル）
+# -> dist/Bunseki.exe
 ```
 
-### 4.2 spec ファイルの要点
+### 4.2 Spec File Essentials
 
 ```python
 a = Analysis(
     ["main.py"],
     datas=[("resources/assets/splash.png", "resources/assets")],
     hiddenimports=[
-        "matplotlib.backends.backend_qtagg",  # matplotlib が動的にロードする
-        "PySide6.QtSvg",                       # SVG アイコン表示に必要
+        "matplotlib.backends.backend_qtagg",  # dynamically loaded
+        "PySide6.QtSvg",                       # SVG icon support
         "PySide6.QtSvgWidgets",
-        "openpyxl",                            # 帳票出力
+        "openpyxl",                            # report output
     ],
     excludes=[
-        "matplotlib.backends.backend_tk",      # Tcl/Tk は不要（サイズ削減）
+        "matplotlib.backends.backend_tk",      # not needed (size reduction)
         "matplotlib.backends.backend_tkagg",
-        "PyQt5", "PyQt6",                      # PySide6 と競合防止
+        "PyQt5", "PyQt6",                      # prevent PySide6 conflicts
     ],
 )
 ```
 
-### 4.3 app_data は exe に含めない
+### 4.3 app_data Is NOT Bundled in exe
+`app_data/` lives on SharePoint. Bundling would prevent per-user updates and bloat exe size.
 
-`app_data/` は SharePoint 同期フォルダに別途配置する。exe に同梱すると:
-- ユーザーごとのデータ更新ができない
-- exe サイズが膨大になる
-- SharePoint 共有の意味がなくなる
-
-### 4.4 リソース（SVG アイコン等）は Qt Resource にコンパイル
-
+### 4.4 Resources Compiled as Qt Resources
 ```
-resources/assets/*.svg → resources/assets/resources.qrc → app/ui/generated/resources_rc.py
+resources/assets/*.svg -> resources.qrc -> app/ui/generated/resources_rc.py
 ```
-
-`resources_rc.py` は Python ファイルなので exe に自動同梱される。
-外部ファイルとして配置する必要がない。
+`resources_rc.py` is a Python file, auto-bundled in exe. No external file deployment needed.
 
 ---
 
-## 5. バグ修正で得た教訓（重要度順）
+## 5. Bug Fix Lessons (by severity)
 
-### 5.1 [致命的] PySide6 + six + shibokensupport の import 競合
+### 5.1 [Critical] PySide6 + six + shibokensupport Import Conflict
 
-**症状**: PyInstaller ビルドで `AttributeError` が発生しアプリが起動しない
+**Symptom**: `AttributeError` on PyInstaller build, app won't start.
+**Cause**: PySide6 patches `builtins.__import__`, conflicts with `six._SixMetaPathImporter`.
 
-**原因**: PySide6 が `builtins.__import__` をパッチし、`six` ライブラリの `_SixMetaPathImporter` と競合
-
-**解決策（2段階の防御が必要）**:
-
+**Fix (two-stage defense)**:
 ```python
-# 第1段階: __import__ の復元
+# Stage 1: restore __import__
 import builtins
 _original_import = builtins.__import__
-# ... PySide6 の import ...
+# ... import PySide6 ...
 builtins.__import__ = _original_import
 
-# 第2段階: PyInstaller frozen 環境専用
+# Stage 2: PyInstaller frozen environment
 if getattr(sys, "frozen", False):
     try:
         import shibokensupport.feature as _sbk_feature
@@ -213,171 +196,128 @@ if getattr(sys, "frozen", False):
         pass
 ```
 
-**教訓**: PySide6 を使う PyInstaller プロジェクトでは、この workaround を最初から入れておくこと。3回の試行錯誤で到達した解決策。
+### 5.2 [Critical] Splash Screen Startup Order
 
-### 5.2 [致命的] スプラッシュスクリーンの起動順序問題
+**Final solution**: Two-stage splash: PyInstaller Splash (during exe extraction) + QSplashScreen (after Python starts).
 
-**問題の流れ**:
-1. 最初: スプラッシュなし → 起動に数秒かかり画面が真っ暗
-2. QSplashScreen 追加 → heavy import の後に表示されるため意味がない
-3. import を遅延化 → `QMainWindow` が未定義で NameError
-4. PySide6 だけトップレベルに残し、app.* を遅延 → OK
-5. PyInstaller Splash (Tcl/Tk) 追加 → 白い幽霊ウィンドウが残る
-6. 最終: **PyInstaller Splash（exe 展開中）+ QSplashScreen（Python 起動後）の2段構え**
-
-**教訓**: スプラッシュの実装は以下の順序を厳守:
+**Required order**:
 ```
-1. QApplication 生成（最小限の import のみ）
-2. QSplashScreen 表示
-3. heavy import（matplotlib, app.* モジュール）
-4. processEvents() を挟んでスプラッシュを描画し続ける
-5. 最低表示時間 (1500ms) 経過後にスプラッシュを閉じる
+1. Create QApplication (minimal imports only)
+2. Show QSplashScreen
+3. Heavy imports (matplotlib, app.* modules)
+4. Call processEvents() to keep splash rendering
+5. Close splash after minimum display time (1500ms)
 ```
 
-### 5.3 [重要] ブロッキング処理でアニメーションが止まる
+### 5.3 [Important] Blocking Ops Freeze Animations
 
-**症状**: ローディングスピナーが表示されるが回転しない
+**Symptom**: Loading spinner shows but doesn't animate.
+**Cause**: `subprocess.run()` blocks main thread, `QTimer` events don't process.
+**Fix**: Run in `QThread`, call `processEvents()` on main thread.
 
-**原因**: `subprocess.run()` がメインスレッドをブロックし、`QTimer` イベントが処理されない
+### 5.4 [Important] Variable Name `app` Shadows Package `app`
 
-**解決策**: `QThread` で別スレッドに逃がし、メインスレッドでイベントループを回す:
+**Fix**: Name QApplication variable `qapp`. Never use variable names matching package names.
 
-```python
-class Worker(QThread):
-    finished = Signal()
-    error = Signal(str)
-    def run(self):
-        self._func()
-        self.finished.emit()
+### 5.5 [Important] Data Loss on Circulation Rejection
 
-worker.start()
-while not done:
-    qapp.processEvents()
-    QThread.msleep(50)
-```
+**Cause**: Two-step `update` creates intermediate inconsistency.
+**Fix**: Single `update_task_field()` call for atomic write.
 
-**教訓**: 外部プロセス実行、ファイル I/O など少しでも時間がかかる処理は必ず QThread で実行。CLAUDE.md にも書いてあるが、守らないと UI が固まる。
+### 5.6 [Medium] Login Dialog Hidden Behind Windows
 
-### 5.4 [重要] 変数名 `app` と パッケージ名 `app` の衝突
+**Fix**: `WindowStaysOnTopHint` + `raise_()` + `activateWindow()` (all three required).
 
-**症状**: `import app.config` が NameError または予期しない動作
+### 5.7 [Medium] Setup Dialog Not Shown for Unconfigured Users
 
-**原因**: 関数引数に `app` という名前を使うと、同名のパッケージ `app` が隠れる
-
-**解決策**: QApplication の変数名は `qapp` にする。**パッケージ名と同名の変数を絶対に使わない。**
-
-### 5.5 [重要] 回覧の差戻し時にデータが消える
-
-**原因**: 2段階の `update` で中間状態が不整合
-
-**解決策**: 1回の `update_task_field()` で全フィールドをアトミックに書き込む
-
-### 5.6 [中] ログインダイアログが背面に隠れる
-
-**解決策**: `WindowStaysOnTopHint` + `raise_()` + `activateWindow()` の3点セット
-
-### 5.7 [中] 未設定ユーザーにパス設定ダイアログが出ない
-
-**原因**: 「パスが存在するか」ではなく「明示的に設定されたか」で判定すべき
-
-**解決策**: `~/.bunseki/settings.json` の存在・内容で判定する
+**Fix**: Check `~/.bunseki/settings.json` existence/content, not just path existence.
 
 ---
 
-## 6. アーキテクチャの要点
+## 6. Architecture
 
-### 6.1 レイヤー構成（厳守）
+### 6.1 Layer Structure (Strict)
 
 ```
 UI (pages/, states/, dialogs/)
-  ↓
-UI ラッパー (wrapper.py) — UI イベントとサービスの橋渡し
-  ↓
-Service (services/) — ビジネスロジック
-  ↓
-Core (core/) — データ永続化 (JSON/CSV 読み書き)
+  |
+UI Wrapper (wrapper.py) — bridges UI events and services
+  |
+Service (services/) — business logic
+  |
+Core (core/) — data persistence (JSON/CSV read/write)
 ```
 
-依存方向は **一方通行**。下位レイヤーが上位レイヤーを import してはいけない。
+Dependencies are **one-way only**. Lower layers must never import upper layers.
 
-### 6.2 ステートマシン（業務フロー）
+### 6.2 State Machine (Workflow)
 
-タスクは 7 つのステートを順に遷移する:
-
+7-state progression:
 ```
-task_setup → analysis_targets → analysis → result_entry → result_verification → submission → completed
+task_setup -> analysis_targets -> analysis -> result_entry -> result_verification -> submission -> completed
 ```
 
-各ステートは `app/ui/states/{state_name}/` に `state.py`（UI）+ `wrapper.py`（ロジック橋渡し）を持つ。
-**新規アプリでは業務フローに合わせてステートを再定義する。**
+Each state has `app/ui/states/{state_name}/` with `state.py` (UI) + `wrapper.py` (logic bridge).
 
-### 6.3 設定管理
+### 6.3 Config Management
 
-- グローバル設定: `app/config.py` のモジュールレベル変数
-- ユーザーローカル設定: `~/.bunseki/settings.json`
-- アプリデータ: `DATA_PATH/` 配下の各種 JSON
-
-`pydantic-settings` は CLAUDE.md に記載があるが未使用。カスタム JSON 方式で十分だった。
+- Global config: module-level variables in `app/config.py`
+- User-local config: `~/.bunseki/settings.json`
+- App data: JSON files under `DATA_PATH/`
 
 ---
 
-## 7. 新規アプリ開発時の推奨手順
+## 7. New App Development Checklist
 
-### 7.1 初期セットアップ
+### 7.1 Initial Setup
+1. Copy this repo as template
+2. Rewrite `docs/requirements.md` for new business
+3. Update `docs/CLAUDE.md` project overview
+4. Update `app/config.py` paths for new app name
+5. Redesign states for new workflow
 
-1. 本リポジトリをテンプレートとしてコピー
-2. `docs/requirements.md` を新業務に合わせて書き換える
-3. `docs/CLAUDE.md` のプロジェクト概要を更新
-4. `app/config.py` のパス定義を新アプリ名に変更
-   - `LOCAL_SETTINGS_DIR`: `~/.新アプリ名/`
-   - SharePoint パス: 新チーム名に変更
-5. ステート定義を新業務フローに合わせて再設計
-
-### 7.2 Claude Code に最初に渡すべき情報
-
+### 7.2 Info to Provide Claude Code First
 ```
-1. CLAUDE.md（コーディング規約・アーキテクチャルール）
-2. requirements.md（機能要件）
-3. このHANDOVER.md（過去のバグと教訓）
-4. app/config.py（パス設計の実例）
-5. main.py の起動シーケンス（スプラッシュ〜ログイン〜メイン画面）
+1. CLAUDE.md (coding conventions, architecture rules)
+2. requirements.md (functional requirements)
+3. HANDOVER.md (past bugs and lessons)
+4. app/config.py (path design example)
+5. main.py startup sequence (splash -> login -> main window)
 ```
 
-### 7.3 最初から入れておくべき防御コード
-
+### 7.3 Defensive Code to Include From Day One
 ```python
-# 1. builtins.__import__ 復元（PySide6 + six 競合防止）
-# 2. shibokensupport monkey-patch（PyInstaller frozen 環境）
-# 3. DATA_PATH は関数経由の遅延評価
-# 4. QApplication 変数名は qapp（パッケージ名 app との衝突防止）
-# 5. スプラッシュ → heavy import → ログインの起動順序
-# 6. 外部プロセス実行は QThread
-# 7. ファイルパスは Path オブジェクト + 相対パスで保存
+# 1. Restore builtins.__import__ (PySide6 + six conflict prevention)
+# 2. shibokensupport monkey-patch (PyInstaller frozen env)
+# 3. DATA_PATH via function (lazy evaluation)
+# 4. QApplication var named `qapp` (avoid shadowing `app` package)
+# 5. Splash -> heavy import -> login startup order
+# 6. External process execution in QThread
+# 7. File paths as Path objects + relative paths for storage
 ```
 
 ---
 
-## 8. 技術スタック
+## 8. Tech Stack
 
-| 項目 | ライブラリ | 備考 |
-|------|-----------|------|
-| UI | PySide6 >= 6.7 | PyQt ではない。ライセンスの違いに注意 |
-| データ処理 | pandas >= 2.0 | CSV 読み込み・集計 |
-| グラフ | matplotlib >= 3.7 | バックエンドは `qtagg`（hiddenimports に追加必須）|
-| 帳票 | openpyxl >= 3.1 | Excel 出力 |
-| ビルド | PyInstaller | ワンファイルモード。`--onefile` |
-| アイコン生成 | cairosvg + Pillow | `tools/gen_icon.py`, `tools/gen_splash.py` |
+| Item | Library | Notes |
+|------|---------|-------|
+| UI | PySide6 >= 6.7 | Not PyQt. License difference. |
+| Data | pandas >= 2.0 | CSV read/aggregation |
+| Charts | matplotlib >= 3.7 | Backend: `qtagg` (add to hiddenimports) |
+| Reports | openpyxl >= 3.1 | Excel output |
+| Build | PyInstaller | One-file mode (`--onefile`) |
+| Icon gen | cairosvg + Pillow | `tools/gen_icon.py`, `tools/gen_splash.py` |
 
 ---
 
-## 9. 開発期間の振り返り
+## 9. Development Timeline
 
-- **2/26**: 初期コミット
-- **3/2**: UI 作成・機能追加
-- **3/3 午前**: 本番パス切り替え、SharePoint 対応、添付ファイル相対パス化
-- **3/3 午後**: PyInstaller 対応開始 → DATA_PATH 遅延評価バグ修正
-- **3/4 深夜〜朝**: PySide6+six 競合、スプラッシュ、起動順序、変数名衝突 — **最も苦労した期間**
-- **3/4 午前**: ローディング UI、ワンファイル化完了
+- **2/26**: Initial commit
+- **3/2**: UI creation, feature additions
+- **3/3 AM**: Production path switching, SharePoint support, relative attachment paths
+- **3/3 PM**: PyInstaller work begins -> DATA_PATH lazy evaluation bug fix
+- **3/4 late night~morning**: PySide6+six conflict, splash, startup order, variable name collision — **hardest period**
+- **3/4 AM**: Loading UI, one-file build complete
 
-**最大の教訓**: PyInstaller 化は最後に回さず、**早い段階で exe ビルドを試す**こと。
-import 順序、パス解決、ライブラリ競合など、開発環境では見つからないバグが大量に出る。
+**Key lesson**: Don't delay PyInstaller build — **test exe build early**. Import order, path resolution, and library conflicts only appear in frozen environments.
