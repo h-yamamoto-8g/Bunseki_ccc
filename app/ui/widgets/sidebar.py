@@ -329,10 +329,7 @@ class StepNavigation(QWidget):
                 "QToolButton { background: transparent; border: none; }"
             )
             btn.clicked.connect(
-                lambda _checked=False, sid=state_id: (
-                    print(f"[DEBUG] step_clicked: {sid}"),
-                    self.step_clicked.emit(sid),
-                )
+                lambda _checked=False, sid=state_id: self.step_clicked.emit(sid)
             )
             self._step_buttons[state_id] = btn
             hl.addWidget(btn, alignment=Qt.AlignmentFlag.AlignVCenter)

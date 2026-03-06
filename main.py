@@ -704,14 +704,12 @@ class MainWindow(QMainWindow):
         Args:
             state_id: クリックされたステートID。
         """
-        print(f"[DEBUG] _on_step_clicked called: state_id={state_id}")
         # tasks ページが表示されていない場合は切り替え
         if self.stack.currentIndex() != _PAGE_IDX["tasks"]:
             self.sidebar.set_active("tasks")
             self.stack.setCurrentIndex(_PAGE_IDX["tasks"])
             self.btn_active_page.setText("タスク")
             self.btn_active_page.setIcon(get_icon(":/icons/task.svg", "#333333", size=24))
-        print(f"[DEBUG] calling navigate_to_state({state_id}), current_task={self.tasks_page._current_task}")
         self.tasks_page.navigate_to_state(state_id)
 
     def _open_new_task(self) -> None:

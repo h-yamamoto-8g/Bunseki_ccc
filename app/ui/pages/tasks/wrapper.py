@@ -153,12 +153,9 @@ class TasksPage(QWidget):
         self._navigate_to_state(state, task)
 
     def navigate_to_state(self, state_id: str) -> None:
-        print(f"[DEBUG] navigate_to_state: state_id={state_id}, _current_task={bool(self._current_task)}")
         if self._current_task:
-            print(f"[DEBUG] navigating to {state_id}, task_id={self._current_task.get('task_id')}")
             self._navigate_to_state(state_id, self._current_task)
         else:
-            print("[DEBUG] no current task, showing list")
             # タスク未選択時はタスク一覧を表示してリストを読み込む
             self.show_list()
 
