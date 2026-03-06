@@ -474,7 +474,7 @@ class MainWindow(QMainWindow):
         self._guide_header.setObjectName("guide_header")
         self._guide_header.setFixedHeight(40)
         self._guide_header.setStyleSheet(
-            "#guide_header { background: #f0f4ff; border-bottom: 1px solid #e5e7eb; }"
+            "#guide_header { background: #dbeafe; border-bottom: 1px solid #bfdbfe; }"
         )
         hl = QHBoxLayout(self._guide_header)
         hl.setContentsMargins(8, 4, 8, 4)
@@ -485,11 +485,11 @@ class MainWindow(QMainWindow):
         self.btn_guide_close.setIconSize(QSize(18, 18))
         self.btn_guide_close.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_guide_close.setIcon(
-            get_icon(":/icons/bulging-left.svg", "#6b7280")
+            get_icon(":/icons/bulging-left.svg", "#1e40af")
         )
         self.btn_guide_close.setStyleSheet(
             "QToolButton { background: transparent; border: none; border-radius: 4px; }"
-            "QToolButton:hover { background: #dbeafe; }"
+            "QToolButton:hover { background: #bfdbfe; }"
         )
         self.btn_guide_close.setToolTip("ガイドパネルを閉じる")
         self.btn_guide_close.clicked.connect(self._toggle_guide)
@@ -498,7 +498,7 @@ class MainWindow(QMainWindow):
         self.label_guide_title = QLabel()
         self.label_guide_title.setObjectName("label_guide_title")
         self.label_guide_title.setStyleSheet(
-            "#label_guide_title { color: #333333; font-size: 13px; font-weight: 600; }"
+            "#label_guide_title { color: #1e3a5f; font-size: 13px; font-weight: 600; }"
         )
         hl.addWidget(self.label_guide_title, 1)
 
@@ -508,6 +508,12 @@ class MainWindow(QMainWindow):
         self.browser_guide = QTextBrowser()
         self.browser_guide.setObjectName("browser_guide")
         layout.addWidget(self.browser_guide, 1)
+
+        # 折りたたみ時にヘッダーが上下中央に来ないようスペーサーを追加
+        self._guide_bottom_spacer = QWidget()
+        self._guide_bottom_spacer.setStyleSheet("background: transparent;")
+        self._guide_bottom_spacer.setVisible(False)
+        layout.addWidget(self._guide_bottom_spacer, 1)
 
         frame.setFixedWidth(self._guide_width)
         return frame
@@ -917,21 +923,23 @@ class MainWindow(QMainWindow):
             # 展開: ヘッダー + コンテンツを表示、幅を復元
             header_layout.setContentsMargins(8, 4, 8, 4)
             self.browser_guide.setVisible(True)
+            self._guide_bottom_spacer.setVisible(False)
             self.label_guide_title.setVisible(True)
             self.btn_guide_close.setIcon(
-                get_icon(":/icons/bulging-left.svg", "#6b7280")
+                get_icon(":/icons/bulging-left.svg", "#1e40af")
             )
             self.btn_guide_close.setToolTip("ガイドパネルを閉じる")
             self.frame_subcontents.setFixedWidth(self._guide_width)
             self._resize_handle.setVisible(True)
         else:
-            # 折りたたみ: ヘッダーにアイコンだけ表示（位置を維持）
+            # 折りたたみ: ヘッダーにアイコンだけ表示（上部に維持）
             self._guide_width = self.frame_subcontents.width()
             header_layout.setContentsMargins(4, 4, 0, 4)
             self.browser_guide.setVisible(False)
+            self._guide_bottom_spacer.setVisible(True)
             self.label_guide_title.setVisible(False)
             self.btn_guide_close.setIcon(
-                get_icon(":/icons/bulging-right.svg", "#6b7280")
+                get_icon(":/icons/bulging-right.svg", "#1e40af")
             )
             self.btn_guide_close.setToolTip("ガイドパネルを開く")
             self.frame_subcontents.setFixedWidth(36)
