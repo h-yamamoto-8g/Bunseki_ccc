@@ -81,16 +81,17 @@ class DataLoader:
         if filtered.empty:
             return []
 
-        unique = filtered.drop_duplicates(subset=["valid_sample_set_code"])
+        unique = filtered.drop_duplicates(subset=["sample_request_number", "valid_sample_set_code"])
         results = []
         for _, row in unique.iterrows():
             vsset = row["valid_sample_set_code"]
-            stats = self._sample_stats(holder_group_code, vsset)
+            req_no = row.get("sample_request_number", "")
+            stats = self._sample_stats(holder_group_code, vsset, req_no)
             results.append(
                 {
                     "valid_sample_set_code": vsset,
                     "valid_sample_display_name": row.get("valid_sample_display_name", vsset),
-                    "sample_request_number": row.get("sample_request_number", ""),
+                    "sample_request_number": req_no,
                     "sample_job_number": row.get("sample_job_number", ""),
                     "sample_sampling_date": self._fmt_date(row.get("sample_sampling_date"), include_time=True),
                     **stats,
@@ -98,13 +99,15 @@ class DataLoader:
             )
         return results
 
-    def _sample_stats(self, holder_group_code: str, vsset_code: str) -> dict:
+    def _sample_stats(self, holder_group_code: str, vsset_code: str, request_number: str = "") -> dict:
         df = self.df
         mask = (
             (df["holder_group_code"] == holder_group_code)
             & (df["valid_sample_set_code"].str.upper() == vsset_code.upper())
             & (df["trend_enabled"] == True)
         )
+        if request_number:
+            mask = mask & (df["sample_request_number"].astype(str) == str(request_number))
         nums = self._numeric_values(df[mask]["test_raw_data"])
         if nums:
             return {
