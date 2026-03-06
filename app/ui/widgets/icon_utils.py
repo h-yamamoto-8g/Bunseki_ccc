@@ -5,9 +5,15 @@ QPainter の SourceIn 合成モードで任意色に塗り替えた QIcon を返
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
+
+# SVG アセットディレクトリ（リソースが見つからない場合のフォールバック）
+_ASSETS_DIR = Path(__file__).resolve().parents[3] / "resources" / "assets"
 
 
 def get_icon(resource_path: str, color: str | QColor, size: int = 22) -> QIcon:
@@ -28,6 +34,12 @@ def get_icon(resource_path: str, color: str | QColor, size: int = 22) -> QIcon:
         color = QColor(color)
 
     renderer = QSvgRenderer(resource_path)
+    if not renderer.isValid():
+        # Qt リソースに未登録の場合、アセットディレクトリからファイルを探す
+        basename = resource_path.rsplit("/", 1)[-1]
+        fallback = _ASSETS_DIR / basename
+        if fallback.is_file():
+            renderer = QSvgRenderer(str(fallback))
     if not renderer.isValid():
         return QIcon()
 
