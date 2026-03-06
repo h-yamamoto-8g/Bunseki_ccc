@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from PySide6.QtGui import QPainter, QPainterPath, QBrush, QColor as _QColor
+
 from app.ui.widgets.icon_utils import get_icon
 
 # ─── デザイントークン（ライトテーマ） ──────────────────────────────────────
@@ -255,6 +257,45 @@ class Sidebar(QWidget):
             self.btn_guide_toggle.setToolTip("ガイドパネルを開く")
 
 
+class _CircleButton(QToolButton):
+    """円形に描画されるステップボタン。
+
+    QSS の border-radius が QWidget のグローバル background-color に
+    上書きされる Qt の問題を回避するため、paintEvent で円形背景を自前描画する。
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._bg_color = _QColor(_MUTED_BG)
+        self._border_color: _QColor | None = _QColor(_BORDER)
+
+    def set_circle_style(
+        self, bg: str, border: str | None = None
+    ) -> None:
+        self._bg_color = _QColor(bg)
+        self._border_color = _QColor(border) if border else None
+        self.update()
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = self.rect().adjusted(1, 1, -1, -1)
+
+        # 円形背景
+        path = QPainterPath()
+        path.addEllipse(r.toRectF() if hasattr(r, "toRectF") else r)
+        p.fillPath(path, QBrush(self._bg_color))
+
+        # 円形ボーダー
+        if self._border_color:
+            p.setPen(self._border_color)
+            p.drawEllipse(r)
+
+        p.end()
+        # アイコンは QToolButton のデフォルト描画に任せる
+        super().paintEvent(event)
+
+
 class StepNavigation(QWidget):
     """タスクのステップナビゲーション（横並び、ヘッダーバー）。
 
@@ -271,7 +312,7 @@ class StepNavigation(QWidget):
         self.setFixedHeight(62)
         self.setObjectName("widget_step")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._step_buttons: dict[str, QToolButton] = {}
+        self._step_buttons: dict[str, _CircleButton] = {}
         self._active_step: str = ""
         self._current_state: str = ""  # タスクの実際の進捗ステート
         self._edited_steps: set[str] = set()
@@ -297,12 +338,15 @@ class StepNavigation(QWidget):
                 line.setStyleSheet(f"background: {_BORDER}; border: none;")
                 hl.addWidget(line, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-            btn = QToolButton()
+            btn = _CircleButton()
             btn.setFixedSize(43, 43)
             btn.setIconSize(QSize(20, 20))
             btn.setToolTip(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setObjectName(f"btn_step_{state_id}")
+            btn.setStyleSheet(
+                "QToolButton { background: transparent; border: none; }"
+            )
             btn.clicked.connect(
                 lambda _checked=False, sid=state_id: self.step_clicked.emit(sid)
             )
@@ -336,51 +380,17 @@ class StepNavigation(QWidget):
             edited = state_id in self._edited_steps
 
             if state_id == self._active_step:
-                # 表示中: 青塗り
                 btn.setIcon(get_icon(svg_path, "#ffffff"))
-                btn.setStyleSheet(f"""
-                    QToolButton {{
-                        background: {_ACCENT};
-                        border: none;
-                        border-radius: 21px;
-                    }}
-                """)
+                btn.set_circle_style(_ACCENT)
             elif edited:
-                # 編集済み: アンバー塗り
                 btn.setIcon(get_icon(svg_path, _EDITED_FG))
-                btn.setStyleSheet(f"""
-                    QToolButton {{
-                        background: {_EDITED_BG};
-                        border: 1px solid {_EDITED_BORDER};
-                        border-radius: 21px;
-                    }}
-                    QToolButton:hover {{
-                        background: #fde68a;
-                    }}
-                """)
+                btn.set_circle_style(_EDITED_BG, _EDITED_BORDER)
             elif progress_idx >= 0 and i < progress_idx:
-                # タスク進捗以前: 緑塗り（完了済み）
                 btn.setIcon(get_icon(svg_path, _SUCCESS_FG))
-                btn.setStyleSheet(f"""
-                    QToolButton {{
-                        background: {_SUCCESS_BG};
-                        border: none;
-                        border-radius: 21px;
-                    }}
-                """)
+                btn.set_circle_style(_SUCCESS_BG)
             else:
-                # 未達（進捗より先）: グレー — 色をつけない
                 btn.setIcon(get_icon(svg_path, _TEXT2))
-                btn.setStyleSheet(f"""
-                    QToolButton {{
-                        background: {_MUTED_BG};
-                        border: 1px solid {_BORDER};
-                        border-radius: 21px;
-                    }}
-                    QToolButton:hover {{
-                        background: #e5e7eb;
-                    }}
-                """)
+                btn.set_circle_style(_MUTED_BG, _BORDER)
 
     # ─── 公開 API ──────────────────────────────────────────────────────────
 
