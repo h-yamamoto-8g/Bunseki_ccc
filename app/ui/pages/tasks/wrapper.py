@@ -49,6 +49,7 @@ class TasksPage(QWidget):
         self._data_service = data_service
         self._job_service = job_service
         self._current_task: dict | None = None
+        self._current_view_state: str = ""
         self._all_tasks_full: list[dict] = []
         self._display_limit: int = 100
 
@@ -93,6 +94,9 @@ class TasksPage(QWidget):
         ui.task_delete_requested.connect(self._on_task_deleted)
         ui.load_more_requested.connect(self._on_load_more)
 
+        ui.view_prev_requested.connect(self._on_view_prev)
+        ui.view_next_requested.connect(self._on_view_next)
+
         self.setup_state.submitted.connect(self._on_setup_submitted)
         self.setup_state.cancelled.connect(self.show_list)
         self.setup_state.go_next.connect(lambda: self._go_to_state("analysis_targets"))
@@ -126,6 +130,7 @@ class TasksPage(QWidget):
 
     def show_list(self) -> None:
         self._current_task = None
+        self._current_view_state = ""
         self._ui.show_list_view()
         self._refresh_list()
         self.task_context_cleared.emit()
@@ -286,6 +291,7 @@ class TasksPage(QWidget):
         if idx is not None:
             self._ui.stack.setCurrentIndex(idx)
             self._ui.show_detail_view(task, state)
+            self._current_view_state = state
             self.task_context_changed.emit(
                 task.get("task_name", ""),
                 state,
@@ -297,3 +303,66 @@ class TasksPage(QWidget):
                 and task.get("assigned_to", "") != _cfg.CURRENT_USER
             )
             self.handover_available.emit(can_takeover)
+            # 閲覧用の左右ナビゲーション更新
+            self._update_view_nav(state, task, readonly)
+
+    # ── 閲覧用ナビゲーション ──────────────────────────────────────────────────
+
+    def _get_viewable_states(self, task: dict) -> list[str]:
+        """閲覧可能なステートの一覧を返す（current_state まで）。"""
+        current = task.get("current_state", "")
+        try:
+            end = STATE_ORDER.index(current)
+        except ValueError:
+            return list(STATE_ORDER)
+        return STATE_ORDER[: end + 1]
+
+    def _update_view_nav(self, state: str, task: dict, readonly: bool) -> None:
+        """閲覧用の左右ナビゲーションボタンの表示状態を更新する。"""
+        # readonly のときだけ閲覧ナビゲーションを表示する
+        if not readonly:
+            self._ui.set_view_nav_visible(False)
+            return
+        viewable = self._get_viewable_states(task)
+        if len(viewable) <= 1:
+            self._ui.set_view_nav_visible(False)
+            return
+        self._ui.set_view_nav_visible(True)
+        try:
+            idx = viewable.index(state)
+        except ValueError:
+            self._ui.set_view_nav_enabled(False, False)
+            return
+        self._ui.set_view_nav_enabled(idx > 0, idx < len(viewable) - 1)
+
+    def _on_view_prev(self) -> None:
+        """閲覧用: 前のステートを表示する（ステート進行なし）。"""
+        if not self._current_task:
+            return
+        task = self._task_service.get_task(self._current_task["task_id"])
+        if not task:
+            return
+        self._current_task = task
+        viewable = self._get_viewable_states(task)
+        try:
+            idx = viewable.index(self._current_view_state)
+        except ValueError:
+            return
+        if idx > 0:
+            self._navigate_to_state(viewable[idx - 1], task)
+
+    def _on_view_next(self) -> None:
+        """閲覧用: 次のステートを表示する（ステート進行なし）。"""
+        if not self._current_task:
+            return
+        task = self._task_service.get_task(self._current_task["task_id"])
+        if not task:
+            return
+        self._current_task = task
+        viewable = self._get_viewable_states(task)
+        try:
+            idx = viewable.index(self._current_view_state)
+        except ValueError:
+            return
+        if idx < len(viewable) - 1:
+            self._navigate_to_state(viewable[idx + 1], task)

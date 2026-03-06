@@ -38,6 +38,8 @@
         <file>download.svg</file>
         <file>more.svg</file>
         <file>graph.svg</file>
+        <file>left.svg</file>
+        <file>right.svg</file>
     </qresource>
 </RCC>
 
