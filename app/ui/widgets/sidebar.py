@@ -155,17 +155,13 @@ class Sidebar(QWidget):
 
     def _setup_ui(self) -> None:
         """UIを構築する。"""
-        outer = QHBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-        outer.addStretch()
-
-        vl = QVBoxLayout()
+        vl = QVBoxLayout(self)
         vl.setContentsMargins(0, 10, 0, 10)
         vl.setSpacing(2)
 
         # サイドコンテンツ開閉ボタン
-        self.btn_toggle_guide = QToolButton()
+        self.btn_toggle_guide = QToolButton(self)
+        self.btn_toggle_guide.setObjectName("btn_toggle_guide")
         self.btn_toggle_guide.setFixedSize(44, 44)
         self.btn_toggle_guide.setIconSize(QSize(24, 24))
         self.btn_toggle_guide.setIcon(
@@ -174,11 +170,11 @@ class Sidebar(QWidget):
         self.btn_toggle_guide.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle_guide.setToolTip("ガイドパネルの開閉")
         self.btn_toggle_guide.setStyleSheet("""
-            QToolButton {
+            QToolButton#btn_toggle_guide {
                 background: transparent;
                 border: none;
             }
-            QToolButton:hover {
+            QToolButton#btn_toggle_guide:hover {
                 background: #e5e7eb;
                 border-radius: 10px;
             }
@@ -190,7 +186,7 @@ class Sidebar(QWidget):
         vl.addSpacing(10)
 
         for page_id, (name, svg_path) in PAGE_INFO.items():
-            btn = _NavButton(page_id, name, svg_path)
+            btn = _NavButton(page_id, name, svg_path, parent=self)
             btn.clicked.connect(
                 lambda _checked=False, pid=page_id: self._on_click(pid)
             )
@@ -198,8 +194,6 @@ class Sidebar(QWidget):
             self._buttons[page_id] = btn
 
         vl.addStretch()
-        outer.addLayout(vl)
-        outer.addStretch()
 
         self.set_active("home")
 
