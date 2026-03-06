@@ -309,13 +309,8 @@ class TasksPage(QWidget):
     # ── 閲覧用ナビゲーション ──────────────────────────────────────────────────
 
     def _get_viewable_states(self, task: dict) -> list[str]:
-        """閲覧可能なステートの一覧を返す（current_state まで）。"""
-        current = task.get("current_state", "")
-        try:
-            end = STATE_ORDER.index(current)
-        except ValueError:
-            return list(STATE_ORDER)
-        return STATE_ORDER[: end + 1]
+        """閲覧可能なステートの一覧を返す（全ステート）。"""
+        return list(STATE_ORDER)
 
     def _update_view_nav(self, state: str, task: dict, readonly: bool) -> None:
         """閲覧用の左右ナビゲーションボタンの表示状態を更新する。"""
