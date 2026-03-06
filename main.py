@@ -895,8 +895,6 @@ class MainWindow(QMainWindow):
         border = "1px solid #e5e7eb" if self._guide_expanded else "none"
         self.frame_subcontents.setStyleSheet(f"#frame_subcontents {{ border-right: {border}; }}")
         self.sidebar.set_guide_expanded(self._guide_expanded)
-<<<<<<< HEAD
-=======
 
         if self._guide_expanded:
             # 展開: コンテンツを表示、幅を復元
@@ -911,7 +909,6 @@ class MainWindow(QMainWindow):
             self._guide_bottom_spacer.setVisible(True)
             self.frame_subcontents.setFixedWidth(36)
             self._resize_handle.setVisible(False)
->>>>>>> origin/claude/hide-capsule-icon-closed-4CmeZ
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。
