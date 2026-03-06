@@ -310,6 +310,8 @@ class TasksPageUI(QWidget):
     handover_requested     = Signal()
     task_delete_requested  = Signal(str)
     load_more_requested    = Signal()
+    view_prev_requested    = Signal()
+    view_next_requested    = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -320,10 +322,46 @@ class TasksPageUI(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        # ステート表示時の左右ナビゲーション付きレイアウト
+        state_row = QHBoxLayout()
+        state_row.setContentsMargins(0, 0, 0, 0)
+        state_row.setSpacing(0)
+
+        nav_btn_qss = (
+            f"QPushButton {{ background:{_BG2}; border:1px solid {_BORDER};"
+            f" border-radius:6px; padding:0; }}"
+            f"QPushButton:hover {{ background:{_BG4}; border-color:{_ACCENT}; }}"
+            f"QPushButton:disabled {{ background:{_BG3}; border-color:{_BORDER}; opacity:0.4; }}"
+        )
+
+        self._btn_view_prev = QPushButton()
+        self._btn_view_prev.setIcon(QIcon(":/icons/left.svg"))
+        self._btn_view_prev.setIconSize(QSize(20, 20))
+        self._btn_view_prev.setFixedWidth(36)
+        self._btn_view_prev.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_view_prev.setToolTip("前のステートを表示")
+        self._btn_view_prev.setStyleSheet(nav_btn_qss)
+        self._btn_view_prev.setVisible(False)
+        self._btn_view_prev.clicked.connect(self.view_prev_requested)
+        state_row.addWidget(self._btn_view_prev)
+
         # ページスタック（index 0: 一覧、1〜: 各ステート）
         self.stack = QStackedWidget()
-        root.addWidget(self.stack)
+        state_row.addWidget(self.stack)
         self.stack.addWidget(self._build_list_widget())
+
+        self._btn_view_next = QPushButton()
+        self._btn_view_next.setIcon(QIcon(":/icons/right.svg"))
+        self._btn_view_next.setIconSize(QSize(20, 20))
+        self._btn_view_next.setFixedWidth(36)
+        self._btn_view_next.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_view_next.setToolTip("次のステートを表示")
+        self._btn_view_next.setStyleSheet(nav_btn_qss)
+        self._btn_view_next.setVisible(False)
+        self._btn_view_next.clicked.connect(self.view_next_requested)
+        state_row.addWidget(self._btn_view_next)
+
+        root.addLayout(state_row)
 
     def _build_list_widget(self) -> QWidget:
         """TasksPage.ui をベースにリスト画面を構築する。"""
@@ -490,9 +528,21 @@ class TasksPageUI(QWidget):
 
     def show_list_view(self) -> None:
         self.stack.setCurrentIndex(0)
+        self._btn_view_prev.setVisible(False)
+        self._btn_view_next.setVisible(False)
 
     def show_detail_view(self, task: dict, state: str) -> None:
         pass  # タスクコンテキストは共通ヘッダーで管理
+
+    def set_view_nav_visible(self, visible: bool) -> None:
+        """閲覧用の左右ナビゲーションボタンの表示/非表示を切り替える。"""
+        self._btn_view_prev.setVisible(visible)
+        self._btn_view_next.setVisible(visible)
+
+    def set_view_nav_enabled(self, can_prev: bool, can_next: bool) -> None:
+        """閲覧用の左右ナビゲーションボタンの有効/無効を設定する。"""
+        self._btn_view_prev.setEnabled(can_prev)
+        self._btn_view_next.setEnabled(can_next)
 
     def get_handover_dialog(self, task: dict, users: list[str] | None = None) -> _HandoverDialog:
         return _HandoverDialog(task, users=users, parent=self)
