@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QComboBox, QLineEdit, QDialog,
-    QDialogButtonBox,
+    QDialogButtonBox, QTabWidget, QApplication,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor
@@ -39,7 +39,7 @@ class AnalysisTargetsUI(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._samples: list[dict] = []
+        self._grouped_samples: dict[str, list[dict]] = {}
         self._deleted_codes: set[str] = set()
         self._added_samples: list[str] = []
         self._edit_mode = False
@@ -56,7 +56,6 @@ class AnalysisTargetsUI(QWidget):
         self._form.widget_header.setVisible(False)
 
         # ── アクションバー ────────────────────────────────────────────────
-        # 左端: 編集済みバッジ  右端: [＋サンプル追加] [印刷] [編集]
         _action_bar = QWidget()
         _action_bar.setMaximumHeight(44)
         _ab = QHBoxLayout(_action_bar)
@@ -90,18 +89,93 @@ class AnalysisTargetsUI(QWidget):
 
         self._form.verticalLayout.insertWidget(0, _action_bar)
 
-        # ── QTableView → QTableWidget に置換 ─────────────────────────────
+        # ── QTableView → QTabWidget に置換 ─────────────────────────────
         tgt_layout = self._form.verticalLayout_2
         tgt_layout.removeWidget(self._form.tableView_targets)
         self._form.tableView_targets.deleteLater()
 
-        headers = ["依頼番号", "JOB番号", "採取日", "サンプル名", "中央値", "最大値", "最小値", ""]
-        self.table = QTableWidget(0, len(headers))
-        self.table.setHorizontalHeaderLabels(headers)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setAlternatingRowColors(True)
-        hh = self.table.horizontalHeader()
+        self.tab_widget = QTabWidget()
+        tgt_layout.addWidget(self.tab_widget)
+
+        # ── シグナル接続 ──────────────────────────────────────────────────
+        self.edit_btn.clicked.connect(self.edit_requested)
+        self._form.btn_back.clicked.connect(self.back_requested)
+        self._form.btn_next.clicked.connect(self._go_next)
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def set_samples(
+        self,
+        grouped_samples: dict[str, list[dict]],
+        deleted_codes: set[str],
+        added_samples: list[str],
+    ) -> None:
+        self._grouped_samples = grouped_samples
+        self._deleted_codes = set(deleted_codes)
+        self._added_samples = list(added_samples)
+        self._rebuild_tabs()
+
+    def set_editable(self, editable: bool) -> None:
+        self._edit_mode = editable
+        self.add_sample_btn.setVisible(editable)
+        self._rebuild_tabs()
+
+    def show_edit_btn(self, visible: bool) -> None:
+        self.edit_btn.setVisible(visible)
+
+    def set_nav_visible(self, visible: bool) -> None:
+        self._form.btn_next.setVisible(visible)
+        self._form.btn_back.setVisible(visible)
+
+    def add_free_sample(self, name: str) -> None:
+        if name and name not in self._added_samples:
+            self._added_samples.append(name)
+            self.edited_badge.setVisible(True)
+            self.content_edited.emit()
+            self._rebuild_tabs()
+
+    def apply_delete(self, code: str, is_free: bool) -> None:
+        if is_free:
+            name = code.removeprefix("FREE_")
+            if name in self._added_samples:
+                self._added_samples.remove(name)
+        else:
+            self._deleted_codes.add(code)
+        self.edited_badge.setVisible(True)
+        self.content_edited.emit()
+        self._rebuild_tabs()
+
+    # ── Internal ──────────────────────────────────────────────────────────────
+
+    _HEADERS = ["依頼番号", "JOB番号", "採取日", "サンプル名", "中央値", "最大値", "最小値", ""]
+
+    _TARGET_SORT_KEYS = [
+        "sample_request_number", "sample_job_number", "sample_sampling_date",
+        "valid_sample_display_name",
+    ]
+
+    def _rebuild_tabs(self) -> None:
+        current_idx = self.tab_widget.currentIndex()
+        self.tab_widget.clear()
+
+        if not self._grouped_samples:
+            self.tab_widget.addTab(QLabel("データがありません"), "（なし）")
+            return
+
+        for test_name, samples in self._grouped_samples.items():
+            table = self._build_table(samples)
+            self.tab_widget.addTab(table, test_name)
+
+        if 0 <= current_idx < self.tab_widget.count():
+            self.tab_widget.setCurrentIndex(current_idx)
+
+    def _build_table(self, samples: list[dict]) -> QTableWidget:
+        table = QTableWidget(0, len(self._HEADERS))
+        table.setHorizontalHeaderLabels(self._HEADERS)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setAlternatingRowColors(True)
+        hh = table.horizontalHeader()
         hh.setMinimumSectionSize(60)
         for i, mode in enumerate([
             QHeaderView.ResizeMode.ResizeToContents,  # 依頼番号
@@ -114,99 +188,47 @@ class AnalysisTargetsUI(QWidget):
             QHeaderView.ResizeMode.Fixed,             # 削除
         ]):
             hh.setSectionResizeMode(i, mode)
-        self.table.setColumnWidth(7, 44)
-        vh = self.table.verticalHeader()
+        table.setColumnWidth(7, 44)
+        vh = table.verticalHeader()
         vh.setDefaultSectionSize(36)
-        enable_row_numbers_and_sort(self.table, self._on_sort_column)
-        tgt_layout.addWidget(self.table)
 
-        # ── シグナル接続 ──────────────────────────────────────────────────
-        self.edit_btn.clicked.connect(self.edit_requested)
-        self._form.btn_back.clicked.connect(self.back_requested)
-        self._form.btn_next.clicked.connect(self._go_next)
+        # ソート用データ保持
+        table._samples = samples  # type: ignore[attr-defined]
 
-    # ── Public API ────────────────────────────────────────────────────────────
+        def _on_sort(col: int, ascending: bool, tbl: QTableWidget = table) -> None:
+            if col < len(self._TARGET_SORT_KEYS):
+                key = self._TARGET_SORT_KEYS[col]
+                tbl._samples.sort(  # type: ignore[attr-defined]
+                    key=lambda s: str(s.get(key, "")), reverse=not ascending,
+                )
+                self._refresh_table(tbl, tbl._samples)  # type: ignore[attr-defined]
 
-    def set_samples(
-        self,
-        samples: list[dict],
-        deleted_codes: set[str],
-        added_samples: list[str],
-    ) -> None:
-        self._samples = samples
-        self._deleted_codes = set(deleted_codes)
-        self._added_samples = list(added_samples)
-        self._refresh_table()
+        enable_row_numbers_and_sort(table, _on_sort)
 
-    def set_editable(self, editable: bool) -> None:
-        self._edit_mode = editable
-        self.add_sample_btn.setVisible(editable)
-        self._refresh_table()
+        self._refresh_table(table, samples)
+        return table
 
-    def show_edit_btn(self, visible: bool) -> None:
-        self.edit_btn.setVisible(visible)
-
-    def set_nav_visible(self, visible: bool) -> None:
-        """次へ/戻るボタンの表示を制御する。"""
-        self._form.btn_next.setVisible(visible)
-        self._form.btn_back.setVisible(visible)
-
-    def add_free_sample(self, name: str) -> None:
-        if name and name not in self._added_samples:
-            self._added_samples.append(name)
-            self.edited_badge.setVisible(True)
-            self.content_edited.emit()
-            self._refresh_table()
-
-    def apply_delete(self, code: str, is_free: bool) -> None:
-        if is_free:
-            name = code.removeprefix("FREE_")
-            if name in self._added_samples:
-                self._added_samples.remove(name)
-        else:
-            self._deleted_codes.add(code)
-        self.edited_badge.setVisible(True)
-        self.content_edited.emit()
-        self._refresh_table()
-
-    # ── Sort ─────────────────────────────────────────────────────────────────
-
-    _TARGET_SORT_KEYS = [
-        "sample_request_number", "sample_job_number", "sample_sampling_date",
-        "valid_sample_display_name",
-    ]
-
-    def _on_sort_column(self, col: int, ascending: bool) -> None:
-        if not hasattr(self, "_samples"):
-            return
-        if col < len(self._TARGET_SORT_KEYS):
-            key = self._TARGET_SORT_KEYS[col]
-            self._samples.sort(
-                key=lambda s: str(s.get(key, "")), reverse=not ascending,
-            )
-            self._refresh_table()
-
-    # ── Internal ──────────────────────────────────────────────────────────────
-
-    def _refresh_table(self) -> None:
-        self.table.setRowCount(0)
-        visible = [s for s in self._samples
+    def _refresh_table(self, table: QTableWidget, samples: list[dict]) -> None:
+        table.setRowCount(0)
+        visible = [s for s in samples
                    if s["valid_sample_set_code"] not in self._deleted_codes]
         for s in visible:
-            self._add_row(s, free=False)
-        for name in self._added_samples:
-            self._add_row({
-                "valid_sample_set_code": f"FREE_{name}",
-                "valid_sample_display_name": name,
-                "sample_request_number": "",
-                "sample_job_number": "",
-                "sample_sampling_date": "",
-                "median": None, "max": None, "min": None,
-            }, free=True)
+            self._add_row(table, s, free=False)
+        # 追加サンプルは最初のタブのみに表示
+        if self.tab_widget.indexOf(table) == 0:
+            for name in self._added_samples:
+                self._add_row(table, {
+                    "valid_sample_set_code": f"FREE_{name}",
+                    "valid_sample_display_name": name,
+                    "sample_request_number": "",
+                    "sample_job_number": "",
+                    "sample_sampling_date": "",
+                    "median": None, "max": None, "min": None,
+                }, free=True)
 
-    def _add_row(self, s: dict, free: bool) -> None:
-        row = self.table.rowCount()
-        self.table.insertRow(row)
+    def _add_row(self, table: QTableWidget, s: dict, free: bool) -> None:
+        row = table.rowCount()
+        table.insertRow(row)
         median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
         max_v  = f"{s['max']:.3g}"    if s.get("max")    is not None else "—"
         min_v  = f"{s['min']:.3g}"    if s.get("min")    is not None else "—"
@@ -222,7 +244,7 @@ class AnalysisTargetsUI(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, s["valid_sample_set_code"])
             if free:
                 item.setForeground(QColor("#7c3aed"))
-            self.table.setItem(row, col, item)
+            table.setItem(row, col, item)
 
         if self._edit_mode:
             cell_w = QWidget()
@@ -247,14 +269,15 @@ class AnalysisTargetsUI(QWidget):
                 lambda _=False, c=code, f=free: self.delete_row_requested.emit(c, f)
             )
             cell_l.addWidget(del_btn)
-            self.table.setCellWidget(row, 7, cell_w)
+            table.setCellWidget(row, 7, cell_w)
 
     def _go_next(self) -> None:
-        visible_codes = [
-            s["valid_sample_set_code"]
-            for s in self._samples
-            if s["valid_sample_set_code"] not in self._deleted_codes
-        ]
+        visible_codes = []
+        for samples in self._grouped_samples.values():
+            for s in samples:
+                code = s["valid_sample_set_code"]
+                if code not in self._deleted_codes and code not in visible_codes:
+                    visible_codes.append(code)
         self.next_requested.emit(
             visible_codes,
             list(self._deleted_codes),
