@@ -48,7 +48,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>481</width>
+             <width>40</width>
              <height>20</height>
             </size>
            </property>
@@ -58,7 +58,7 @@
           <widget class="QWidget" name="widget_form" native="true">
            <property name="minimumSize">
             <size>
-             <width>100</width>
+             <width>300</width>
              <height>50</height>
             </size>
            </property>
@@ -318,7 +318,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>481</width>
+             <width>40</width>
              <height>20</height>
             </size>
            </property>

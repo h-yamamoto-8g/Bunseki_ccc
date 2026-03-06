@@ -37,13 +37,13 @@ class Ui_PageStateStart(object):
         self.widget_setup.setObjectName(u"widget_setup")
         self.horizontalLayout_3 = QHBoxLayout(self.widget_setup)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.horizontalSpacer = QSpacerItem(481, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer)
 
         self.widget_form = QWidget(self.widget_setup)
         self.widget_form.setObjectName(u"widget_form")
-        self.widget_form.setMinimumSize(QSize(100, 50))
+        self.widget_form.setMinimumSize(QSize(300, 50))
         self.verticalLayout_2 = QVBoxLayout(self.widget_form)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
@@ -145,7 +145,7 @@ class Ui_PageStateStart(object):
 
         self.horizontalLayout_3.addWidget(self.widget_form)
 
-        self.horizontalSpacer_2 = QSpacerItem(481, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_2)
 
