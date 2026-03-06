@@ -23,17 +23,22 @@ QWidget#frame_sidebar {
 
 /* ── サブコンテンツ ── */
 QFrame#frame_subcontents {
-    background: #f0f4ff;
+    background: #ffffff;
     border-right: 1px solid #e5e7eb;
 }
 
 /* ── ガイドブラウザ ── */
 QTextBrowser#browser_guide {
-    background: #f0f4ff;
+    background: #ffffff;
     border: none;
     color: #333333;
     font-size: 12px;
     padding: 8px;
+}
+
+/* ── メインエリア ── */
+QWidget#widget_main {
+    background: #ffffff;
 }
 
 /* ── ヘッダー ── */
