@@ -195,6 +195,7 @@ def _load_app_modules(qapp: QApplication) -> None:
     g["UserService"] = UserService
     g["LogonDialog"] = LogonDialog
     g["SetupRootDialog"] = SetupRootDialog
+    g["LoadingOverlay"] = LoadingOverlay
     g["DataPage"] = DataPage
     g["HomePage"] = HomePage
     g["JobPage"] = JobPage
