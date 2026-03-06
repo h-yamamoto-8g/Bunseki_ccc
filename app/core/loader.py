@@ -72,9 +72,9 @@ class DataLoader:
     def get_analysis_targets(
         self, holder_group_code: str, job_numbers: list
     ) -> dict[str, list[dict]]:
-        """Return samples grouped by valid_test_display_name.
+        """Return samples grouped by valid_holder_display_name.
 
-        Returns ``{test_display_name: [sample_dict, ...]}``.
+        Returns ``{holder_display_name: [sample_dict, ...]}``.
         Stats are computed per (valid_sample_set_code, valid_holder_set_code,
         valid_test_set_code) with trend_enabled=True.
         """
@@ -90,7 +90,7 @@ class DataLoader:
 
         unique = filtered.drop_duplicates(
             subset=["sample_request_number", "valid_sample_set_code",
-                     "valid_test_set_code"]
+                     "valid_holder_set_code"]
         )
         stats_cache: dict[tuple, dict] = {}
         grouped: dict[str, list[dict]] = {}
@@ -98,7 +98,7 @@ class DataLoader:
             vsset = row["valid_sample_set_code"]
             vhset = str(row.get("valid_holder_set_code", ""))
             vtset = str(row.get("valid_test_set_code", ""))
-            test_name = str(row.get("valid_test_display_name", vtset))
+            holder_name = str(row.get("valid_holder_display_name", vhset))
             req_no = row.get("sample_request_number", "")
 
             cache_key = (vsset, vhset, vtset)
@@ -116,7 +116,7 @@ class DataLoader:
                 ),
                 **stats,
             }
-            grouped.setdefault(test_name, []).append(sample)
+            grouped.setdefault(holder_name, []).append(sample)
         return grouped
 
     def _sample_stats(
