@@ -766,7 +766,6 @@ class MainWindow(QMainWindow):
         hg_html = self.hg_config_service.get_manual_html(hg_code) if hg_code else None
         if hg_html:
             self.browser_guide.setHtml(hg_html)
-            self.label_guide_title.setText(hg_code)
         else:
             self._show_manual(f"state:{state_id}")
 
@@ -870,6 +869,10 @@ class MainWindow(QMainWindow):
         """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
         if not hasattr(self, "_resize_handle"):
             return
+        # ガイドパネルが閉じているときはハンドルを非表示にする
+        if not self._guide_expanded:
+            self._resize_handle.setVisible(False)
+            return
         geo = self.frame_subcontents.geometry()
         hw = self._resize_handle.width()
         self._resize_handle.setGeometry(
@@ -892,6 +895,23 @@ class MainWindow(QMainWindow):
         border = "1px solid #e5e7eb" if self._guide_expanded else "none"
         self.frame_subcontents.setStyleSheet(f"#frame_subcontents {{ border-right: {border}; }}")
         self.sidebar.set_guide_expanded(self._guide_expanded)
+<<<<<<< HEAD
+=======
+
+        if self._guide_expanded:
+            # 展開: コンテンツを表示、幅を復元
+            self.browser_guide.setVisible(True)
+            self._guide_bottom_spacer.setVisible(False)
+            self.frame_subcontents.setFixedWidth(self._guide_width)
+            self._resize_handle.setVisible(True)
+        else:
+            # 折りたたみ: コンテンツを非表示、幅を最小化
+            self._guide_width = self.frame_subcontents.width()
+            self.browser_guide.setVisible(False)
+            self._guide_bottom_spacer.setVisible(True)
+            self.frame_subcontents.setFixedWidth(36)
+            self._resize_handle.setVisible(False)
+>>>>>>> origin/claude/hide-capsule-icon-closed-4CmeZ
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。
@@ -907,9 +927,8 @@ class MainWindow(QMainWindow):
         else:
             self.browser_guide.clear()
 
-        # ガイドタイトルを更新
+        # ガイドタイトルを更新（タイトル表示用ウィジェットがある場合のみ）
         title = self._guide_title_map.get(key, "")
-        self.label_guide_title.setText(title)
 
     def set_guide_text(self, html: str) -> None:
         """ガイドパネルのテキストを更新する。
