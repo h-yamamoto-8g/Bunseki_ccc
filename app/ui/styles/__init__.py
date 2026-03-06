@@ -24,7 +24,7 @@ QWidget#frame_sidebar {
 /* ── サブコンテンツ ── */
 QFrame#frame_subcontents {
     background: #f5f7fa;
-    border-right: none;
+    border-right: 1px solid #e5e7eb;
 }
 
 /* ── ガイドブラウザ ── */
