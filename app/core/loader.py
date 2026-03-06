@@ -90,6 +90,7 @@ class DataLoader:
                 {
                     "valid_sample_set_code": vsset,
                     "valid_sample_display_name": row.get("valid_sample_display_name", vsset),
+                    "sample_request_number": row.get("sample_request_number", ""),
                     "sample_job_number": row.get("sample_job_number", ""),
                     "sample_sampling_date": self._fmt_date(row.get("sample_sampling_date"), include_time=True),
                     **stats,

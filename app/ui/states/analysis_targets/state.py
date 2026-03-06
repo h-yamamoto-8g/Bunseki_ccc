@@ -95,7 +95,7 @@ class AnalysisTargetsUI(QWidget):
         tgt_layout.removeWidget(self._form.tableView_targets)
         self._form.tableView_targets.deleteLater()
 
-        headers = ["JOB番号", "採取日", "サンプル名", "中央値", "最大値", "最小値", ""]
+        headers = ["依頼番号", "JOB番号", "採取日", "サンプル名", "中央値", "最大値", "最小値", ""]
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -104,6 +104,7 @@ class AnalysisTargetsUI(QWidget):
         hh = self.table.horizontalHeader()
         hh.setMinimumSectionSize(60)
         for i, mode in enumerate([
+            QHeaderView.ResizeMode.ResizeToContents,  # 依頼番号
             QHeaderView.ResizeMode.ResizeToContents,  # JOB番号
             QHeaderView.ResizeMode.ResizeToContents,  # 採取日
             QHeaderView.ResizeMode.Stretch,           # サンプル名
@@ -113,7 +114,7 @@ class AnalysisTargetsUI(QWidget):
             QHeaderView.ResizeMode.Fixed,             # 削除
         ]):
             hh.setSectionResizeMode(i, mode)
-        self.table.setColumnWidth(6, 44)
+        self.table.setColumnWidth(7, 44)
         vh = self.table.verticalHeader()
         vh.setDefaultSectionSize(36)
         enable_row_numbers_and_sort(self.table, self._on_sort_column)
@@ -171,7 +172,8 @@ class AnalysisTargetsUI(QWidget):
     # ── Sort ─────────────────────────────────────────────────────────────────
 
     _TARGET_SORT_KEYS = [
-        "sample_job_number", "sample_sampling_date", "valid_sample_display_name",
+        "sample_request_number", "sample_job_number", "sample_sampling_date",
+        "valid_sample_display_name",
     ]
 
     def _on_sort_column(self, col: int, ascending: bool) -> None:
@@ -196,6 +198,7 @@ class AnalysisTargetsUI(QWidget):
             self._add_row({
                 "valid_sample_set_code": f"FREE_{name}",
                 "valid_sample_display_name": name,
+                "sample_request_number": "",
                 "sample_job_number": "",
                 "sample_sampling_date": "",
                 "median": None, "max": None, "min": None,
@@ -208,6 +211,7 @@ class AnalysisTargetsUI(QWidget):
         max_v  = f"{s['max']:.3g}"    if s.get("max")    is not None else "—"
         min_v  = f"{s['min']:.3g}"    if s.get("min")    is not None else "—"
         vals = [
+            s.get("sample_request_number", ""),
             s.get("sample_job_number", ""),
             s.get("sample_sampling_date", ""),
             s.get("valid_sample_display_name", ""),

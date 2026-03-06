@@ -179,6 +179,7 @@ class AnalysisTargetsState(QWidget):
             min_v = f"{s['min']:.3g}" if s.get("min") is not None else "—"
             rows_html += (
                 f"<tr>"
+                f"<td>{s.get('sample_request_number', '')}</td>"
                 f"<td>{s.get('sample_job_number', '')}</td>"
                 f"<td>{s.get('sample_sampling_date', '')}</td>"
                 f"<td>{s.get('valid_sample_display_name', '')}</td>"
@@ -190,7 +191,7 @@ class AnalysisTargetsState(QWidget):
         for name in added:
             rows_html += (
                 f"<tr>"
-                f"<td></td><td></td>"
+                f"<td></td><td></td><td></td>"
                 f"<td style='color:#7c3aed; border:1px solid #999; padding:4px 8px;'>{name}（追加）</td>"
                 f"<td>—</td><td>—</td><td>—</td>"
                 f"</tr>"
@@ -214,7 +215,7 @@ class AnalysisTargetsState(QWidget):
             f"</div>"
             f"<div class='meta'>サンプル数: {total}</div>"
             "<table>"
-            "<tr><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
+            "<tr><th>依頼番号</th><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
             "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
             f"{rows_html}"
             "</table>"
