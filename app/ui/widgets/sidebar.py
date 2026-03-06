@@ -229,7 +229,7 @@ class StepNavigation(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(52)
+        self.setFixedHeight(62)
         self.setObjectName("widget_step")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_buttons: dict[str, QToolButton] = {}
@@ -242,7 +242,7 @@ class StepNavigation(QWidget):
     def _setup_ui(self) -> None:
         """UIを構築する。"""
         hl = QHBoxLayout(self)
-        hl.setContentsMargins(20, 8, 20, 8)
+        hl.setContentsMargins(20, 6, 20, 6)
         hl.setSpacing(0)
         hl.addStretch()
 
@@ -259,8 +259,8 @@ class StepNavigation(QWidget):
                 hl.addWidget(line, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             btn = QToolButton()
-            btn.setFixedSize(36, 36)
-            btn.setIconSize(QSize(18, 18))
+            btn.setFixedSize(50, 50)
+            btn.setIconSize(QSize(22, 22))
             btn.setToolTip(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setObjectName(f"btn_step_{state_id}")
@@ -303,7 +303,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_ACCENT};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 25px;
                     }}
                 """)
             elif edited:
@@ -313,7 +313,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_EDITED_BG};
                         border: 1px solid {_EDITED_BORDER};
-                        border-radius: 18px;
+                        border-radius: 25px;
                     }}
                     QToolButton:hover {{
                         background: #fde68a;
@@ -326,7 +326,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_SUCCESS_BG};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 25px;
                     }}
                 """)
             else:
@@ -336,7 +336,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_MUTED_BG};
                         border: 1px solid {_BORDER};
-                        border-radius: 18px;
+                        border-radius: 25px;
                     }}
                     QToolButton:hover {{
                         background: #e5e7eb;
