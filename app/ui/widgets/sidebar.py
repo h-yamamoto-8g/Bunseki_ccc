@@ -215,10 +215,9 @@ class Sidebar(QWidget):
 
 
 class StepNavigation(QWidget):
-    """タスクのステップナビゲーション（縦並び、50px 幅）。
+    """タスクのステップナビゲーション（横並び、ヘッダーバー）。
 
-    MainWindow.ui の widget_step 仕様に準拠。
-    各ステップは SVG アイコンボタン + VLine コネクタで縦に並ぶ。
+    各ステップは SVG アイコンボタン + HLine コネクタで横に並ぶ。
 
     Signals:
         step_clicked (str): ステップがクリックされた時に state_id を送出する。
@@ -230,7 +229,7 @@ class StepNavigation(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setMaximumWidth(62)
+        self.setFixedHeight(62)
         self.setObjectName("widget_step")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_buttons: dict[str, QToolButton] = {}
@@ -242,26 +241,26 @@ class StepNavigation(QWidget):
 
     def _setup_ui(self) -> None:
         """UIを構築する。"""
-        vl = QVBoxLayout(self)
-        vl.setContentsMargins(12, 20, 12, 20)
-        vl.setSpacing(0)
-        vl.addStretch()
+        hl = QHBoxLayout(self)
+        hl.setContentsMargins(20, 10, 20, 9)
+        hl.setSpacing(0)
+        hl.addStretch()
 
         for i, (state_id, svg_path, label) in enumerate(STEP_DEFS):
             if i > 0:
-                # ステップ間の VLine コネクタ
+                # ステップ間の HLine コネクタ
                 line = QFrame()
-                line.setFrameShape(QFrame.Shape.VLine)
+                line.setFrameShape(QFrame.Shape.HLine)
                 line.setFrameShadow(QFrame.Shadow.Plain)
-                line.setFixedWidth(2)
-                line.setMinimumHeight(18)
-                line.setMaximumHeight(28)
+                line.setFixedHeight(2)
+                line.setMinimumWidth(18)
+                line.setMaximumWidth(40)
                 line.setStyleSheet(f"background: {_BORDER}; border: none;")
-                vl.addWidget(line, alignment=Qt.AlignmentFlag.AlignHCenter)
+                hl.addWidget(line, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             btn = QToolButton()
-            btn.setFixedSize(36, 36)
-            btn.setIconSize(QSize(18, 18))
+            btn.setFixedSize(43, 43)
+            btn.setIconSize(QSize(20, 20))
             btn.setToolTip(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setObjectName(f"btn_step_{state_id}")
@@ -269,9 +268,9 @@ class StepNavigation(QWidget):
                 lambda _checked=False, sid=state_id: self.step_clicked.emit(sid)
             )
             self._step_buttons[state_id] = btn
-            vl.addWidget(btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+            hl.addWidget(btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        vl.addStretch()
+        hl.addStretch()
         self._update_styles()
 
     # ─── スタイル更新 ──────────────────────────────────────────────────────
@@ -304,7 +303,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_ACCENT};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                 """)
             elif edited:
@@ -314,7 +313,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_EDITED_BG};
                         border: 1px solid {_EDITED_BORDER};
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                     QToolButton:hover {{
                         background: #fde68a;
@@ -327,7 +326,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_SUCCESS_BG};
                         border: none;
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                 """)
             else:
@@ -337,7 +336,7 @@ class StepNavigation(QWidget):
                     QToolButton {{
                         background: {_MUTED_BG};
                         border: 1px solid {_BORDER};
-                        border-radius: 18px;
+                        border-radius: 22px;
                     }}
                     QToolButton:hover {{
                         background: #e5e7eb;

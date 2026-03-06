@@ -7,10 +7,10 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
        ├─ frame_sidebar        (75px)
        └─ QHBoxLayout stretch(3:0)
           ├─ frame_subcontents (max 400px, 常時表示)
-          │   ├─ browser_guide   (ガイドテキスト)
-          │   └─ widget_step     (max 50px, ステップナビ縦並び)
+          │   └─ browser_guide   (ガイドテキスト)
           └─ widget_main
              ├─ widget_header    (50px 固定高)
+             ├─ widget_step      (62px 固定高, ステップナビ横並び, タスク時のみ表示)
              ├─ stack_pages      (QStackedWidget, 8ページ)
              └─ widget_statusbar (35px 固定高)
 
@@ -325,8 +325,9 @@ class MainWindow(QMainWindow):
 
     MainWindow.ui の設計仕様に基づく構成:
     - サイドバー (75px)
-    - サブコンテンツパネル: ガイドテキスト + ステップナビ (タスク時のみ表示)
+    - サブコンテンツパネル: ガイドテキスト (タスク時のみ表示)
     - ヘッダー: アクティブページ名 / タスク名 / 新規作成ボタン
+    - ステップナビ: 横並びアイコン (タスク時のみ表示)
     - ページスタック (8 ページ)
     - カスタムステータスバー
 
@@ -381,7 +382,7 @@ class MainWindow(QMainWindow):
         root.addLayout(main_area)
 
     def _build_subcontents(self) -> QFrame:
-        """frame_subcontents (ガイドパネル + ステップナビ) を構築する。
+        """frame_subcontents (ガイドパネル) を構築する。
 
         Returns:
             構築した QFrame。
@@ -397,17 +398,12 @@ class MainWindow(QMainWindow):
         # browser_guide: 現在のタスク向けガイドテキスト
         self.browser_guide = QTextBrowser()
         self.browser_guide.setObjectName("browser_guide")
-        layout.addWidget(self.browser_guide, 4)
-
-        # widget_step: ステップナビゲーション (max 50px)
-        self.step_nav = StepNavigation()
-        self.step_nav.setObjectName("widget_step")
-        layout.addWidget(self.step_nav, 1)
+        layout.addWidget(self.browser_guide, 1)
 
         return frame
 
     def _build_widget_main(self) -> QWidget:
-        """widget_main (ヘッダー + スタック + ステータスバー) を構築する。
+        """widget_main (ヘッダー + ステップナビ + スタック + ステータスバー) を構築する。
 
         Returns:
             構築した QWidget。
@@ -419,6 +415,13 @@ class MainWindow(QMainWindow):
         vl.setSpacing(0)
 
         vl.addWidget(self._build_header())
+
+        # widget_step: ステップナビゲーション（横並び、タスクモード時のみ表示）
+        self.step_nav = StepNavigation()
+        self.step_nav.setObjectName("widget_step")
+        self.step_nav.setVisible(False)
+        vl.addWidget(self.step_nav)
+
         vl.addWidget(self._build_stack())
         vl.addWidget(self._build_statusbar())
 
@@ -664,6 +667,7 @@ class MainWindow(QMainWindow):
         self._enter_task_mode()
         self.label_active_tasks_name.setText(task_name)
         self.step_nav.set_active_step(state_id, current_state=current_state)
+        self.step_nav.setVisible(True)
         self.frame_subcontents.setVisible(True)
 
         # HGマニュアル優先 → なければステートマニュアル → なければクリア
@@ -681,6 +685,7 @@ class MainWindow(QMainWindow):
         self.label_active_tasks_name.clear()
         self.step_nav.clear()
         self.step_nav.clear_edited()
+        self.step_nav.setVisible(False)
 
     def _enter_task_mode(self) -> None:
         """共通ヘッダーをタスク編集モードに切り替える。"""
@@ -766,12 +771,9 @@ class MainWindow(QMainWindow):
         """ガイドパネルの表示/非表示を切り替える。
 
         step_nav の余白クリックで呼ばれる。
-        step_nav 自体は常に表示したまま browser_guide のみ開閉する。
         """
         self._guide_expanded = not self._guide_expanded
-        self.browser_guide.setVisible(self._guide_expanded)
-        # 非表示時は step_nav の幅だけに縮小 (maxWidth 62 + マージン 4)
-        self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 66)
+        self.frame_subcontents.setVisible(self._guide_expanded)
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。
