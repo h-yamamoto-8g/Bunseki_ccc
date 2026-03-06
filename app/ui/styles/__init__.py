@@ -73,7 +73,10 @@ QLabel#label_status { color: #6b7280; font-size: 11px; }
 QLabel#label_user   { color: #9ca3af; font-size: 11px; }
 
 /* ── ステップナビ ── */
-QWidget#widget_step { background: #f0f4ff; }
+QWidget#widget_step {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+}
 
 /* ── テーブル ── */
 QTableWidget, QTableView {
