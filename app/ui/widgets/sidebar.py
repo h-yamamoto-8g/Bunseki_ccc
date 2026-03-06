@@ -291,6 +291,7 @@ class StepNavigation(QWidget):
         super().__init__(parent)
         self.setFixedHeight(50)
         self.setObjectName("widget_step")
+        self.setAutoFillBackground(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._step_buttons: dict[str, _CircleButton] = {}
         self._active_step: str = ""
