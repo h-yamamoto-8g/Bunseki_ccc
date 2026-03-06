@@ -18,7 +18,7 @@ QMainWindow { background: #f5f7fa; }
 /* ── サイドバー ── */
 QWidget#frame_sidebar {
     background: #ffffff;
-    border-right: 1px solid #e5e7eb;
+    border-right: none;
 }
 
 /* ── サブコンテンツ ── */
