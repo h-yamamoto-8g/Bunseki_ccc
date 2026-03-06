@@ -67,7 +67,7 @@ class DataService:
 
     def get_analysis_targets(
         self, hg_code: str, jobs: list[str]
-    ) -> list[dict]:
+    ) -> dict[str, list[dict]]:
         return self._loader.get_analysis_targets(hg_code, jobs)
 
     def get_result_data(

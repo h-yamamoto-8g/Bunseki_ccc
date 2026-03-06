@@ -62,14 +62,14 @@ class AnalysisTargetsState(QWidget):
 
         self.loading_changed.emit(True, "分析対象データを取得しています...")
         QApplication.processEvents()
-        samples = self._data_service.get_analysis_targets(hg_code, jobs)
+        grouped = self._data_service.get_analysis_targets(hg_code, jobs)
         self.loading_changed.emit(False, "")
 
         sd = task.get("state_data", {}).get("analysis_targets", {})
         deleted_codes = set(sd.get("deleted_codes", []))
         added_samples = list(sd.get("added_samples", []))
 
-        self._ui.set_samples(samples, deleted_codes, added_samples)
+        self._ui.set_samples(grouped, deleted_codes, added_samples)
         self._ui.set_editable(False)
 
         if readonly:
@@ -94,24 +94,15 @@ class AnalysisTargetsState(QWidget):
     # ── Handlers ─────────────────────────────────────────────────────────────
 
     def _on_print(self) -> None:
-        table = self._ui.table
-        col_count = table.columnCount() - 1  # 最終列（削除ボタン）を除外
+        """現在のタブのサンプル一覧を印刷する。"""
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        dlg = QPrintDialog(printer, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
 
-        headers = [
-            table.horizontalHeaderItem(c).text() for c in range(col_count)
-        ]
-        rows = []
-        for r in range(table.rowCount()):
-            rows.append([
-                (table.item(r, c).text() if table.item(r, c) else "")
-                for c in range(col_count)
-            ])
-
-        hg_name = self._task.get("holder_group_name", "")
-        title = f"分析対象一覧 — {hg_name}" if hg_name else "分析対象一覧"
-
-        dlg = PrintPreviewDialog(title, headers, rows, self)
-        dlg.exec()
+        doc = QTextDocument()
+        doc.setHtml(self._build_print_html())
+        doc.print_(printer)
 
     def _on_edit_requested(self) -> None:
         self._edit_mode = True
@@ -153,65 +144,79 @@ class AnalysisTargetsState(QWidget):
 
     # ── 印刷 ─────────────────────────────────────────────────────────────────
 
-    def _on_print(self) -> None:
-        """サンプル一覧を印刷する。"""
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        dlg = QPrintDialog(printer, self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        doc = QTextDocument()
-        doc.setHtml(self._build_print_html())
-        doc.print_(printer)
-
     def _build_print_html(self) -> str:
-        """印刷用 HTML を生成する。"""
+        """印刷用 HTML を生成する（全タブ分）。"""
         task = self._task
         task_name = task.get("task_name", "")
         hg_name = task.get("holder_group_name", "")
         jobs = "、".join(task.get("job_numbers", []))
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # 表示中サンプル（削除済み除外）
-        visible = [
-            s for s in self._ui._samples
-            if s["valid_sample_set_code"] not in self._ui._deleted_codes
-        ]
-        # 追加サンプル
+        grouped = self._ui._grouped_samples
+        deleted = self._ui._deleted_codes
         added = self._ui._added_samples
 
-        rows_html = ""
-        for s in visible:
-            median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
-            max_v = f"{s['max']:.3g}" if s.get("max") is not None else "—"
-            min_v = f"{s['min']:.3g}" if s.get("min") is not None else "—"
-            rows_html += (
-                f"<tr>"
-                f"<td>{s.get('sample_job_number', '')}</td>"
-                f"<td>{s.get('sample_sampling_date', '')}</td>"
-                f"<td>{s.get('valid_sample_display_name', '')}</td>"
-                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{median}</td>"
-                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{max_v}</td>"
-                f"<td style='text-align:right; border:1px solid #999; padding:4px 8px;'>{min_v}</td>"
-                f"</tr>"
-            )
-        for name in added:
-            rows_html += (
-                f"<tr>"
-                f"<td></td><td></td>"
-                f"<td style='color:#7c3aed; border:1px solid #999; padding:4px 8px;'>{name}（追加）</td>"
-                f"<td>—</td><td>—</td><td>—</td>"
-                f"</tr>"
+        tables_html = ""
+        total = 0
+        for test_name, samples in grouped.items():
+            visible = [s for s in samples
+                       if s["valid_sample_set_code"] not in deleted]
+            total += len(visible)
+
+            rows_html = ""
+            for s in visible:
+                median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
+                max_v = f"{s['max']:.3g}" if s.get("max") is not None else "—"
+                min_v = f"{s['min']:.3g}" if s.get("min") is not None else "—"
+                rows_html += (
+                    f"<tr>"
+                    f"<td>{s.get('sample_request_number', '')}</td>"
+                    f"<td>{s.get('sample_job_number', '')}</td>"
+                    f"<td>{s.get('sample_sampling_date', '')}</td>"
+                    f"<td>{s.get('valid_sample_display_name', '')}</td>"
+                    f"<td style='text-align:right;'>{median}</td>"
+                    f"<td style='text-align:right;'>{max_v}</td>"
+                    f"<td style='text-align:right;'>{min_v}</td>"
+                    f"</tr>"
+                )
+
+            tables_html += (
+                f"<h3>{test_name}</h3>"
+                "<table>"
+                "<tr><th>依頼番号</th><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
+                "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
+                f"{rows_html}"
+                "</table>"
             )
 
-        total = len(visible) + len(added)
+        # 追加サンプル
+        if added:
+            total += len(added)
+            added_rows = ""
+            for name in added:
+                added_rows += (
+                    f"<tr>"
+                    f"<td></td><td></td><td></td>"
+                    f"<td style='color:#7c3aed;'>{name}（追加）</td>"
+                    f"<td>—</td><td>—</td><td>—</td>"
+                    f"</tr>"
+                )
+            tables_html += (
+                "<h3>追加サンプル</h3>"
+                "<table>"
+                "<tr><th>依頼番号</th><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
+                "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
+                f"{added_rows}"
+                "</table>"
+            )
 
         return (
             "<html><head><style>"
             "body { font-family: 'Yu Gothic UI', sans-serif; font-size: 11pt; }"
             "h2 { margin: 0 0 4px; font-size: 14pt; }"
+            "h3 { margin: 12px 0 4px; font-size: 12pt; }"
             ".meta { color: #555; font-size: 10pt; margin-bottom: 8px; }"
-            "table { border-collapse: collapse; width: 100%; margin-top: 8px; }"
+            "table { border-collapse: collapse; width: 100%; margin-top: 4px; }"
             "th, td { border: 1px solid #999; padding: 4px 8px; font-size: 10pt; }"
             "th { background: #e8e8e8; font-weight: bold; }"
             ".footer { margin-top: 12px; font-size: 9pt; color: #888; }"
@@ -221,11 +226,7 @@ class AnalysisTargetsState(QWidget):
             f"タスク: {task_name}　／　分析項目: {hg_name}　／　JOB番号: {jobs}"
             f"</div>"
             f"<div class='meta'>サンプル数: {total}</div>"
-            "<table>"
-            "<tr><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
-            "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
-            f"{rows_html}"
-            "</table>"
+            f"{tables_html}"
             f"<div class='footer'>印刷日時: {now}　　ユーザー: {_cfg.CURRENT_USER}</div>"
             "</body></html>"
         )

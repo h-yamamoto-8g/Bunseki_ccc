@@ -18,6 +18,7 @@ from app.ui.generated.ui_taskspage import Ui_TasksPage as _UiListPage
 import app.config as _cfg
 from app.config import STATE_LABELS
 from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 # ── ステートアイコンマップ ─────────────────────────────────────────────────────
 _STATE_ICONS: dict[str, str] = {
@@ -432,8 +433,8 @@ class TasksPageUI(QWidget):
         self.task_table.setColumnWidth(5, 145)   # 最終更新
         self.task_table.setColumnWidth(6, 88)    # 操作ボタン
         vh = self.task_table.verticalHeader()
-        vh.setVisible(False)
         vh.setDefaultSectionSize(36)   # 行の高さを確保
+        enable_row_numbers_and_sort(self.task_table, self._on_sort_column)
         self.task_table.doubleClicked.connect(self._on_row_double_click)
         _f.verticalLayout_2.addWidget(self.task_table)
 
@@ -446,9 +447,26 @@ class TasksPageUI(QWidget):
 
         return w
 
+    # ── Sort ───────────────────────────────────────────────────────────────────
+
+    _TASK_SORT_KEYS = [
+        "created_at", "holder_group_name", None, None, "assigned_to", "updated_at",
+    ]
+
+    def _on_sort_column(self, col: int, ascending: bool) -> None:
+        if not hasattr(self, "_tasks_list"):
+            return
+        key = self._TASK_SORT_KEYS[col] if col < len(self._TASK_SORT_KEYS) else None
+        if key:
+            self._tasks_list.sort(
+                key=lambda t: t.get(key, ""), reverse=not ascending,
+            )
+            self.fill_table(self._tasks_list)
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def fill_table(self, tasks: list[dict]) -> None:
+        self._tasks_list = tasks
         self._tasks_by_id: dict[str, dict] = {t["task_id"]: t for t in tasks}
         self.task_table.setRowCount(0)
         icon_open = QIcon(":/icons/step.svg")

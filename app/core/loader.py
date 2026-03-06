@@ -69,8 +69,15 @@ class DataLoader:
 
     # ── Analysis targets ─────────────────────────────────────────────────────
 
-    def get_analysis_targets(self, holder_group_code: str, job_numbers: list) -> list[dict]:
-        """Return unique samples for given holder_group and job numbers with stats."""
+    def get_analysis_targets(
+        self, holder_group_code: str, job_numbers: list
+    ) -> dict[str, list[dict]]:
+        """Return samples grouped by valid_test_display_name.
+
+        Returns ``{test_display_name: [sample_dict, ...]}``.
+        Stats are computed per (valid_sample_set_code, valid_holder_set_code,
+        valid_test_set_code) with trend_enabled=True.
+        """
         df = self.df
         job_str = [str(j) for j in job_numbers]
 
@@ -79,29 +86,47 @@ class DataLoader:
         )
         filtered = df[mask]
         if filtered.empty:
-            return []
+            return {}
 
-        unique = filtered.drop_duplicates(subset=["valid_sample_set_code"])
-        results = []
+        unique = filtered.drop_duplicates(
+            subset=["sample_request_number", "valid_sample_set_code",
+                     "valid_test_set_code"]
+        )
+        stats_cache: dict[tuple, dict] = {}
+        grouped: dict[str, list[dict]] = {}
         for _, row in unique.iterrows():
             vsset = row["valid_sample_set_code"]
-            stats = self._sample_stats(holder_group_code, vsset)
-            results.append(
-                {
-                    "valid_sample_set_code": vsset,
-                    "valid_sample_display_name": row.get("valid_sample_display_name", vsset),
-                    "sample_job_number": row.get("sample_job_number", ""),
-                    "sample_sampling_date": self._fmt_date(row.get("sample_sampling_date")),
-                    **stats,
-                }
-            )
-        return results
+            vhset = str(row.get("valid_holder_set_code", ""))
+            vtset = str(row.get("valid_test_set_code", ""))
+            test_name = str(row.get("valid_test_display_name", vtset))
+            req_no = row.get("sample_request_number", "")
 
-    def _sample_stats(self, holder_group_code: str, vsset_code: str) -> dict:
+            cache_key = (vsset, vhset, vtset)
+            if cache_key not in stats_cache:
+                stats_cache[cache_key] = self._sample_stats(vsset, vhset, vtset)
+            stats = stats_cache[cache_key]
+
+            sample = {
+                "valid_sample_set_code": vsset,
+                "valid_sample_display_name": row.get("valid_sample_display_name", vsset),
+                "sample_request_number": req_no,
+                "sample_job_number": row.get("sample_job_number", ""),
+                "sample_sampling_date": self._fmt_date(
+                    row.get("sample_sampling_date"), include_time=True
+                ),
+                **stats,
+            }
+            grouped.setdefault(test_name, []).append(sample)
+        return grouped
+
+    def _sample_stats(
+        self, vsset_code: str, vhset_code: str, vtset_code: str
+    ) -> dict:
         df = self.df
         mask = (
-            (df["holder_group_code"] == holder_group_code)
-            & (df["valid_sample_set_code"].str.upper() == vsset_code.upper())
+            (df["valid_sample_set_code"].str.upper() == vsset_code.upper())
+            & (df["valid_holder_set_code"].astype(str).str.upper() == vhset_code.upper())
+            & (df["valid_test_set_code"].astype(str).str.upper() == vtset_code.upper())
             & (df["trend_enabled"] == True)
         )
         nums = self._numeric_values(df[mask]["test_raw_data"])
@@ -388,13 +413,16 @@ class DataLoader:
             return None
 
     @staticmethod
-    def _fmt_date(val) -> str:
+    def _fmt_date(val, include_time: bool = False) -> str:
         if val is None or (isinstance(val, float) and np.isnan(val)):
             return ""
         s = str(int(float(val)))
         # YYYYMMDDHHMMSS or YYYYMM...
         if len(s) >= 8:
-            return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            base = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            if include_time and len(s) >= 12:
+                base += f" {s[8:10]}:{s[10:12]}"
+            return base
         if len(s) >= 6:
             return f"{s[:4]}-{s[4:6]}"
         return s

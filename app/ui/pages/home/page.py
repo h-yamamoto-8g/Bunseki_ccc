@@ -14,6 +14,7 @@ from PySide6.QtGui import QColor, QFont, QIcon
 
 from app.ui.generated.ui_homepage import Ui_HomePage
 from app.ui.widgets.icon_utils import get_icon
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 # ── Design tokens — グローバル QSS (_GLOBAL_QSS in main.py) と完全一致 ─────────
 _BG     = "#f5f7fa"
@@ -275,12 +276,25 @@ class HomePageUI(QWidget):
         hh.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)             # 操作
         t.setColumnWidth(5, 44)
         vh = t.verticalHeader()
-        vh.setVisible(False)
         vh.setDefaultSectionSize(36)
+        enable_row_numbers_and_sort(t, self._on_sort_column)
         return t
+
+    _HOME_SORT_KEYS = ["created_at", "holder_group_name", None, None, "updated_at"]
+
+    def _on_sort_column(self, col: int, ascending: bool) -> None:
+        if not hasattr(self, "_my_tasks_data"):
+            return
+        key = self._HOME_SORT_KEYS[col] if col < len(self._HOME_SORT_KEYS) else None
+        if key:
+            self._my_tasks_data.sort(
+                key=lambda t: t.get(key, ""), reverse=not ascending,
+            )
+            self._fill_table(self._my_tasks_data)
 
     def _fill_table(self, tasks: list[dict]) -> None:
         from app.config import STATE_LABELS
+        self._my_tasks_data = tasks
         self.my_table.setRowCount(0)
         icon_open = QIcon(":/icons/step.svg")
         _btn_qss = (

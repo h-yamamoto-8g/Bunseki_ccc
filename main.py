@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional
 import builtins
 _original_import = builtins.__import__
 
-from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QRect, QThread, Signal
+from PySide6.QtCore import Qt, QElapsedTimer, QEvent, QSize, QTimer, QRect, QThread, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -320,6 +320,64 @@ _PAGE_IDX: dict[str, int] = {
 }
 
 
+class _ResizeHandle(QWidget):
+    """サイドコンテンツの横幅調整用カプセル型ドラッグハンドル。"""
+
+    def __init__(
+        self, target: QWidget, on_width_changed: object = None, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._target = target
+        self._on_width_changed = on_width_changed
+        self.setFixedWidth(12)
+        self.setCursor(Qt.CursorShape.SizeHorCursor)
+        self._dragging = False
+        self._hovered = False
+        self._drag_start_x = 0.0
+        self._drag_start_width = 0
+        self.setMouseTracking(True)
+
+    def enterEvent(self, event: object) -> None:
+        self._hovered = True
+        self.update()
+
+    def leaveEvent(self, event: object) -> None:
+        self._hovered = False
+        self.update()
+
+    def paintEvent(self, event: object) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = 6, 48
+        x = (self.width() - w) // 2
+        y = (self.height() - h) // 2
+        color = QColor("#9ca3af") if (self._hovered or self._dragging) else QColor("#d1d5db")
+        p.setBrush(color)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(x, y, w, h, w // 2, w // 2)
+        p.end()
+
+    def mousePressEvent(self, event: object) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_start_x = event.globalPosition().x()
+            self._drag_start_width = self._target.width()
+            self.update()
+
+    def mouseMoveEvent(self, event: object) -> None:
+        if self._dragging:
+            dx = int(event.globalPosition().x() - self._drag_start_x)
+            new_width = max(150, min(600, self._drag_start_width + dx))
+            self._target.setFixedWidth(new_width)
+            if self._on_width_changed:
+                self._on_width_changed(new_width)  # type: ignore[operator]
+
+    def mouseReleaseEvent(self, event: object) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            self.update()
+
+
 class MainWindow(QMainWindow):
     """Bunseki メインウィンドウ。
 
@@ -348,6 +406,13 @@ class MainWindow(QMainWindow):
         self.job_service = JobService()
         self._in_task_mode = False
         self._guide_expanded = True
+        # ガイドタイトルマップ (key → display_name)
+        self._guide_title_map: dict[str, str] = {}
+        for pid, (name, _) in PAGE_INFO.items():
+            self._guide_title_map[f"page:{pid}"] = name
+        from app.ui.widgets.sidebar import STEP_DEFS as _sdefs
+        for sid, _, label in _sdefs:
+            self._guide_title_map[f"state:{sid}"] = label
         self._setup_ui()
         self._connect_signals()
         self.showMaximized()
@@ -381,6 +446,15 @@ class MainWindow(QMainWindow):
 
         root.addLayout(main_area)
 
+        # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
+        self._resize_handle = _ResizeHandle(
+            self.frame_subcontents,
+            on_width_changed=self._on_guide_width_changed,
+            parent=central,
+        )
+        self._resize_handle.raise_()
+        self.frame_subcontents.installEventFilter(self)
+
     def _build_subcontents(self) -> QFrame:
         """frame_subcontents (ガイドパネル) を構築する。
 
@@ -389,7 +463,7 @@ class MainWindow(QMainWindow):
         """
         frame = QFrame()
         frame.setObjectName("frame_subcontents")
-        frame.setMaximumWidth(400)
+        self._guide_width = 300
 
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -406,6 +480,13 @@ class MainWindow(QMainWindow):
         self.browser_guide.setObjectName("browser_guide")
         layout.addWidget(self.browser_guide, 1)
 
+        # 折りたたみ時にヘッダーが上下中央に来ないようスペーサーを追加
+        self._guide_bottom_spacer = QWidget()
+        self._guide_bottom_spacer.setStyleSheet("background: transparent;")
+        self._guide_bottom_spacer.setVisible(False)
+        layout.addWidget(self._guide_bottom_spacer, 1)
+
+        frame.setFixedWidth(self._guide_width)
         return frame
 
     def _build_widget_main(self) -> QWidget:
@@ -674,7 +755,10 @@ class MainWindow(QMainWindow):
         self.label_active_tasks_name.setText(task_name)
         self.step_nav.set_active_step(state_id, current_state=current_state)
         self.step_nav.setVisible(True)
-        self.frame_subcontents.setVisible(True)
+
+        # ガイドパネルが閉じていれば開く
+        if not self._guide_expanded:
+            self._toggle_guide()
 
         # HGマニュアル優先 → なければステートマニュアル → なければクリア
         task = getattr(self.tasks_page, "_current_task", None)
@@ -682,6 +766,7 @@ class MainWindow(QMainWindow):
         hg_html = self.hg_config_service.get_manual_html(hg_code) if hg_code else None
         if hg_html:
             self.browser_guide.setHtml(hg_html)
+            self.label_guide_title.setText(hg_code)
         else:
             self._show_manual(f"state:{state_id}")
 
@@ -773,11 +858,34 @@ class MainWindow(QMainWindow):
         frame = self._SPINNER_FRAMES[self._loading_frame]
         self.label_loading.setText(f"{frame}  {self._loading_msg}")
 
-    def _toggle_guide(self) -> None:
-        """ガイドパネルの表示/非表示を切り替える。
+    def eventFilter(self, obj: object, event: object) -> bool:
+        """frame_subcontents のリサイズ/移動に追従してハンドルを再配置する。"""
+        if obj is self.frame_subcontents and event.type() in (
+            QEvent.Type.Resize, QEvent.Type.Move,
+        ):
+            self._update_handle_pos()
+        return super().eventFilter(obj, event)  # type: ignore[arg-type]
 
-        step_nav の余白クリックで呼ばれる。
-        """
+    def _update_handle_pos(self) -> None:
+        """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
+        if not hasattr(self, "_resize_handle"):
+            return
+        geo = self.frame_subcontents.geometry()
+        hw = self._resize_handle.width()
+        self._resize_handle.setGeometry(
+            geo.right() + 1 - hw // 2,
+            geo.top(),
+            hw,
+            geo.height(),
+        )
+        self._resize_handle.raise_()
+
+    def _on_guide_width_changed(self, width: int) -> None:
+        """リサイズハンドルによる横幅変更時に幅を記憶する。"""
+        self._guide_width = width
+
+    def _toggle_guide(self) -> None:
+        """ガイドパネルの展開/折りたたみを切り替える。"""
         self._guide_expanded = not self._guide_expanded
         self.frame_subcontents.setVisible(self._guide_expanded)
         self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 0)
@@ -796,6 +904,10 @@ class MainWindow(QMainWindow):
             self.browser_guide.setHtml(html)
         else:
             self.browser_guide.clear()
+
+        # ガイドタイトルを更新
+        title = self._guide_title_map.get(key, "")
+        self.label_guide_title.setText(title)
 
     def set_guide_text(self, html: str) -> None:
         """ガイドパネルのテキストを更新する。

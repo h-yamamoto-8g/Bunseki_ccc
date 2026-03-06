@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from app.config import CURRENT_USER
 from app.services.job_service import JobService
+from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 # ── デザイントークン ──────────────────────────────────────────────────────────
 _BG = "#f8fafc"
@@ -81,7 +82,8 @@ class JobPage(QWidget):
         self.table.setColumnWidth(5, 140)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(36)
+        enable_row_numbers_and_sort(self.table, self._on_sort_column)
         self.table.setStyleSheet(
             f"QTableWidget {{ border:1px solid {_BORDER}; border-radius:6px;"
             f" background:{_BG2}; gridline-color:{_BORDER}; }}"
@@ -94,9 +96,22 @@ class JobPage(QWidget):
 
     # ── 公開 API ──────────────────────────────────────────────────────────────
 
+    _JOB_SORT_KEYS = ["job_number", "start_date", "end_date", "notes"]
+
+    def _on_sort_column(self, col: int, ascending: bool) -> None:
+        if hasattr(self, "_jobs_data") and col < len(self._JOB_SORT_KEYS):
+            key = self._JOB_SORT_KEYS[col]
+            self._jobs_data.sort(
+                key=lambda j: j.get(key, ""), reverse=not ascending,
+            )
+            self._populate_jobs(self._jobs_data)
+
     def _load_jobs(self) -> None:
         """main.py からページ切替時に呼ばれる。"""
-        jobs = self._svc.get_all_jobs()
+        self._jobs_data = self._svc.get_all_jobs()
+        self._populate_jobs(self._jobs_data)
+
+    def _populate_jobs(self, jobs: list[dict]) -> None:
         self.table.setRowCount(len(jobs))
         today = date.today().isoformat()
 
