@@ -565,6 +565,7 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """シグナルとスロットを接続し、初期状態を設定する。"""
         self.sidebar.page_changed.connect(self._on_page_change)
+        self.sidebar.guide_toggle_requested.connect(self._toggle_guide)
         self.btn_add_task.clicked.connect(self._open_new_task)
         self.step_nav.step_clicked.connect(self._on_step_clicked)
         self.step_nav.toggle_requested.connect(self._toggle_guide)

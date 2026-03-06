@@ -144,6 +144,7 @@ class Sidebar(QWidget):
     """
 
     page_changed = Signal(str)
+    guide_toggle_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -164,21 +165,27 @@ class Sidebar(QWidget):
         vl.setSpacing(2)
         vl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # アプリロゴバッジ (label_app_icon 相当)
-        logo = QLabel()
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setFixedSize(44, 44)
-        logo.setPixmap(
-            get_icon(":/icons/app-logo.svg", "#ffffff", size=28).pixmap(28, 28)
+        # アプリロゴ兼サイドコンテンツ開閉ボタン
+        self.btn_logo = QToolButton()
+        self.btn_logo.setFixedSize(44, 44)
+        self.btn_logo.setIconSize(QSize(28, 28))
+        self.btn_logo.setIcon(
+            get_icon(":/icons/app-logo.svg", "#ffffff", size=28)
         )
-        logo.setStyleSheet(f"""
-            QLabel {{
+        self.btn_logo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_logo.setToolTip("ガイドパネルの開閉")
+        self.btn_logo.setStyleSheet(f"""
+            QToolButton {{
                 background: {_ACCENT};
                 border-radius: 10px;
-                padding: 6px;
+                border: none;
+            }}
+            QToolButton:hover {{
+                background: #2563eb;
             }}
         """)
-        vl.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.btn_logo.clicked.connect(self.guide_toggle_requested.emit)
+        vl.addWidget(self.btn_logo, alignment=Qt.AlignmentFlag.AlignHCenter)
         vl.addSpacing(10)
 
         for page_id, (name, svg_path) in PAGE_INFO.items():
