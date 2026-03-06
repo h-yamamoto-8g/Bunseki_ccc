@@ -32,7 +32,7 @@ _TEXT = "#333333"
 _TEXT2 = "#6b7280"
 _ACCENT = "#3b82f6"
 _ACTIVE_BG = "#eff6ff"
-_SUCCESS_BG = "#d1fae5"
+_SUCCESS_BG = "#22c55e"
 _SUCCESS_FG = "#059669"
 _MUTED_BG = "#f3f4f6"
 _EDITED_BG = "#fef3c7"
@@ -384,7 +384,7 @@ class StepNavigation(QWidget):
                     }}
                 """)
             elif progress_idx >= 0 and i < progress_idx:
-                btn.setIcon(get_icon(svg_path, _TEXT2))
+                btn.setIcon(get_icon(svg_path, "#ffffff"))
                 btn.set_circle_style(_SUCCESS_BG)
                 btn.setStyleSheet(f"""
                     QToolButton {{
