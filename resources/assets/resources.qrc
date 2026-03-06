@@ -12,32 +12,27 @@
         <file>home.svg</file>
         <file>job-number.svg</file>
         <file>link.svg</file>
-        <file>mail.svg</file>
         <file>library.svg</file>
         <file>news.svg</file>
         <file>path.svg</file>
         <file>return.svg</file>
         <file>sample-list.svg</file>
-        <file>sds.svg</file>
         <file>send.svg</file>
         <file>setting.svg</file>
         <file>start.svg</file>
         <file>task.svg</file>
-        <file>bulging-right.svg</file>
-        <file>bulging-left.svg</file>
-        <file>current-location.svg</file>
         <file>step.svg</file>
         <file>end.svg</file>
         <file>logs.svg</file>
         <file>reload.svg</file>
         <file>password-reset.svg</file>
         <file>switch.svg</file>
-        <file>page_up.svg</file>
-        <file>page_down.svg</file>
         <file>cancel.svg</file>
         <file>download.svg</file>
         <file>more.svg</file>
         <file>graph.svg</file>
+        <file>left.svg</file>
+        <file>right.svg</file>
     </qresource>
 </RCC>
 
