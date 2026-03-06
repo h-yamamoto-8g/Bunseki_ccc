@@ -781,6 +781,7 @@ class MainWindow(QMainWindow):
         """
         self._guide_expanded = not self._guide_expanded
         self.frame_subcontents.setVisible(self._guide_expanded)
+        self.sidebar.set_guide_expanded(self._guide_expanded)
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。

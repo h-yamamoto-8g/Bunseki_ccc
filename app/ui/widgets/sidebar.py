@@ -165,16 +165,16 @@ class Sidebar(QWidget):
         vl.setSpacing(2)
         vl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # アプリロゴ兼サイドコンテンツ開閉ボタン
-        self.btn_logo = QToolButton()
-        self.btn_logo.setFixedSize(44, 44)
-        self.btn_logo.setIconSize(QSize(28, 28))
-        self.btn_logo.setIcon(
-            get_icon(":/icons/app-logo.svg", "#ffffff", size=28)
+        # サイドコンテンツ開閉ボタン
+        self.btn_toggle_guide = QToolButton()
+        self.btn_toggle_guide.setFixedSize(44, 44)
+        self.btn_toggle_guide.setIconSize(QSize(24, 24))
+        self.btn_toggle_guide.setIcon(
+            get_icon(":/icons/bulging-left.svg", "#ffffff", size=24)
         )
-        self.btn_logo.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_logo.setToolTip("ガイドパネルの開閉")
-        self.btn_logo.setStyleSheet(f"""
+        self.btn_toggle_guide.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_guide.setToolTip("ガイドパネルの開閉")
+        self.btn_toggle_guide.setStyleSheet(f"""
             QToolButton {{
                 background: {_ACCENT};
                 border-radius: 10px;
@@ -184,8 +184,10 @@ class Sidebar(QWidget):
                 background: #2563eb;
             }}
         """)
-        self.btn_logo.clicked.connect(self.guide_toggle_requested.emit)
-        vl.addWidget(self.btn_logo, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.btn_toggle_guide.clicked.connect(
+            lambda: self.guide_toggle_requested.emit()
+        )
+        vl.addWidget(self.btn_toggle_guide, alignment=Qt.AlignmentFlag.AlignHCenter)
         vl.addSpacing(10)
 
         for page_id, (name, svg_path) in PAGE_INFO.items():
@@ -219,6 +221,11 @@ class Sidebar(QWidget):
         """
         for pid, btn in self._buttons.items():
             btn.set_active(pid == page_id)
+
+    def set_guide_expanded(self, expanded: bool) -> None:
+        """開閉状態に合わせてトグルボタンのアイコンを切り替える。"""
+        svg = ":/icons/bulging-left.svg" if expanded else ":/icons/bulging-right.svg"
+        self.btn_toggle_guide.setIcon(get_icon(svg, "#ffffff", size=24))
 
 
 class StepNavigation(QWidget):
