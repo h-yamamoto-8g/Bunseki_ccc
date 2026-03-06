@@ -71,6 +71,7 @@ if TYPE_CHECKING:
     from app.services.manual_service import ManualService
     from app.services.task_service import TaskService
     from app.services.user_service import UserService
+    from app.ui.dialogs.loading_dialog import LoadingOverlay
     from app.ui.dialogs.logon_dialog import LogonDialog
     from app.ui.dialogs.setup_root_dialog import SetupRootDialog
     from app.ui.pages.data_page import DataPage
@@ -107,106 +108,6 @@ class _DataUpdateWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
-
-class LoadingOverlay(QWidget):
-    """白半透明背景 + 青い四角ピクセルが四角く回るスピナーのオーバーレイ。"""
-
-    # 四角形の辺上に配置するピクセル数 (上4 + 右3 + 下3 + 左2 = 12)
-    _POSITIONS: list[tuple[int, int]] = []
-    _PIXEL_SIZE = 6
-    _SIDE_LEN = 36  # 四角軌道の一辺の長さ
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(400, 220)
-        self._angle = 0
-        self._timer = QTimer(self)
-        self._timer.setInterval(80)
-        self._timer.timeout.connect(self._tick)
-        self._msg = "データを読み込んでいます..."
-
-        # 四角形の辺上にピクセル位置を生成 (時計回り)
-        s = self._SIDE_LEN
-        steps_per_side = 3
-        self._positions: list[tuple[int, int]] = []
-        # 上辺: 左→右
-        for i in range(steps_per_side):
-            self._positions.append((i * s // steps_per_side - s // 2, -s // 2))
-        # 右辺: 上→下
-        for i in range(steps_per_side):
-            self._positions.append((s // 2, i * s // steps_per_side - s // 2))
-        # 下辺: 右→左
-        for i in range(steps_per_side):
-            self._positions.append((s // 2 - i * s // steps_per_side, s // 2))
-        # 左辺: 下→上
-        for i in range(steps_per_side):
-            self._positions.append((-s // 2, s // 2 - i * s // steps_per_side))
-        self._dot_count = len(self._positions)
-
-    def start(self) -> None:
-        self._center_on_screen()
-        self.show()
-        self._timer.start()
-        QApplication.processEvents()
-
-    def stop(self) -> None:
-        self._timer.stop()
-        self.close()
-
-    def _center_on_screen(self) -> None:
-        screen = QApplication.primaryScreen()
-        if screen:
-            geo = screen.availableGeometry()
-            self.move(
-                geo.x() + (geo.width() - self.width()) // 2,
-                geo.y() + (geo.height() - self.height()) // 2,
-            )
-
-    def _tick(self) -> None:
-        self._angle = (self._angle + 1) % self._dot_count
-        self.update()
-        QApplication.processEvents()
-
-    def paintEvent(self, _event: object) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # 白半透明背景 (70%) — WA_TranslucentBackground により後ろが透けて見える
-        p.setBrush(QColor(255, 255, 255, 178))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(self.rect(), 12, 12)
-
-        cx = self.width() // 2
-        cy = self.height() // 2 - 24
-
-        # 青い四角ピクセルを四角形の軌道上に配置
-        ps = self._PIXEL_SIZE
-        for i in range(self._dot_count):
-            ox, oy = self._positions[i]
-            x = cx + ox - ps // 2
-            y = cy + oy - ps // 2
-
-            dist = (i - self._angle) % self._dot_count
-            if dist == 0:
-                alpha = 255
-            elif dist <= 2 or dist >= self._dot_count - 2:
-                alpha = 160
-            elif dist <= 4 or dist >= self._dot_count - 4:
-                alpha = 80
-            else:
-                alpha = 35
-
-            p.setBrush(QColor(59, 130, 246, alpha))  # blue-500
-            p.drawRect(x, y, ps, ps)
-
-        # テキスト (スピナーとの間隔を広めに)
-        p.setPen(QColor(51, 51, 51))
-        text_rect = QRect(0, cy + self._SIDE_LEN // 2 + 28, self.width(), 30)
-        p.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, self._msg)
-
-        p.end()
 
 
 def _show_splash(qapp: QApplication) -> tuple[QSplashScreen | None, QElapsedTimer]:
@@ -262,6 +163,7 @@ def _load_app_modules(qapp: QApplication) -> None:
     from app.services.user_service import UserService
     qapp.processEvents()
 
+    from app.ui.dialogs.loading_dialog import LoadingOverlay
     from app.ui.dialogs.logon_dialog import LogonDialog
     from app.ui.dialogs.setup_root_dialog import SetupRootDialog
     from app.ui.pages.data_page import DataPage

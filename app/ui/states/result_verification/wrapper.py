@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal
 
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import ResultVerificationUI, TrendDialog
 
 
@@ -50,16 +51,21 @@ class ResultVerificationState(QWidget):
         if verify_items:
             self._ui.set_check_items(verify_items)
 
-        self.loading_changed.emit(True, "データ確認テーブルを構築しています...")
-        QApplication.processEvents()
-        df = self._data_service.get_result_data(hg_code, jobs, vsset_codes)
+        result: dict = {}
+        LoadingOverlay.run_with_overlay(
+            lambda: result.update(df=self._data_service.get_result_data(hg_code, jobs, vsset_codes)),
+            msg="データ確認テーブルを構築しています...",
+        )
+        df = result.get("df")
+        if df is None:
+            import pandas as pd
+            df = pd.DataFrame()
         self._ui.build_tabs(
             df,
             hg_code,
             self._data_service.calculate_anomaly,
             self._data_service.extract_numeric,
         )
-        self.loading_changed.emit(False, "")
 
         sd = task.get("state_data", {}).get("result_verification", {})
         saved = sd.get("checks", [False] * len(verify_items))
@@ -87,8 +93,17 @@ class ResultVerificationState(QWidget):
         unit: str,
         test_name: str,
     ) -> None:
-        data = self._data_service.get_trend_data(hg_code, vsset, vtest)
-        bounds = self._data_service.get_anomaly_bounds(hg_code, vsset, vtest)
-        spec = self._data_service.get_spec_limits(hg_code, vsset, vtest)
+        result: dict = {}
+        LoadingOverlay.run_with_overlay(
+            lambda: result.update(
+                data=self._data_service.get_trend_data(hg_code, vsset, vtest),
+                bounds=self._data_service.get_anomaly_bounds(hg_code, vsset, vtest),
+                spec=self._data_service.get_spec_limits(hg_code, vsset, vtest),
+            ),
+            msg="グラフを作成しています...",
+        )
+        data = result.get("data", [])
+        bounds = result.get("bounds", {})
+        spec = result.get("spec", {})
         dlg = TrendDialog(data, bounds, spec, unit, test_name, self)
         dlg.exec()

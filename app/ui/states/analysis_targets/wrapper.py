@@ -11,6 +11,7 @@ from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import AnalysisTargetsUI, AddSampleDialog
 from .print_preview import PrintPreviewDialog
 
@@ -60,10 +61,12 @@ class AnalysisTargetsState(QWidget):
         hg_code = task.get("holder_group_code", "")
         jobs = task.get("job_numbers", [])
 
-        self.loading_changed.emit(True, "分析対象データを取得しています...")
-        QApplication.processEvents()
-        grouped = self._data_service.get_analysis_targets(hg_code, jobs)
-        self.loading_changed.emit(False, "")
+        result: dict = {}
+        LoadingOverlay.run_with_overlay(
+            lambda: result.update(grouped=self._data_service.get_analysis_targets(hg_code, jobs)),
+            msg="分析対象データを取得しています...",
+        )
+        grouped = result.get("grouped", {})
 
         sd = task.get("state_data", {}).get("analysis_targets", {})
         deleted_codes = set(sd.get("deleted_codes", []))

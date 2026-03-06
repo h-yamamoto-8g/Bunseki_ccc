@@ -16,7 +16,7 @@ import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.circulation_mail_service import CirculationMailService
-from app.ui.dialogs.loading_dialog import LoadingDialog
+from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import SubmissionUI
 
 
@@ -148,9 +148,10 @@ class SubmissionState(QWidget):
 
         stored_paths = self._copy_attachments(task_id, attachments)
 
-        LoadingDialog(
-            lambda: self._record_sigma_anomalies(task_id), parent=self
-        ).exec()
+        LoadingOverlay.run_with_overlay(
+            lambda: self._record_sigma_anomalies(task_id),
+            msg="メールを作成しています...",
+        )
 
         submission_data = (
             self._task.get("state_data", {}).get("submission", {})
@@ -280,12 +281,12 @@ class SubmissionState(QWidget):
             return
 
         result: dict = {}
-        LoadingDialog(
+        LoadingOverlay.run_with_overlay(
             lambda: result.update(
                 anomalies=self._mail_service.detect_anomalies(task)
             ),
-            parent=self,
-        ).exec()
+            msg="メールを作成しています...",
+        )
         anomalies = result.get("anomalies", [])
         subject = self._mail_service.build_subject(
             task, anomalies, is_complete=True
@@ -431,10 +432,10 @@ class SubmissionState(QWidget):
         ms = self._mail_service
 
         result: dict = {}
-        LoadingDialog(
+        LoadingOverlay.run_with_overlay(
             lambda: result.update(anomalies=ms.detect_anomalies(task)),
-            parent=self,
-        ).exec()
+            msg="メールを作成しています...",
+        )
         anomalies = result.get("anomalies", [])
         has_anomaly = bool(anomalies)
 
