@@ -163,7 +163,6 @@ class Sidebar(QWidget):
         vl = QVBoxLayout()
         vl.setContentsMargins(0, 10, 0, 10)
         vl.setSpacing(2)
-        vl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         # サイドコンテンツ開閉ボタン
         self.btn_toggle_guide = QToolButton()
