@@ -334,14 +334,6 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         root.addWidget(self.sidebar)
 
-        # ── サイドバー / メインエリア 区切り線 ──
-        sidebar_sep = QFrame()
-        sidebar_sep.setFrameShape(QFrame.Shape.VLine)
-        sidebar_sep.setFrameShadow(QFrame.Shadow.Plain)
-        sidebar_sep.setFixedWidth(1)
-        sidebar_sep.setStyleSheet("QFrame { color: #c0c0c0; }")
-        root.addWidget(sidebar_sep)
-
         # ② メインエリア (サブコンテンツ + widget_main) ──────────────────
         main_area = QHBoxLayout()
         main_area.setContentsMargins(0, 0, 0, 0)
@@ -356,6 +348,13 @@ class MainWindow(QMainWindow):
         main_area.addWidget(widget_main, 3)
 
         root.addLayout(main_area)
+
+        # ── サイドバー右端の区切り線（フローティング配置） ──
+        self._sidebar_line = QFrame(central)
+        self._sidebar_line.setFixedWidth(1)
+        self._sidebar_line.setStyleSheet("background: #c0c0c0;")
+        self._sidebar_line.raise_()
+        self.sidebar.installEventFilter(self)
 
         # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
         self._resize_handle = _ResizeHandle(
@@ -769,12 +768,29 @@ class MainWindow(QMainWindow):
         self.label_loading.setText(f"{frame}  {self._loading_msg}")
 
     def eventFilter(self, obj: object, event: object) -> bool:
-        """frame_subcontents のリサイズ/移動に追従してハンドルを再配置する。"""
+        """sidebar / frame_subcontents のリサイズ/移動に追従して再配置する。"""
+        if obj is self.sidebar and event.type() in (
+            QEvent.Type.Resize, QEvent.Type.Move,
+        ):
+            self._update_sidebar_line_pos()
         if obj is self.frame_subcontents and event.type() in (
             QEvent.Type.Resize, QEvent.Type.Move,
         ):
             self._update_handle_pos()
         return super().eventFilter(obj, event)  # type: ignore[arg-type]
+
+    def _update_sidebar_line_pos(self) -> None:
+        """サイドバー右端の区切り線をフローティング配置する。"""
+        if not hasattr(self, "_sidebar_line"):
+            return
+        geo = self.sidebar.geometry()
+        self._sidebar_line.setGeometry(
+            geo.right(),
+            geo.top(),
+            1,
+            geo.height(),
+        )
+        self._sidebar_line.raise_()
 
     def _update_handle_pos(self) -> None:
         """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
