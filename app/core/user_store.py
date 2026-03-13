@@ -31,7 +31,7 @@ import app.config as _cfg
 
 
 def _users_file():
-    return _cfg.DATA_PATH / "bunseki" / "config" / "users.json"
+    return _cfg.DATA_PATH / "_common" / "users" / "users.json"
 
 _DEFAULTS = {
     "id": "",

@@ -46,7 +46,7 @@ class DataLoader:
 
     def get_users(self) -> list[dict]:
         """users.json からアクティブユーザーの一覧を返す。"""
-        path = self.data_path / "bunseki" / "config" / "users.json"
+        path = self.data_path / "_common" / "users" / "users.json"
         if not path.exists():
             return []
         with open(path, encoding="utf-8") as f:
