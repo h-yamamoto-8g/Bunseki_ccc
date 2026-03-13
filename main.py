@@ -820,6 +820,7 @@ class MainWindow(QMainWindow):
             self._guide_bottom_spacer.setVisible(False)
             self.frame_subcontents.setFixedWidth(self._guide_width)
             self._resize_handle.setVisible(True)
+            self._subcontents_line.setVisible(True)
         else:
             # 折りたたみ: コンテンツを非表示、幅を最小化
             self._guide_width = self.frame_subcontents.width()
@@ -827,6 +828,7 @@ class MainWindow(QMainWindow):
             self._guide_bottom_spacer.setVisible(True)
             self.frame_subcontents.setFixedWidth(36)
             self._resize_handle.setVisible(False)
+            self._subcontents_line.setVisible(False)
 
     def _show_manual(self, key: str) -> None:
         """キーに対応するマニュアルHTMLを browser_guide に表示する。
