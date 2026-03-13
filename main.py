@@ -349,12 +349,10 @@ class MainWindow(QMainWindow):
 
         root.addLayout(main_area)
 
-        # ── サイドバー右端の区切り線（フローティング配置） ──
-        self._sidebar_line = QFrame(central)
-        self._sidebar_line.setFixedWidth(1)
-        self._sidebar_line.setStyleSheet("background: #c0c0c0;")
-        self._sidebar_line.raise_()
-        self.sidebar.installEventFilter(self)
+        # ── サブコンテンツ右端の区切り線（フローティング配置） ──
+        self._subcontents_line = QFrame(central)
+        self._subcontents_line.setFixedWidth(1)
+        self._subcontents_line.setStyleSheet("background: #c0c0c0;")
 
         # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
         self._resize_handle = _ResizeHandle(
@@ -768,39 +766,32 @@ class MainWindow(QMainWindow):
         self.label_loading.setText(f"{frame}  {self._loading_msg}")
 
     def eventFilter(self, obj: object, event: object) -> bool:
-        """sidebar / frame_subcontents のリサイズ/移動に追従して再配置する。"""
-        if obj is self.sidebar and event.type() in (
-            QEvent.Type.Resize, QEvent.Type.Move,
-        ):
-            self._update_sidebar_line_pos()
+        """frame_subcontents のリサイズ/移動に追従して再配置する。"""
         if obj is self.frame_subcontents and event.type() in (
             QEvent.Type.Resize, QEvent.Type.Move,
         ):
             self._update_handle_pos()
         return super().eventFilter(obj, event)  # type: ignore[arg-type]
 
-    def _update_sidebar_line_pos(self) -> None:
-        """サイドバー右端の区切り線をフローティング配置する。"""
-        if not hasattr(self, "_sidebar_line"):
-            return
-        geo = self.sidebar.geometry()
-        self._sidebar_line.setGeometry(
-            geo.right(),
-            geo.top(),
-            1,
-            geo.height(),
-        )
-        self._sidebar_line.raise_()
-
     def _update_handle_pos(self) -> None:
-        """リサイズハンドルをサイドコンテンツ右端に半分重ねて配置する。"""
+        """リサイズハンドル・区切り線をサブコンテンツ右端に配置する。"""
         if not hasattr(self, "_resize_handle"):
             return
-        # ガイドパネルが閉じているときはハンドルを非表示にする
+        # ガイドパネルが閉じているときはハンドル・区切り線を非表示にする
         if not self._guide_expanded:
             self._resize_handle.setVisible(False)
+            if hasattr(self, "_subcontents_line"):
+                self._subcontents_line.setVisible(False)
             return
         geo = self.frame_subcontents.geometry()
+        # 区切り線
+        if hasattr(self, "_subcontents_line"):
+            self._subcontents_line.setGeometry(
+                geo.right(), geo.top(), 1, geo.height(),
+            )
+            self._subcontents_line.setVisible(True)
+            self._subcontents_line.raise_()
+        # リサイズハンドル
         hw = self._resize_handle.width()
         self._resize_handle.setGeometry(
             geo.right() + 1 - hw // 2,
