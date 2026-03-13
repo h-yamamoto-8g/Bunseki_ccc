@@ -150,6 +150,7 @@ class Sidebar(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedWidth(75)
         self.setObjectName("frame_sidebar")
         self._buttons: dict[str, _NavButton] = {}
