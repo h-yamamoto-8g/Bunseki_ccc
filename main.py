@@ -352,7 +352,7 @@ class MainWindow(QMainWindow):
         # ── サブコンテンツ右端の区切り線（フローティング配置） ──
         self._subcontents_line = QFrame(central)
         self._subcontents_line.setFixedWidth(1)
-        self._subcontents_line.setStyleSheet("background: #c0c0c0;")
+        self._subcontents_line.setStyleSheet("background: #d9dce0;")
 
         # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
         self._resize_handle = _ResizeHandle(
