@@ -334,6 +334,14 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         root.addWidget(self.sidebar)
 
+        # ── サイドバー / メインエリア 区切り線 ──
+        sidebar_sep = QFrame()
+        sidebar_sep.setFrameShape(QFrame.Shape.VLine)
+        sidebar_sep.setFrameShadow(QFrame.Shadow.Plain)
+        sidebar_sep.setFixedWidth(1)
+        sidebar_sep.setStyleSheet("QFrame { color: #c0c0c0; }")
+        root.addWidget(sidebar_sep)
+
         # ② メインエリア (サブコンテンツ + widget_main) ──────────────────
         main_area = QHBoxLayout()
         main_area.setContentsMargins(0, 0, 0, 0)
