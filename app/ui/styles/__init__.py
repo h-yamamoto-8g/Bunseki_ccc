@@ -16,10 +16,7 @@ QWidget {
 QMainWindow { background: #f5f7fa; }
 
 /* ── サイドバー ── */
-QFrame#frame_sidebar {
-    background: #ffffff;
-    border-right: 1px solid #e5e7eb;
-}
+/* border-right は sidebar.py で直接設定 */
 
 /* ── サブコンテンツ ── */
 QFrame#frame_subcontents {

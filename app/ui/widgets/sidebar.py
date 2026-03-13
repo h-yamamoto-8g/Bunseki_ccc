@@ -152,6 +152,9 @@ class Sidebar(QFrame):
         super().__init__(parent)
         self.setFixedWidth(75)
         self.setObjectName("frame_sidebar")
+        self.setStyleSheet(
+            "QFrame#frame_sidebar { background: #ffffff; border-right: 1px solid #c0c0c0; }"
+        )
         self._buttons: dict[str, _NavButton] = {}
         self._setup_ui()
 
