@@ -68,6 +68,11 @@ QWidget#widget_step {
     border-bottom: 1px solid #e5e7eb;
 }
 
+/* ── ページスタック ── */
+QStackedWidget#stack_pages {
+    padding-top: 12px;
+}
+
 /* ── テーブル ── */
 QTableWidget, QTableView {
     background: #ffffff;

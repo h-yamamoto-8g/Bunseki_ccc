@@ -345,6 +345,7 @@ class MainWindow(QMainWindow):
         """
         self.stack = QStackedWidget()
         self.stack.setObjectName("stack_pages")
+        self.stack.setContentsMargins(0, 12, 0, 0)
 
         self.home_page = HomePage(self.task_service)
         self.tasks_page = TasksPage(self.task_service, self.data_service, self.job_service)
