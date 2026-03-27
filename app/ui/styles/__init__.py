@@ -21,28 +21,13 @@ QWidget#frame_sidebar {
     border-right: none;
 }
 
-/* ── サブコンテンツ ── */
-QFrame#frame_subcontents {
-    background: #f5f7fa;
-    border-right: 1px solid #e5e7eb;
-}
-
-/* ── ガイドブラウザ ── */
-QTextBrowser#browser_guide {
-    background: #f5f7fa;
-    border: none;
-    color: #333333;
-    font-size: 12px;
-    padding: 8px;
-}
-
 /* ── メインエリア ── */
 QWidget#widget_main {
     background: #f5f7fa;
 }
 
 /* ── ヘッダー ── */
-QWidget#widget_header, QWidget#subcontents_header {
+QWidget#widget_header {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
 }
