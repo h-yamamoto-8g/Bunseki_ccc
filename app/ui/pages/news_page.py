@@ -469,8 +469,8 @@ class NewsPage(QWidget):
 
     def _get_test_names(self) -> list[str]:
         try:
-            vals = self._ds.get_dropdown_values()
-            return vals.get("tests", [])
+            groups = self._ds.get_holder_groups()
+            return [g["holder_group_name"] for g in groups if g.get("holder_group_name")]
         except Exception:
             return []
 
