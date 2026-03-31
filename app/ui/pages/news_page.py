@@ -141,9 +141,10 @@ class NewsPage(QWidget):
 
         # ヘッダー
         header = QWidget()
+        header.setFixedHeight(60)
         header.setStyleSheet(f"background:{_BG2}; border-bottom:1px solid {_BORDER};")
         hl = QHBoxLayout(header)
-        hl.setContentsMargins(16, 14, 12, 14)
+        hl.setContentsMargins(16, 0, 12, 0)
         title_lbl = QLabel("ニュース")
         title_lbl.setStyleSheet("font-size:15px; font-weight:700; color:#1e293b;")
         hl.addWidget(title_lbl)
@@ -621,9 +622,10 @@ class NewsEditDialog(QDialog):
         # 選択済みタグ + 追加ボタンを横並びにする行
         self._selected_tests: list[str] = []
         tags_row = QWidget()
-        tags_row.setMinimumHeight(36)
+        tags_row.setMinimumHeight(40)
         tags_row.setStyleSheet("background:transparent;")
         self.tags_flow = _FlowLayout(tags_row, h_spacing=6, v_spacing=4)
+        self.tags_flow.setContentsMargins(0, 4, 0, 4)
 
         # + ボタン（常にフロー内の末尾に配置）
         self.btn_add_test = QPushButton("+")
