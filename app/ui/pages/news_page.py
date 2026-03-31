@@ -614,9 +614,10 @@ class NewsEditDialog(QDialog):
 
         # 対象分析項目（タグ選択）
         tests_w = QWidget()
+        tests_w.setMinimumHeight(40)
         tests_w.setStyleSheet("background:transparent;")
         tests_vl = QVBoxLayout(tests_w)
-        tests_vl.setContentsMargins(0, 0, 0, 0)
+        tests_vl.setContentsMargins(0, 2, 0, 2)
         tests_vl.setSpacing(6)
 
         # 選択済みタグ + 追加ボタンを横並びにする行
