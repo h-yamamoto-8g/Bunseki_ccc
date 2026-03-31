@@ -632,8 +632,9 @@ class NewsEditDialog(QDialog):
         self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_add_test.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:18px; font-size:16px; font-weight:700;"
-            f" min-height:0px; max-height:36px; padding:0px; }}"
+            f" border-radius:6px; font-size:18px; font-weight:700;"
+            f" min-height:0px; max-height:36px; padding:0px;"
+            f" text-align:center; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_add_test.clicked.connect(self._open_test_select_dialog)
