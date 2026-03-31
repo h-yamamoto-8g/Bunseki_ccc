@@ -143,17 +143,17 @@ class NewsPage(QWidget):
         header = QWidget()
         header.setStyleSheet(f"background:{_BG2}; border-bottom:1px solid {_BORDER};")
         hl = QHBoxLayout(header)
-        hl.setContentsMargins(16, 12, 12, 12)
+        hl.setContentsMargins(16, 14, 12, 14)
         title_lbl = QLabel("ニュース")
         title_lbl.setStyleSheet("font-size:15px; font-weight:700; color:#1e293b;")
         hl.addWidget(title_lbl)
         hl.addStretch()
 
         self.btn_new = QPushButton("+ 新規")
-        self.btn_new.setFixedHeight(28)
+        self.btn_new.setFixedHeight(32)
         self.btn_new.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600;"
+            f" padding:4px 14px; border-radius:6px; font-size:12px; font-weight:600;"
             f" min-height:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
@@ -621,16 +621,17 @@ class NewsEditDialog(QDialog):
         # 選択済みタグ + 追加ボタンを横並びにする行
         self._selected_tests: list[str] = []
         tags_row = QWidget()
+        tags_row.setMinimumHeight(36)
         tags_row.setStyleSheet("background:transparent;")
         self.tags_flow = _FlowLayout(tags_row, h_spacing=6, v_spacing=4)
 
         # + ボタン（常にフロー内の末尾に配置）
         self.btn_add_test = QPushButton("+")
-        self.btn_add_test.setFixedSize(28, 28)
+        self.btn_add_test.setFixedSize(30, 30)
         self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_add_test.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:14px; font-size:16px; font-weight:700;"
+            f" border-radius:15px; font-size:16px; font-weight:700;"
             f" min-height:0px; padding:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
