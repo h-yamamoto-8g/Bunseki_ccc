@@ -4,15 +4,86 @@ from __future__ import annotations
 import webbrowser
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QRect, QSize, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QDialogButtonBox,
-    QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QListWidget, QListWidgetItem, QMessageBox,
+    QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+    QFrame, QHBoxLayout, QLabel, QLayout, QLayoutItem,
+    QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy,
     QTextEdit, QVBoxLayout, QWidget,
 )
+
+
+class _FlowLayout(QLayout):
+    """横方向に並べて幅を超えたら折り返す簡易フローレイアウト。"""
+
+    def __init__(
+        self, parent: QWidget | None = None, h_spacing: int = 6, v_spacing: int = 4
+    ) -> None:
+        super().__init__(parent)
+        self._h_spacing = h_spacing
+        self._v_spacing = v_spacing
+        self._items: list[QLayoutItem] = []
+
+    def addItem(self, item: QLayoutItem) -> None:  # noqa: N802
+        self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int) -> QLayoutItem | None:  # noqa: N802
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index: int) -> QLayoutItem | None:  # noqa: N802
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        return self.minimumSize()
+
+    def minimumSize(self) -> QSize:  # noqa: N802
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        m = self.contentsMargins()
+        size += QSize(m.left() + m.right(), m.top() + m.bottom())
+        return size
+
+    def setGeometry(self, rect: QRect) -> None:  # noqa: N802
+        super().setGeometry(rect)
+        self._do_layout(rect)
+
+    def hasHeightForWidth(self) -> bool:  # noqa: N802
+        return True
+
+    def heightForWidth(self, width: int) -> int:  # noqa: N802
+        return self._do_layout(QRect(0, 0, width, 0), dry_run=True)
+
+    def _do_layout(self, rect: QRect, dry_run: bool = False) -> int:
+        m = self.contentsMargins()
+        effective = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
+        x = effective.x()
+        y = effective.y()
+        line_height = 0
+
+        for item in self._items:
+            w = item.sizeHint().width()
+            h = item.sizeHint().height()
+            if x + w > effective.right() + 1 and line_height > 0:
+                x = effective.x()
+                y += line_height + self._v_spacing
+                line_height = 0
+            if not dry_run:
+                item.setGeometry(QRect(x, y, w, h))
+            x += w + self._h_spacing
+            line_height = max(line_height, h)
+
+        return y + line_height - rect.y() + m.bottom()
+
 
 from app.config import CURRENT_USER
 from app.core import news_store
@@ -529,14 +600,36 @@ class NewsEditDialog(QDialog):
         self._style_input(self.edit_title)
         root.addLayout(row("タイトル *", self.edit_title))
 
-        # 対象分析項目（カンマ区切り入力、候補はプレースホルダーで提示）
-        self.edit_tests = QLineEdit()
-        hint = "カンマ区切りで入力"
-        if self._available_tests:
-            hint += f"（例: {self._available_tests[0]}）"
-        self.edit_tests.setPlaceholderText(hint)
-        self._style_input(self.edit_tests)
-        root.addLayout(row("対象分析項目", self.edit_tests))
+        # 対象分析項目（タグ選択）
+        tests_w = QWidget()
+        tests_w.setStyleSheet("background:transparent;")
+        tests_vl = QVBoxLayout(tests_w)
+        tests_vl.setContentsMargins(0, 0, 0, 0)
+        tests_vl.setSpacing(6)
+
+        # 選択済みタグ表示エリア（FlowLayout 風）
+        self._selected_tests: list[str] = []
+        self.tags_container = QWidget()
+        self.tags_container.setStyleSheet("background:transparent;")
+        self.tags_flow = _FlowLayout(self.tags_container, h_spacing=6, v_spacing=4)
+        tests_vl.addWidget(self.tags_container)
+
+        # ドロップダウン選択
+        self.combo_tests = QComboBox()
+        self.combo_tests.setFixedHeight(30)
+        self.combo_tests.setStyleSheet(
+            f"QComboBox {{ border:1px solid {_BORDER}; border-radius:4px;"
+            f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
+            f"QComboBox:focus {{ border-color:{_ACCENT}; }}"
+            f"QComboBox QAbstractItemView {{ border:1px solid {_BORDER}; }}"
+        )
+        self.combo_tests.addItem("— 分析項目を選択 —")
+        for t in self._available_tests:
+            self.combo_tests.addItem(t)
+        self.combo_tests.currentIndexChanged.connect(self._on_test_combo_changed)
+        tests_vl.addWidget(self.combo_tests)
+
+        root.addLayout(row("対象分析項目", tests_w))
 
         # 対象期間
         period_w = QWidget()
@@ -599,7 +692,8 @@ class NewsEditDialog(QDialog):
     def _load(self, news: dict) -> None:
         self.chk_important.setChecked(news.get("is_important", False))
         self.edit_title.setText(news.get("title", ""))
-        self.edit_tests.setText(", ".join(news.get("target_tests", [])))
+        for t in news.get("target_tests", []):
+            self._add_test_tag(t)
         self.edit_period_from.setText(news.get("target_period_from", ""))
         self.edit_period_to.setText(news.get("target_period_to", ""))
         self.edit_body.setPlainText(news.get("body", ""))
@@ -641,6 +735,60 @@ class NewsEditDialog(QDialog):
             self._link_rows.remove(pair)
         row_w.deleteLater()
 
+    # ── タグ選択 ──────────────────────────────────────────────────────────────
+
+    def _on_test_combo_changed(self, index: int) -> None:
+        if index <= 0:
+            return
+        text = self.combo_tests.currentText()
+        self.combo_tests.setCurrentIndex(0)
+        self._add_test_tag(text)
+
+    def _add_test_tag(self, text: str) -> None:
+        if not text or text in self._selected_tests:
+            return
+        self._selected_tests.append(text)
+        self._rebuild_tags()
+
+    def _remove_test_tag(self, text: str) -> None:
+        if text in self._selected_tests:
+            self._selected_tests.remove(text)
+            self._rebuild_tags()
+
+    def _rebuild_tags(self) -> None:
+        # FlowLayout 内の全ウィジェットを削除
+        while self.tags_flow.count():
+            item = self.tags_flow.takeAt(0)
+            if w := item.widget():
+                w.deleteLater()
+        for t in self._selected_tests:
+            chip = self._make_tag_chip(t)
+            self.tags_flow.addWidget(chip)
+
+    def _make_tag_chip(self, text: str) -> QWidget:
+        chip = QWidget()
+        chip.setStyleSheet(
+            f"background:#eff6ff; border:1px solid #bfdbfe;"
+            f" border-radius:4px;"
+        )
+        hl = QHBoxLayout(chip)
+        hl.setContentsMargins(8, 2, 4, 2)
+        hl.setSpacing(4)
+        lbl = QLabel(text)
+        lbl.setStyleSheet("font-size:12px; color:#2563eb; font-weight:500; background:transparent; border:none;")
+        hl.addWidget(lbl)
+        btn = QPushButton("×")
+        btn.setFixedSize(18, 18)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(
+            "QPushButton { background:transparent; color:#93c5fd;"
+            " border:none; font-size:13px; font-weight:700; }"
+            "QPushButton:hover { color:#2563eb; }"
+        )
+        btn.clicked.connect(lambda _=False, t=text: self._remove_test_tag(t))
+        hl.addWidget(btn)
+        return chip
+
     def _on_ok(self) -> None:
         if not self.edit_title.text().strip():
             QMessageBox.warning(self, "入力エラー", "タイトルを入力してください。")
@@ -648,8 +796,7 @@ class NewsEditDialog(QDialog):
         self.accept()
 
     def result_data(self) -> dict:
-        tests_raw = self.edit_tests.text()
-        tests = [t.strip() for t in tests_raw.split(",") if t.strip()]
+        tests = list(self._selected_tests)
         links = [
             {"label": lbl.text().strip(), "url": url.text().strip()}
             for lbl, url in self._link_rows
