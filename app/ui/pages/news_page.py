@@ -627,12 +627,12 @@ class NewsEditDialog(QDialog):
 
         # + ボタン
         self.btn_add_test = QPushButton("+")
-        self.btn_add_test.setFixedSize(32, 32)
+        self.btn_add_test.setFixedSize(36, 36)
         self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_add_test.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:16px; font-size:16px; font-weight:700;"
-            f" min-height:0px; padding:0px; }}"
+            f" border-radius:18px; font-size:16px; font-weight:700;"
+            f" min-height:0px; max-height:36px; padding:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_add_test.clicked.connect(self._open_test_select_dialog)
@@ -679,10 +679,9 @@ class NewsEditDialog(QDialog):
         root.addLayout(self.links_container)
 
         self.btn_add_link = QPushButton("+ リンクを追加")
-        self.btn_add_link.setFixedHeight(28)
         self.btn_add_link.setStyleSheet(
             f"QPushButton {{ background:{_BG}; color:{_ACCENT}; border:1px dashed {_ACCENT};"
-            f" border-radius:5px; font-size:12px; min-height:0px; }}"
+            f" border-radius:6px; font-size:12px; padding:8px 14px; }}"
             f"QPushButton:hover {{ background:#eff6ff; }}"
         )
         self.btn_add_link.clicked.connect(lambda: self._add_link_row())
@@ -728,11 +727,11 @@ class NewsEditDialog(QDialog):
         hl.addWidget(edit_url, 2)
 
         btn_del = QPushButton("×")
-        btn_del.setFixedSize(28, 28)
+        btn_del.setFixedSize(32, 32)
         btn_del.setStyleSheet(
             f"QPushButton {{ background:#fef2f2; color:{_DANGER}; border:none;"
-            f" border-radius:4px; font-size:14px; font-weight:700;"
-            f" min-height:0px; padding:0px; }}"
+            f" border-radius:6px; font-size:14px; font-weight:700;"
+            f" min-height:0px; max-height:32px; padding:0px; }}"
             f"QPushButton:hover {{ background:#fee2e2; }}"
         )
         pair = (edit_label, edit_url)
@@ -781,12 +780,13 @@ class NewsEditDialog(QDialog):
 
     def _make_tag_chip(self, text: str) -> QWidget:
         chip = QWidget()
+        chip.setFixedHeight(32)
         chip.setStyleSheet(
             f"background:#eff6ff; border:1px solid #bfdbfe;"
-            f" border-radius:4px;"
+            f" border-radius:6px;"
         )
         hl = QHBoxLayout(chip)
-        hl.setContentsMargins(8, 2, 4, 2)
+        hl.setContentsMargins(10, 4, 6, 4)
         hl.setSpacing(4)
         lbl = QLabel(text)
         lbl.setStyleSheet("font-size:12px; color:#2563eb; font-weight:500; background:transparent; border:none;")
@@ -831,7 +831,6 @@ class NewsEditDialog(QDialog):
 
     @staticmethod
     def _style_input(w: QLineEdit) -> None:
-        w.setFixedHeight(30)
         w.setStyleSheet(
             f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
             f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
