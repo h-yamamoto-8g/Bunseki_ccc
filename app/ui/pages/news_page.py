@@ -40,6 +40,7 @@ class NewsPage(QWidget):
         self._ds = data_service
         self._selected_id: str | None = None
         self._is_new = False
+        self._link_rows: list[tuple[QLineEdit, QLineEdit]] = []
         self._build_ui()
 
     # ── UI 構築 ───────────────────────────────────────────────────────────────
@@ -507,14 +508,7 @@ class NewsPage(QWidget):
 
     # ── リンク行 ──────────────────────────────────────────────────────────────
 
-    _link_rows: list[tuple[QLineEdit, QLineEdit]]
-
-    def __init_subclass__(cls, **kw):
-        super().__init_subclass__(**kw)
-
     def _add_link_row(self, label: str = "", url: str = "") -> None:
-        if not hasattr(self, "_link_rows"):
-            self._link_rows = []
         row_w = QWidget()
         hl = QHBoxLayout(row_w)
         hl.setContentsMargins(0, 0, 0, 0)
