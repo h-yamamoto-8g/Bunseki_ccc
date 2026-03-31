@@ -47,14 +47,13 @@ class DateEdit(QWidget):
     def _build_ui(self) -> None:
         hl = QHBoxLayout(self)
         hl.setContentsMargins(0, 0, 0, 0)
-        hl.setSpacing(0)
+        hl.setSpacing(4)
 
         # テキスト入力
         self._edit = QLineEdit()
         self._edit.setPlaceholderText("YYYY-MM-DD")
         self._edit.setStyleSheet(
-            f"QLineEdit {{ border:1px solid {_BORDER}; border-right:none;"
-            f" border-radius:6px 0px 0px 6px;"
+            f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:6px;"
             f" padding:5px 10px; font-size:12px; color:{_TEXT}; }}"
             f"QLineEdit:focus {{ border-color:{_ACCENT}; }}"
         )
@@ -68,7 +67,7 @@ class DateEdit(QWidget):
         self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn.setStyleSheet(
             f"QToolButton {{ background:#ffffff; border:1px solid {_BORDER};"
-            f" border-left:none; border-radius:0px 6px 6px 0px; }}"
+            f" border-radius:6px; }}"
             f"QToolButton:hover {{ background:#f1f5f9; }}"
         )
         self._btn.clicked.connect(self._show_calendar)
@@ -116,8 +115,7 @@ class DateEdit(QWidget):
         self._valid = valid
         border_color = _BORDER if valid else _ERROR
         self._edit.setStyleSheet(
-            f"QLineEdit {{ border:1px solid {border_color}; border-right:none;"
-            f" border-radius:6px 0px 0px 6px;"
+            f"QLineEdit {{ border:1px solid {border_color}; border-radius:6px;"
             f" padding:5px 10px; font-size:12px; color:{_TEXT}; }}"
             f"QLineEdit:focus {{ border-color:{_ACCENT if valid else _ERROR}; }}"
         )
@@ -133,6 +131,16 @@ class DateEdit(QWidget):
         cal.setGridVisible(False)
         cal.setVerticalHeaderFormat(
             QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader
+        )
+        cal.setStyleSheet(
+            "QCalendarWidget { background:#ffffff; }"
+            "QCalendarWidget QAbstractItemView {"
+            "  background:#ffffff; color:#333333;"
+            "  selection-background-color:#3b82f6; selection-color:white;"
+            "}"
+            "QCalendarWidget QAbstractItemView:enabled {"
+            "  color:#333333; background:#ffffff;"
+            "}"
         )
 
         # 現在の入力値があればカレンダーに反映
