@@ -273,9 +273,10 @@ class NewsPage(QWidget):
 
         form_vl.addStretch()
 
-        # 保存 / 削除ボタン
+        # ボタン行
         btn_row = QHBoxLayout()
         btn_row.addStretch()
+
         self.btn_delete = QPushButton("削除")
         self.btn_delete.setStyleSheet(
             f"QPushButton {{ background:#fef2f2; color:{_DANGER}; border:1px solid #fecaca;"
@@ -285,6 +286,15 @@ class NewsPage(QWidget):
         self.btn_delete.clicked.connect(self._on_delete)
         btn_row.addWidget(self.btn_delete)
 
+        self.btn_edit_mode = QPushButton("編集")
+        self.btn_edit_mode.setStyleSheet(
+            f"QPushButton {{ background:{_BG2}; color:{_TEXT}; border:1px solid {_BORDER};"
+            f" padding:6px 24px; border-radius:6px; font-size:13px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#f1f5f9; }}"
+        )
+        self.btn_edit_mode.clicked.connect(self._enter_edit_mode)
+        btn_row.addWidget(self.btn_edit_mode)
+
         self.btn_save = QPushButton("保存")
         self.btn_save.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
@@ -293,6 +303,7 @@ class NewsPage(QWidget):
         )
         self.btn_save.clicked.connect(self._on_save)
         btn_row.addWidget(self.btn_save)
+
         form_vl.addLayout(btn_row)
 
         self.form_scroll.setWidget(form_w)
@@ -408,11 +419,10 @@ class NewsPage(QWidget):
         self.chk_important.setChecked(False)
 
     def _load_form(self, news: dict) -> None:
-        """既存ニュースをフォームに読み込む。"""
+        """既存ニュースをフォームに読み込む（閲覧モード）。"""
         self._reset_form()
         self.empty_lbl.setVisible(False)
         self.form_scroll.setVisible(True)
-        self.btn_delete.setVisible(not self._is_new)
 
         self.edit_title.setText(news.get("title", ""))
         for t in news.get("target_tests", []):
@@ -425,13 +435,88 @@ class NewsPage(QWidget):
         for link in news.get("links", []):
             self._add_link_row(link.get("label", ""), link.get("url", ""))
         self.chk_important.setChecked(news.get("is_important", False))
+        self._set_readonly(True)
 
     def _show_new_form(self) -> None:
-        """空のフォームを表示する。"""
+        """空のフォームを表示する（編集モード）。"""
         self._reset_form()
         self.empty_lbl.setVisible(False)
         self.form_scroll.setVisible(True)
-        self.btn_delete.setVisible(False)
+        self._set_readonly(False)
+
+    def _enter_edit_mode(self) -> None:
+        """閲覧モード → 編集モードに切り替え。"""
+        self._set_readonly(False)
+
+    def _set_readonly(self, readonly: bool) -> None:
+        """フォームの読み取り専用/編集可能を切り替える。"""
+        self.edit_title.setReadOnly(readonly)
+        self.edit_body.setReadOnly(readonly)
+
+        # 入力フィールドの見た目を切り替え
+        if readonly:
+            input_style = (
+                f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
+                f" padding:4px 8px; font-size:12px; color:{_TEXT};"
+                f" background:#f9fafb; }}"
+            )
+            body_style = (
+                f"QTextEdit {{ border:1px solid {_BORDER}; border-radius:6px;"
+                f" padding:8px; font-size:13px; color:{_TEXT}; background:#f9fafb; }}"
+            )
+        else:
+            input_style = (
+                f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
+                f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
+                f"QLineEdit:focus {{ border-color:{_ACCENT}; }}"
+            )
+            body_style = (
+                f"QTextEdit {{ border:1px solid {_BORDER}; border-radius:6px;"
+                f" padding:8px; font-size:13px; color:{_TEXT}; }}"
+            )
+        self.edit_title.setStyleSheet(input_style)
+        self.edit_body.setStyleSheet(body_style)
+
+        # ボタンの表示切り替え
+        self.btn_edit_mode.setVisible(readonly and not self._is_new)
+        self.btn_save.setVisible(not readonly)
+        self.btn_delete.setVisible(not self._is_new and not readonly)
+
+        # タグ追加/リンク追加ボタン等の表示
+        self.btn_add_link.setVisible(not readonly)
+        self.chk_important.setEnabled(not readonly)
+        # +ボタンを探して表示切り替え
+        for btn in self.edit_panel.findChildren(QPushButton):
+            if btn.text() == "+" and btn is not self.btn_new:
+                btn.setVisible(not readonly)
+        # リンク行の×ボタン
+        for i in range(self.links_container.count()):
+            item = self.links_container.itemAt(i)
+            if item and item.widget():
+                row_w = item.widget()
+                for child in row_w.findChildren(QPushButton):
+                    if child.text() == "×":
+                        child.setVisible(not readonly)
+                for child in row_w.findChildren(QLineEdit):
+                    child.setReadOnly(readonly)
+                    if readonly:
+                        child.setStyleSheet(
+                            f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
+                            f" padding:4px 8px; font-size:12px; color:{_TEXT};"
+                            f" background:#f9fafb; }}"
+                        )
+                    else:
+                        child.setStyleSheet(
+                            f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
+                            f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
+                            f"QLineEdit:focus {{ border-color:{_ACCENT}; }}"
+                        )
+        # タグの×ボタン
+        for scroll in (self._tags_inner, self._samples_inner):
+            for chip in scroll.findChildren(QWidget):
+                for btn in chip.findChildren(QPushButton):
+                    if btn.text() == "×":
+                        btn.setVisible(not readonly)
 
     def _on_new(self) -> None:
         self.list_widget.clearSelection()
