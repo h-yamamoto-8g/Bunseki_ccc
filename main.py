@@ -5,14 +5,11 @@ MainWindow.ui の設計仕様に基づき、以下のレイアウトを構築す
     QMainWindow
     └─ centralwidget (QHBoxLayout)
        ├─ frame_sidebar        (75px)
-       └─ QHBoxLayout stretch(3:0)
-          ├─ frame_subcontents (max 400px, 常時表示)
-          │   └─ browser_guide   (ガイドテキスト)
-          └─ widget_main
-             ├─ widget_header    (50px 固定高)
-             ├─ widget_step      (50px 固定高, ステップナビ横並び, タスク時のみ表示)
-             ├─ stack_pages      (QStackedWidget, 8ページ)
-             └─ widget_statusbar (35px 固定高)
+       └─ widget_main
+          ├─ widget_header    (50px 固定高)
+          ├─ widget_step      (50px 固定高, ステップナビ横並び, タスク時のみ表示)
+          ├─ stack_pages      (QStackedWidget, 8ページ)
+          └─ widget_statusbar (35px 固定高)
 
 デザイン: ホワイトベース (#f5f7fa 背景、#333333 テキスト)。
 """
@@ -27,18 +24,16 @@ from typing import TYPE_CHECKING, Optional
 import builtins
 _original_import = builtins.__import__
 
-from PySide6.QtCore import Qt, QElapsedTimer, QEvent, QSize, QTimer, QRect, QThread, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
+from PySide6.QtCore import Qt, QElapsedTimer, QSize, QTimer, QThread, Signal
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QSplashScreen,
     QStackedWidget,
-    QTextBrowser,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -68,7 +63,6 @@ if TYPE_CHECKING:
     from app.services.data_update_service import run_all as _run_data_update
     from app.services.hg_config_service import HgConfigService
     from app.services.job_service import JobService
-    from app.services.manual_service import ManualService
     from app.services.task_service import TaskService
     from app.services.user_service import UserService
     from app.ui.dialogs.loading_dialog import LoadingOverlay
@@ -159,7 +153,6 @@ def _load_app_modules(qapp: QApplication) -> None:
     from app.services.data_update_service import run_all as _run_data_update
     from app.services.hg_config_service import HgConfigService
     from app.services.job_service import JobService
-    from app.services.manual_service import ManualService
     from app.services.user_service import UserService
     qapp.processEvents()
 
@@ -191,7 +184,6 @@ def _load_app_modules(qapp: QApplication) -> None:
     g["_run_data_update"] = _run_data_update
     g["HgConfigService"] = HgConfigService
     g["JobService"] = JobService
-    g["ManualService"] = ManualService
     g["UserService"] = UserService
     g["LogonDialog"] = LogonDialog
     g["SetupRootDialog"] = SetupRootDialog
@@ -223,70 +215,11 @@ _PAGE_IDX: dict[str, int] = {
 }
 
 
-class _ResizeHandle(QWidget):
-    """サイドコンテンツの横幅調整用カプセル型ドラッグハンドル。"""
-
-    def __init__(
-        self, target: QWidget, on_width_changed: object = None, parent: QWidget | None = None
-    ) -> None:
-        super().__init__(parent)
-        self._target = target
-        self._on_width_changed = on_width_changed
-        self.setFixedWidth(12)
-        self.setCursor(Qt.CursorShape.SizeHorCursor)
-        self._dragging = False
-        self._hovered = False
-        self._drag_start_x = 0.0
-        self._drag_start_width = 0
-        self.setMouseTracking(True)
-
-    def enterEvent(self, event: object) -> None:
-        self._hovered = True
-        self.update()
-
-    def leaveEvent(self, event: object) -> None:
-        self._hovered = False
-        self.update()
-
-    def paintEvent(self, event: object) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = 6, 48
-        x = (self.width() - w) // 2
-        y = (self.height() - h) // 2
-        color = QColor("#9ca3af") if (self._hovered or self._dragging) else QColor("#d1d5db")
-        p.setBrush(color)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(x, y, w, h, w // 2, w // 2)
-        p.end()
-
-    def mousePressEvent(self, event: object) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._dragging = True
-            self._drag_start_x = event.globalPosition().x()
-            self._drag_start_width = self._target.width()
-            self.update()
-
-    def mouseMoveEvent(self, event: object) -> None:
-        if self._dragging:
-            dx = int(event.globalPosition().x() - self._drag_start_x)
-            new_width = max(150, min(600, self._drag_start_width + dx))
-            self._target.setFixedWidth(new_width)
-            if self._on_width_changed:
-                self._on_width_changed(new_width)  # type: ignore[operator]
-
-    def mouseReleaseEvent(self, event: object) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._dragging = False
-            self.update()
-
-
 class MainWindow(QMainWindow):
     """Bunseki メインウィンドウ。
 
     MainWindow.ui の設計仕様に基づく構成:
     - サイドバー (75px)
-    - サブコンテンツパネル: ガイドテキスト (タスク時のみ表示)
     - ヘッダー: アクティブページ名 / タスク名 / 新規作成ボタン
     - ステップナビ: 横並びアイコン (タスク時のみ表示)
     - ページスタック (8 ページ)
@@ -304,18 +237,9 @@ class MainWindow(QMainWindow):
         self.task_service = TaskService()
         self.data_service = DataService(self.data_loader)
         self.user_service = UserService()
-        self.manual_service = ManualService()
         self.hg_config_service = HgConfigService()
         self.job_service = JobService()
         self._in_task_mode = False
-        self._guide_expanded = True
-        # ガイドタイトルマップ (key → display_name)
-        self._guide_title_map: dict[str, str] = {}
-        for pid, (name, _) in PAGE_INFO.items():
-            self._guide_title_map[f"page:{pid}"] = name
-        from app.ui.widgets.sidebar import STEP_DEFS as _sdefs
-        for sid, _, label in _sdefs:
-            self._guide_title_map[f"state:{sid}"] = label
         self._setup_ui()
         self._connect_signals()
         self.showMaximized()
@@ -334,68 +258,9 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         root.addWidget(self.sidebar)
 
-        # ② メインエリア (サブコンテンツ + widget_main) ──────────────────
-        main_area = QHBoxLayout()
-        main_area.setContentsMargins(0, 0, 0, 0)
-        main_area.setSpacing(0)
-
-        # ── frame_subcontents (ガイド + ステップナビ) ──────────────────
-        self.frame_subcontents = self._build_subcontents()
-        main_area.addWidget(self.frame_subcontents)
-
-        # ── widget_main (ヘッダー + スタック + ステータスバー) ──────────
+        # ② メインエリア ───────────────────────────────────────────────────
         widget_main = self._build_widget_main()
-        main_area.addWidget(widget_main, 3)
-
-        root.addLayout(main_area)
-
-        # ── サブコンテンツ右端の区切り線（フローティング配置） ──
-        self._subcontents_line = QFrame(central)
-        self._subcontents_line.setFixedWidth(1)
-        self._subcontents_line.setStyleSheet("background: #e8eaed;")
-
-        # ── リサイズハンドル（境界線に半分重ねてフローティング配置） ──
-        self._resize_handle = _ResizeHandle(
-            self.frame_subcontents,
-            on_width_changed=self._on_guide_width_changed,
-            parent=central,
-        )
-        self._resize_handle.raise_()
-        self.frame_subcontents.installEventFilter(self)
-
-    def _build_subcontents(self) -> QFrame:
-        """frame_subcontents (ガイドパネル) を構築する。
-
-        Returns:
-            構築した QFrame。
-        """
-        frame = QFrame()
-        frame.setObjectName("frame_subcontents")
-        self._guide_width = 300
-
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # ヘッダーと同じ高さのスペーサー (50px) で上端を揃える
-        header_spacer = QWidget()
-        header_spacer.setFixedHeight(50)
-        header_spacer.setObjectName("subcontents_header")
-        layout.addWidget(header_spacer)
-
-        # browser_guide: 現在のタスク向けガイドテキスト
-        self.browser_guide = QTextBrowser()
-        self.browser_guide.setObjectName("browser_guide")
-        layout.addWidget(self.browser_guide, 1)
-
-        # 折りたたみ時にヘッダーが上下中央に来ないようスペーサーを追加
-        self._guide_bottom_spacer = QWidget()
-        self._guide_bottom_spacer.setStyleSheet("background: transparent;")
-        self._guide_bottom_spacer.setVisible(False)
-        layout.addWidget(self._guide_bottom_spacer, 1)
-
-        frame.setFixedWidth(self._guide_width)
-        return frame
+        root.addWidget(widget_main, 1)
 
     def _build_widget_main(self) -> QWidget:
         """widget_main (ヘッダー + ステップナビ + スタック + ステータスバー) を構築する。
@@ -480,6 +345,7 @@ class MainWindow(QMainWindow):
         """
         self.stack = QStackedWidget()
         self.stack.setObjectName("stack_pages")
+        self.stack.setContentsMargins(0, 12, 0, 0)
 
         self.home_page = HomePage(self.task_service)
         self.tasks_page = TasksPage(self.task_service, self.data_service, self.job_service)
@@ -490,7 +356,6 @@ class MainWindow(QMainWindow):
         self.job_page = JobPage(self.job_service)
         self.settings_page = SettingsPage(
             self.user_service,
-            self.manual_service,
             self.hg_config_service,
             self.data_service,
         )
@@ -554,7 +419,6 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """シグナルとスロットを接続し、初期状態を設定する。"""
         self.sidebar.page_changed.connect(self._on_page_change)
-        self.sidebar.guide_toggle_requested.connect(self._toggle_guide)
         self.btn_add_task.clicked.connect(self._open_new_task)
         self.step_nav.step_clicked.connect(self._on_step_clicked)
 
@@ -589,9 +453,6 @@ class MainWindow(QMainWindow):
         self.btn_active_page.setIcon(get_icon(svg_path, "#333333", size=24) if svg_path else self.btn_active_page.icon())
         self.label_active_tasks_name.clear()
         self.step_nav.clear()
-
-        # ページ対応マニュアルを browser_guide に表示
-        self._show_manual(f"page:{page_id}")
 
         if page_id == "home":
             self.home_page.refresh()
@@ -663,19 +524,6 @@ class MainWindow(QMainWindow):
         self.label_active_tasks_name.setText(task_name)
         self.step_nav.set_active_step(state_id, current_state=current_state)
         self.step_nav.setVisible(True)
-
-        # ガイドパネルが閉じていれば開く
-        if not self._guide_expanded:
-            self._toggle_guide()
-
-        # HGマニュアル優先 → なければステートマニュアル → なければクリア
-        task = getattr(self.tasks_page, "_current_task", None)
-        hg_code = task.get("holder_group_code", "") if task else ""
-        hg_html = self.hg_config_service.get_manual_html(hg_code) if hg_code else None
-        if hg_html:
-            self.browser_guide.setHtml(hg_html)
-        else:
-            self._show_manual(f"state:{state_id}")
 
     def clear_task_context(self) -> None:
         """タスクコンテキスト（タスク名・ステップハイライト）をリセットする。"""
@@ -764,96 +612,6 @@ class MainWindow(QMainWindow):
         self._loading_frame = (self._loading_frame + 1) % len(self._SPINNER_FRAMES)
         frame = self._SPINNER_FRAMES[self._loading_frame]
         self.label_loading.setText(f"{frame}  {self._loading_msg}")
-
-    def eventFilter(self, obj: object, event: object) -> bool:
-        """frame_subcontents のリサイズ/移動に追従して再配置する。"""
-        if obj is self.frame_subcontents and event.type() in (
-            QEvent.Type.Resize, QEvent.Type.Move,
-        ):
-            self._update_handle_pos()
-        return super().eventFilter(obj, event)  # type: ignore[arg-type]
-
-    def _update_handle_pos(self) -> None:
-        """リサイズハンドル・区切り線をサブコンテンツ右端に配置する。"""
-        if not hasattr(self, "_resize_handle"):
-            return
-        # ガイドパネルが閉じているときはハンドル・区切り線を非表示にする
-        if not self._guide_expanded:
-            self._resize_handle.setVisible(False)
-            if hasattr(self, "_subcontents_line"):
-                self._subcontents_line.setVisible(False)
-            return
-        geo = self.frame_subcontents.geometry()
-        # 区切り線
-        if hasattr(self, "_subcontents_line"):
-            self._subcontents_line.setGeometry(
-                geo.right(), geo.top(), 1, geo.height(),
-            )
-            self._subcontents_line.setVisible(True)
-            self._subcontents_line.raise_()
-        # リサイズハンドル
-        hw = self._resize_handle.width()
-        self._resize_handle.setGeometry(
-            geo.right() + 1 - hw // 2,
-            geo.top(),
-            hw,
-            geo.height(),
-        )
-        self._resize_handle.raise_()
-
-    def _on_guide_width_changed(self, width: int) -> None:
-        """リサイズハンドルによる横幅変更時に幅を記憶する。"""
-        self._guide_width = width
-
-    def _toggle_guide(self) -> None:
-        """ガイドパネルの展開/折りたたみを切り替える。"""
-        self._guide_expanded = not self._guide_expanded
-        self.frame_subcontents.setVisible(self._guide_expanded)
-        self.frame_subcontents.setMaximumWidth(400 if self._guide_expanded else 0)
-        border = "1px solid #e5e7eb" if self._guide_expanded else "none"
-        self.frame_subcontents.setStyleSheet(f"#frame_subcontents {{ border-right: {border}; }}")
-        self.sidebar.set_guide_expanded(self._guide_expanded)
-
-        if self._guide_expanded:
-            # 展開: コンテンツを表示、幅を復元
-            self.browser_guide.setVisible(True)
-            self._guide_bottom_spacer.setVisible(False)
-            self.frame_subcontents.setFixedWidth(self._guide_width)
-            self._resize_handle.setVisible(True)
-            self._subcontents_line.setVisible(True)
-        else:
-            # 折りたたみ: コンテンツを非表示、幅を最小化
-            self._guide_width = self.frame_subcontents.width()
-            self.browser_guide.setVisible(False)
-            self._guide_bottom_spacer.setVisible(True)
-            self.frame_subcontents.setFixedWidth(36)
-            self._resize_handle.setVisible(False)
-            self._subcontents_line.setVisible(False)
-
-    def _show_manual(self, key: str) -> None:
-        """キーに対応するマニュアルHTMLを browser_guide に表示する。
-
-        マニュアルが未登録の場合はガイドをクリアする。
-
-        Args:
-            key: マニュアルキー（例: "page:home", "state:task_setup"）。
-        """
-        html = self.manual_service.get_manual_html(key)
-        if html:
-            self.browser_guide.setHtml(html)
-        else:
-            self.browser_guide.clear()
-
-        # ガイドタイトルを更新（タイトル表示用ウィジェットがある場合のみ）
-        title = self._guide_title_map.get(key, "")
-
-    def set_guide_text(self, html: str) -> None:
-        """ガイドパネルのテキストを更新する。
-
-        Args:
-            html: 表示する HTML テキスト。
-        """
-        self.browser_guide.setHtml(html)
 
     def set_status(self, message: str) -> None:
         """ステータスバーのメッセージを更新する。

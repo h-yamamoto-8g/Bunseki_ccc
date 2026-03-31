@@ -20,12 +20,10 @@ import app.config as _cfg
 from app.config import save_data_path, reload_paths
 from app.services.data_service import DataService
 from app.services.hg_config_service import HgConfigService
-from app.services.manual_service import ManualService
 from app.services.user_service import UserService
 from app.ui.dialogs.setup_root_dialog import SetupRootDialog
 from app.ui.generated.ui_settingpage import Ui_SettingPage
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
-from app.ui.pages.settings.manuals_tab import ManualsTab
 from app.ui.pages.settings.users_tab import UsersTab
 
 
@@ -51,14 +49,12 @@ class SettingsPage(QWidget):
     def __init__(
         self,
         user_service: UserService,
-        manual_service: ManualService,
         hg_config_service: HgConfigService,
         data_service: DataService,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.user_service = user_service
-        self.manual_service = manual_service
         self.hg_config_service = hg_config_service
         self.data_service = data_service
         self.ui = Ui_SettingPage()
@@ -144,12 +140,6 @@ class SettingsPage(QWidget):
         tab_hg_config = QWidget()
         self.ui.tabs.addTab(tab_hg_config, "分析項目別設定")
         self._embed(tab_hg_config, self.hg_config_tab)
-
-        # tab_manuals: マニュアル管理
-        self.manuals_tab = ManualsTab(self.manual_service)
-        tab_manuals = QWidget()
-        self.ui.tabs.addTab(tab_manuals, "マニュアル")
-        self._embed(tab_manuals, self.manuals_tab)
 
     @staticmethod
     def _embed(tab: QWidget, child: QWidget) -> None:

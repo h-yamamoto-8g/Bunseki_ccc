@@ -18,28 +18,13 @@ QMainWindow { background: #f5f7fa; }
 /* ── サイドバー ── */
 /* border-right は sidebar.py で直接設定 */
 
-/* ── サブコンテンツ ── */
-QFrame#frame_subcontents {
-    background: #f5f7fa;
-    border-right: 1px solid #e5e7eb;
-}
-
-/* ── ガイドブラウザ ── */
-QTextBrowser#browser_guide {
-    background: #f5f7fa;
-    border: none;
-    color: #333333;
-    font-size: 12px;
-    padding: 8px;
-}
-
 /* ── メインエリア ── */
 QWidget#widget_main {
     background: #f5f7fa;
 }
 
 /* ── ヘッダー ── */
-QWidget#widget_header, QWidget#subcontents_header {
+QWidget#widget_header {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
 }
@@ -78,6 +63,11 @@ QLabel#label_user   { color: #9ca3af; font-size: 11px; }
 QWidget#widget_step {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
+}
+
+/* ── ページスタック ── */
+QStackedWidget#stack_pages {
+    padding-top: 12px;
 }
 
 /* ── テーブル ── */
