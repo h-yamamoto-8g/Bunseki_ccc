@@ -70,7 +70,7 @@ QWidget#widget_step {
 
 /* ── ページスタック ── */
 QStackedWidget#stack_pages {
-    padding-top: 12px;
+    padding-top: 0px;
 }
 
 /* ── テーブル ── */

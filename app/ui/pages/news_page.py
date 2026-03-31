@@ -47,7 +47,7 @@ class NewsPage(QWidget):
 
     def _build_ui(self) -> None:
         root = QHBoxLayout(self)
-        root.setContentsMargins(0, -12, 0, 0)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._build_list_panel(), 0)
         root.addWidget(self._build_edit_panel(), 1)
