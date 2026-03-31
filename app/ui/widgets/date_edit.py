@@ -61,9 +61,10 @@ class _CalendarDelegate(QStyledItemDelegate):
         col = index.column()
         color = self._COLORS.get(col, self._DEFAULT)
         painter.setPen(color)
+        r = option.rect
         painter.drawText(
-            option.rect,
-            Qt.AlignmentFlag.AlignCenter,
+            r.x(), r.y(), r.width(), r.height(),
+            int(Qt.AlignmentFlag.AlignCenter),
             index.data() or "",
         )
 
