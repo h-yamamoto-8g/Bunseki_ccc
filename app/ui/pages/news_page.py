@@ -615,7 +615,7 @@ class NewsEditDialog(QDialog):
 
         # 分析項目（タグ選択）
         tests_w = QWidget()
-        tests_w.setFixedHeight(44)
+        tests_w.setFixedHeight(54)
         tests_w.setStyleSheet("background:transparent;")
         tests_hl = QHBoxLayout(tests_w)
         tests_hl.setContentsMargins(0, 0, 0, 0)
@@ -625,7 +625,7 @@ class NewsEditDialog(QDialog):
         self._selected_tests: list[str] = []
         self._tags_scroll = QScrollArea()
         self._tags_scroll.setWidgetResizable(True)
-        self._tags_scroll.setFixedHeight(40)
+        self._tags_scroll.setFixedHeight(50)
         self._tags_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
