@@ -177,6 +177,7 @@ QPushButton {
     border-radius: 6px;
     padding: 5px 14px;
     min-height: 32px;
+    margin: 2px;
 }
 QPushButton:hover { border-color: #3b82f6; color: #3b82f6; }
 QPushButton:disabled { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
