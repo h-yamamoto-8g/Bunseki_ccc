@@ -135,7 +135,7 @@ class NewsPage(QWidget):
     def _build_list_panel(self) -> QWidget:
         panel = QWidget()
         panel.setFixedWidth(320)
-        panel.setStyleSheet(f"background:{_BG2}; border-right:1px solid {_BORDER};")
+        panel.setStyleSheet(f"background:{_BG2};")
         vl = QVBoxLayout(panel)
         vl.setContentsMargins(0, 0, 0, 0)
         vl.setSpacing(0)
