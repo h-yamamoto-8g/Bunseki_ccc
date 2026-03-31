@@ -153,7 +153,8 @@ class NewsPage(QWidget):
         self.btn_new.setFixedHeight(28)
         self.btn_new.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600; }}"
+            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600;"
+            f" min-height:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_new.clicked.connect(self._on_new)
@@ -222,7 +223,8 @@ class NewsPage(QWidget):
         self.btn_edit.setFixedHeight(28)
         self.btn_edit.setStyleSheet(
             f"QPushButton {{ background:{_BG2}; color:{_TEXT2}; border:1px solid {_BORDER};"
-            f" padding:4px 12px; border-radius:5px; font-size:12px; }}"
+            f" padding:4px 12px; border-radius:5px; font-size:12px;"
+            f" min-height:0px; }}"
             f"QPushButton:hover {{ background:#f1f5f9; }}"
         )
         self.btn_edit.clicked.connect(self._on_edit)
@@ -232,7 +234,8 @@ class NewsPage(QWidget):
         self.btn_delete.setFixedHeight(28)
         self.btn_delete.setStyleSheet(
             f"QPushButton {{ background:#fef2f2; color:{_DANGER}; border:1px solid #fecaca;"
-            f" padding:4px 12px; border-radius:5px; font-size:12px; }}"
+            f" padding:4px 12px; border-radius:5px; font-size:12px;"
+            f" min-height:0px; }}"
             f"QPushButton:hover {{ background:#fee2e2; }}"
         )
         self.btn_delete.clicked.connect(self._on_delete)
@@ -677,7 +680,7 @@ class NewsEditDialog(QDialog):
         self.btn_add_link.setFixedHeight(28)
         self.btn_add_link.setStyleSheet(
             f"QPushButton {{ background:{_BG}; color:{_ACCENT}; border:1px dashed {_ACCENT};"
-            f" border-radius:5px; font-size:12px; }}"
+            f" border-radius:5px; font-size:12px; min-height:0px; }}"
             f"QPushButton:hover {{ background:#eff6ff; }}"
         )
         self.btn_add_link.clicked.connect(lambda: self._add_link_row())
