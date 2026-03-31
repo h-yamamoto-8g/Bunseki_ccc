@@ -12,7 +12,7 @@ import re
 from datetime import date
 
 from PySide6.QtCore import Qt, QDate, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import (
     QCalendarWidget,
     QHBoxLayout,
@@ -132,16 +132,27 @@ class DateEdit(QWidget):
         cal.setVerticalHeaderFormat(
             QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader
         )
-        cal.setStyleSheet(
-            "QCalendarWidget { background:#ffffff; }"
-            "QCalendarWidget QAbstractItemView {"
-            "  background:#ffffff; color:#333333;"
-            "  selection-background-color:#3b82f6; selection-color:white;"
-            "}"
-            "QCalendarWidget QAbstractItemView:enabled {"
-            "  color:#333333; background:#ffffff;"
-            "}"
-        )
+
+        # 平日: 黒、日曜: 赤、土曜: 青
+        fmt_weekday = QTextCharFormat()
+        fmt_weekday.setForeground(QColor("#333333"))
+        fmt_weekday.setBackground(QColor("#ffffff"))
+        for d in (
+            Qt.DayOfWeek.Monday, Qt.DayOfWeek.Tuesday,
+            Qt.DayOfWeek.Wednesday, Qt.DayOfWeek.Thursday,
+            Qt.DayOfWeek.Friday,
+        ):
+            cal.setWeekdayTextFormat(d, fmt_weekday)
+
+        fmt_sunday = QTextCharFormat()
+        fmt_sunday.setForeground(QColor("#dc2626"))
+        fmt_sunday.setBackground(QColor("#ffffff"))
+        cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt_sunday)
+
+        fmt_saturday = QTextCharFormat()
+        fmt_saturday.setForeground(QColor("#2563eb"))
+        fmt_saturday.setBackground(QColor("#ffffff"))
+        cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt_saturday)
 
         # 現在の入力値があればカレンダーに反映
         text = self.text()
