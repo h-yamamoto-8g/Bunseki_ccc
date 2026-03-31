@@ -15,6 +15,7 @@ from PySide6.QtGui import QColor, QFont, QIcon
 from app.ui.generated.ui_homepage import Ui_HomePage
 from app.ui.widgets.icon_utils import get_icon
 from app.ui.widgets.table_utils import enable_row_numbers_and_sort
+from app.core import news_store
 
 # ── Design tokens — グローバル QSS (_GLOBAL_QSS in main.py) と完全一致 ─────────
 _BG     = "#f5f7fa"
@@ -146,24 +147,21 @@ class HomePageUI(QWidget):
         self.my_table.doubleClicked.connect(self._on_double_click)
         layout3.addWidget(self.my_table)
 
-        # ── ニュース: tableView_news → 空プレースホルダ ─────────────────────
+        # ── ニュース: tableView_news → ニュース一覧 ──────────────────────
         layout4 = self._form.verticalLayout_4
         layout4.setSpacing(8)
         layout4.removeWidget(self._form.tableView_news)
         self._form.tableView_news.deleteLater()
 
-        news_placeholder = QFrame()
-        news_placeholder.setObjectName("NewsPlaceholder")
-        news_placeholder.setStyleSheet(
-            f"QFrame#NewsPlaceholder {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
+        self.news_container = QFrame()
+        self.news_container.setObjectName("NewsContainer")
+        self.news_container.setStyleSheet(
+            f"QFrame#NewsContainer {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
         )
-        np_layout = QVBoxLayout(news_placeholder)
-        np_layout.setContentsMargins(0, 0, 0, 0)
-        np_lbl = QLabel("ニュース機能は準備中です")
-        np_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        np_lbl.setStyleSheet(f"color:{_TEXT3}; font-size:12px; border:none;")
-        np_layout.addWidget(np_lbl)
-        layout4.addWidget(news_placeholder)
+        self._news_layout = QVBoxLayout(self.news_container)
+        self._news_layout.setContentsMargins(0, 0, 0, 0)
+        self._news_layout.setSpacing(0)
+        layout4.addWidget(self.news_container)
 
         # ── カレンダー: webEngineView → 空プレースホルダ ────────────────────
         layout2 = self._form.verticalLayout_2
@@ -206,7 +204,69 @@ class HomePageUI(QWidget):
         self._fill_table(tasks)
 
     def set_other_tasks(self, tasks: list[dict]) -> None:
-        pass  # ニュース列は将来拡張
+        pass
+
+    def refresh_news(self) -> None:
+        """ニュース一覧を最新の状態に更新する。"""
+        # 既存の子ウィジェットをクリア
+        while self._news_layout.count():
+            item = self._news_layout.takeAt(0)
+            if w := item.widget():
+                w.deleteLater()
+
+        items = news_store.get_all()
+        if not items:
+            lbl = QLabel("ニュースはありません")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet(f"color:{_TEXT3}; font-size:12px; border:none; padding:16px;")
+            self._news_layout.addWidget(lbl)
+            return
+
+        for news in items[:10]:  # 最新10件
+            card = self._build_news_card(news)
+            self._news_layout.addWidget(card)
+        self._news_layout.addStretch()
+
+    def _build_news_card(self, news: dict) -> QWidget:
+        """ニュース1件分のカードウィジェットを構築する。"""
+        is_important = news.get("is_important", False)
+        card = QWidget()
+        bg = "#fef2f2" if is_important else "transparent"
+        card.setStyleSheet(
+            f"background:{bg}; border-bottom:1px solid {_BORDER};"
+        )
+        vl = QVBoxLayout(card)
+        vl.setContentsMargins(12, 8, 12, 8)
+        vl.setSpacing(2)
+
+        # タイトル行
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
+        if is_important:
+            badge = QLabel("重要")
+            badge.setStyleSheet(
+                "background:#dc2626; color:white;"
+                " border-radius:3px; padding:1px 6px; border:none;"
+                " font-size:10px; font-weight:700;"
+            )
+            badge.setFixedHeight(18)
+            title_row.addWidget(badge)
+        title = QLabel(news.get("title", "（無題）"))
+        title_color = "#dc2626" if is_important else _TEXT
+        title.setStyleSheet(
+            f"font-size:12px; font-weight:600; color:{title_color}; border:none;"
+        )
+        title.setWordWrap(False)
+        title_row.addWidget(title, 1)
+        vl.addLayout(title_row)
+
+        # 日付
+        created_at = news.get("created_at", "")[:10]
+        meta = QLabel(f"{created_at}  {news.get('created_by', '')}")
+        meta.setStyleSheet(f"font-size:10px; color:{_TEXT3}; border:none;")
+        vl.addWidget(meta)
+
+        return card
 
     def set_stats(self, stats: dict) -> None:
         """統計チップの数値を更新する。

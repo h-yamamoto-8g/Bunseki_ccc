@@ -35,4 +35,5 @@ class HomePage(QWidget):
         self._ui.set_my_tasks(my_tasks)
         self._ui.set_other_tasks(other_tasks)
         self._ui.set_stats(self._task_service.get_task_stats(tasks))
+        self._ui.refresh_news()
         self._ui.warn_banner.setVisible(False)
