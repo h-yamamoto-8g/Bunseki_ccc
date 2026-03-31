@@ -32,9 +32,20 @@ def _save(items: list[dict]) -> None:
 
 
 def get_all() -> list[dict]:
-    """全ニュースを新しい順で返す。"""
+    """全ニュースを返す。重要なものを先頭に、それぞれ新しい順。"""
     items = _load()
-    return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+    # 重要フラグで分割してそれぞれ日時降順、重要を先に結合
+    important = sorted(
+        [x for x in items if x.get("is_important")],
+        key=lambda x: x.get("created_at", ""),
+        reverse=True,
+    )
+    normal = sorted(
+        [x for x in items if not x.get("is_important")],
+        key=lambda x: x.get("created_at", ""),
+        reverse=True,
+    )
+    return important + normal
 
 
 def get(news_id: str) -> dict | None:
@@ -52,6 +63,7 @@ def create(
     target_period_from: str = "",
     target_period_to: str = "",
     links: list[dict] | None = None,
+    is_important: bool = False,
 ) -> dict:
     """ニュースを新規作成して返す。"""
     now = datetime.now()
@@ -66,6 +78,7 @@ def create(
         "target_period_from": target_period_from,
         "target_period_to": target_period_to,
         "links": links or [],
+        "is_important": is_important,
     }
     items = _load()
     items.append(item)

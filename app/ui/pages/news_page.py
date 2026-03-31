@@ -7,7 +7,7 @@ from datetime import datetime
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox,
+    QCheckBox, QDialog, QDialogButtonBox,
     QFrame, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy,
@@ -26,6 +26,9 @@ _TEXT2 = "#64748b"
 _ACCENT = "#3b82f6"
 _BORDER = "#e2e8f0"
 _DANGER = "#ef4444"
+_IMPORTANT_BG = "#fef2f2"
+_IMPORTANT_BORDER = "#fecaca"
+_IMPORTANT_FG = "#dc2626"
 
 
 class NewsPage(QWidget):
@@ -119,6 +122,16 @@ class NewsPage(QWidget):
 
         # タイトル行
         title_row = QHBoxLayout()
+        self.lbl_important_badge = QLabel("重要")
+        self.lbl_important_badge.setStyleSheet(
+            f"background:{_IMPORTANT_FG}; color:white;"
+            f" border-radius:4px; padding:2px 10px;"
+            f" font-size:12px; font-weight:700;"
+        )
+        self.lbl_important_badge.setFixedHeight(24)
+        self.lbl_important_badge.setVisible(False)
+        title_row.addWidget(self.lbl_important_badge)
+
         self.lbl_title = QLabel()
         self.lbl_title.setStyleSheet(
             "font-size:18px; font-weight:700; color:#1e293b;"
@@ -219,16 +232,40 @@ class NewsPage(QWidget):
             self._clear_detail()
 
     def _build_list_card(self, news: dict) -> QWidget:
+        is_important = news.get("is_important", False)
         w = QWidget()
-        w.setStyleSheet("background:transparent;")
+        if is_important:
+            w.setStyleSheet(
+                f"background:{_IMPORTANT_BG};"
+                f" border-left:3px solid {_IMPORTANT_FG};"
+            )
+        else:
+            w.setStyleSheet("background:transparent;")
         vl = QVBoxLayout(w)
         vl.setContentsMargins(14, 10, 14, 10)
         vl.setSpacing(3)
 
+        # タイトル行（重要バッジ + タイトル）
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
+        if is_important:
+            badge = QLabel("重要")
+            badge.setStyleSheet(
+                f"background:{_IMPORTANT_FG}; color:white;"
+                f" border-radius:3px; padding:1px 6px;"
+                f" font-size:10px; font-weight:700;"
+            )
+            badge.setFixedHeight(18)
+            title_row.addWidget(badge)
+
         title = QLabel(news.get("title", "（無題）"))
-        title.setStyleSheet("font-size:13px; font-weight:600; color:#1e293b;")
+        title_color = _IMPORTANT_FG if is_important else "#1e293b"
+        title.setStyleSheet(
+            f"font-size:13px; font-weight:600; color:{title_color};"
+        )
         title.setWordWrap(False)
-        vl.addWidget(title)
+        title_row.addWidget(title, 1)
+        vl.addLayout(title_row)
 
         meta = QLabel(
             f"{news.get('created_at', '')[:10]}  {news.get('created_by', '')}"
@@ -257,6 +294,8 @@ class NewsPage(QWidget):
         self.empty_lbl.setVisible(False)
         self.scroll.setVisible(True)
 
+        is_important = news.get("is_important", False)
+        self.lbl_important_badge.setVisible(is_important)
         self.lbl_title.setText(news.get("title", "（無題）"))
 
         created_at = news.get("created_at", "")[:10]
@@ -306,6 +345,7 @@ class NewsPage(QWidget):
                 target_period_from=data["target_period_from"],
                 target_period_to=data["target_period_to"],
                 links=data["links"],
+                is_important=data["is_important"],
             )
             self._selected_id = item["id"]
             self._reload_list()
@@ -328,6 +368,7 @@ class NewsPage(QWidget):
                 target_period_from=data["target_period_from"],
                 target_period_to=data["target_period_to"],
                 links=data["links"],
+                is_important=data["is_important"],
             )
             self._reload_list()
 
@@ -474,6 +515,14 @@ class NewsEditDialog(QDialog):
             hl.addWidget(widget, 1)
             return hl
 
+        # 重要フラグ
+        self.chk_important = QCheckBox("重要（一覧の先頭に目立つように表示）")
+        self.chk_important.setStyleSheet(
+            f"QCheckBox {{ font-size:12px; color:{_IMPORTANT_FG}; font-weight:600; }}"
+            f"QCheckBox::indicator:checked {{ background:{_IMPORTANT_FG}; border-color:{_IMPORTANT_FG}; }}"
+        )
+        root.addWidget(self.chk_important)
+
         # タイトル
         self.edit_title = QLineEdit()
         self.edit_title.setPlaceholderText("ニュースタイトル")
@@ -548,6 +597,7 @@ class NewsEditDialog(QDialog):
         root.addWidget(btns)
 
     def _load(self, news: dict) -> None:
+        self.chk_important.setChecked(news.get("is_important", False))
         self.edit_title.setText(news.get("title", ""))
         self.edit_tests.setText(", ".join(news.get("target_tests", [])))
         self.edit_period_from.setText(news.get("target_period_from", ""))
@@ -612,6 +662,7 @@ class NewsEditDialog(QDialog):
             "target_period_from": self.edit_period_from.text().strip(),
             "target_period_to": self.edit_period_to.text().strip(),
             "links": links,
+            "is_important": self.chk_important.isChecked(),
         }
 
     # ── ヘルパー ──────────────────────────────────────────────────────────────
