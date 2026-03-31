@@ -639,7 +639,7 @@ class NewsEditDialog(QDialog):
         self._tags_inner = QWidget()
         self._tags_inner.setStyleSheet("background:transparent;")
         self.tags_layout = QHBoxLayout(self._tags_inner)
-        self.tags_layout.setContentsMargins(0, 0, 0, 0)
+        self.tags_layout.setContentsMargins(6, 4, 6, 4)
         self.tags_layout.setSpacing(6)
         self.tags_layout.addStretch()
         self._tags_scroll.setWidget(self._tags_inner)
