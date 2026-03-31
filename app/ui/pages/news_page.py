@@ -621,26 +621,25 @@ class NewsEditDialog(QDialog):
 
         # 選択済みタグ + 追加ボタンを横並びにする行
         self._selected_tests: list[str] = []
-        tags_row = QWidget()
-        tags_row.setMinimumHeight(40)
-        tags_row.setStyleSheet("background:transparent;")
-        self.tags_flow = _FlowLayout(tags_row, h_spacing=6, v_spacing=4)
-        self.tags_flow.setContentsMargins(0, 4, 0, 4)
+        self.tags_layout = QHBoxLayout()
+        self.tags_layout.setContentsMargins(0, 0, 0, 0)
+        self.tags_layout.setSpacing(6)
 
-        # + ボタン（常にフロー内の末尾に配置）
+        # + ボタン
         self.btn_add_test = QPushButton("+")
-        self.btn_add_test.setFixedSize(30, 30)
+        self.btn_add_test.setFixedSize(32, 32)
         self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_add_test.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:15px; font-size:16px; font-weight:700;"
+            f" border-radius:16px; font-size:16px; font-weight:700;"
             f" min-height:0px; padding:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_add_test.clicked.connect(self._open_test_select_dialog)
-        self.tags_flow.addWidget(self.btn_add_test)
+        self.tags_layout.addWidget(self.btn_add_test)
+        self.tags_layout.addStretch()
 
-        tests_vl.addWidget(tags_row)
+        tests_vl.addLayout(self.tags_layout)
         root.addLayout(row("対象分析項目", tests_w))
 
         # 対象期間
@@ -770,15 +769,15 @@ class NewsEditDialog(QDialog):
             self._rebuild_tags()
 
     def _rebuild_tags(self) -> None:
-        # +ボタン以外を全て削除
-        while self.tags_flow.count() > 1:
-            item = self.tags_flow.takeAt(0)
+        # +ボタンとstretch以外を全て削除（末尾2つを残す）
+        while self.tags_layout.count() > 2:
+            item = self.tags_layout.takeAt(0)
             if w := item.widget():
                 w.deleteLater()
         # 選択済みタグを+ボタンの前に挿入
         for i, t in enumerate(self._selected_tests):
             chip = self._make_tag_chip(t)
-            self.tags_flow.insertWidget(i, chip)
+            self.tags_layout.insertWidget(i, chip)
 
     def _make_tag_chip(self, text: str) -> QWidget:
         chip = QWidget()
