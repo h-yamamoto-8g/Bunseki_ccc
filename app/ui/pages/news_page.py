@@ -418,7 +418,8 @@ class NewsPage(QWidget):
 
     def _on_new(self) -> None:
         tests = self._get_test_names()
-        dlg = NewsEditDialog(tests, parent=self)
+        samples = self._get_sample_names()
+        dlg = NewsEditDialog(tests, available_samples=samples, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.result_data()
             item = news_store.create(
@@ -426,6 +427,7 @@ class NewsPage(QWidget):
                 body=data["body"],
                 created_by=CURRENT_USER,
                 target_tests=data["target_tests"],
+                target_samples=data.get("target_samples", []),
                 target_period_from=data["target_period_from"],
                 target_period_to=data["target_period_to"],
                 links=data["links"],
@@ -441,7 +443,8 @@ class NewsPage(QWidget):
         if not news:
             return
         tests = self._get_test_names()
-        dlg = NewsEditDialog(tests, news=news, parent=self)
+        samples = self._get_sample_names()
+        dlg = NewsEditDialog(tests, available_samples=samples, news=news, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.result_data()
             news_store.update(
@@ -449,6 +452,7 @@ class NewsPage(QWidget):
                 title=data["title"],
                 body=data["body"],
                 target_tests=data["target_tests"],
+                target_samples=data.get("target_samples", []),
                 target_period_from=data["target_period_from"],
                 target_period_to=data["target_period_to"],
                 links=data["links"],
@@ -476,6 +480,19 @@ class NewsPage(QWidget):
         try:
             groups = self._ds.get_holder_groups()
             return [g["holder_group_name"] for g in groups if g.get("holder_group_name")]
+        except Exception:
+            return []
+
+    def _get_sample_names(self) -> list[str]:
+        try:
+            samples = self._ds.get_valid_samples()
+            return [
+                s["display_name"]
+                for s in samples
+                if s.get("display_name")
+                and s.get("domain_code") == "WH"
+                and s.get("is_active", True)
+            ]
         except Exception:
             return []
 
@@ -570,11 +587,13 @@ class NewsEditDialog(QDialog):
     def __init__(
         self,
         available_tests: list[str],
+        available_samples: list[str] | None = None,
         news: dict | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._available_tests = available_tests
+        self._available_samples = available_samples or []
         self._news = news
         self._link_rows: list[tuple[QLineEdit, QLineEdit]] = []
 
@@ -653,6 +672,52 @@ class NewsEditDialog(QDialog):
 
         root.addLayout(row("分析項目", tests_w))
 
+        # サンプル（タグ選択）
+        samples_w = QWidget()
+        samples_w.setFixedHeight(54)
+        samples_w.setStyleSheet("background:transparent;")
+        samples_hl = QHBoxLayout(samples_w)
+        samples_hl.setContentsMargins(0, 0, 0, 0)
+        samples_hl.setSpacing(6)
+
+        self._selected_samples: list[str] = []
+        self._samples_scroll = QScrollArea()
+        self._samples_scroll.setWidgetResizable(True)
+        self._samples_scroll.setFixedHeight(50)
+        self._samples_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._samples_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._samples_scroll.setStyleSheet(
+            f"QScrollArea {{ border:1px solid {_BORDER}; border-radius:6px;"
+            f" background:#ffffff; }}"
+        )
+        self._samples_inner = QWidget()
+        self._samples_inner.setStyleSheet("background:transparent;")
+        self.samples_layout = QHBoxLayout(self._samples_inner)
+        self.samples_layout.setContentsMargins(6, 4, 6, 4)
+        self.samples_layout.setSpacing(6)
+        self.samples_layout.addStretch()
+        self._samples_scroll.setWidget(self._samples_inner)
+        samples_hl.addWidget(self._samples_scroll, 1)
+
+        self.btn_add_sample = QPushButton("+")
+        self.btn_add_sample.setFixedSize(36, 36)
+        self.btn_add_sample.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add_sample.setStyleSheet(
+            f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
+            f" border-radius:6px; font-size:18px; font-weight:700;"
+            f" min-height:0px; max-height:36px; padding:0px;"
+            f" text-align:center; }}"
+            f"QPushButton:hover {{ background:#2563eb; }}"
+        )
+        self.btn_add_sample.clicked.connect(self._open_sample_select_dialog)
+        samples_hl.addWidget(self.btn_add_sample)
+
+        root.addLayout(row("サンプル", samples_w))
+
         # 対象期間
         period_w = QWidget()
         pl = QHBoxLayout(period_w)
@@ -719,6 +784,8 @@ class NewsEditDialog(QDialog):
         self.edit_title.setText(news.get("title", ""))
         for t in news.get("target_tests", []):
             self._add_test_tag(t)
+        for s in news.get("target_samples", []):
+            self._add_sample_tag(s)
         self.edit_period_from.setText(news.get("target_period_from", ""))
         self.edit_period_to.setText(news.get("target_period_to", ""))
         self.edit_body.setPlainText(news.get("body", ""))
@@ -790,12 +857,12 @@ class NewsEditDialog(QDialog):
                 w.deleteLater()
         # 選択済みタグをstretchの前に挿入
         for i, t in enumerate(self._selected_tests):
-            chip = self._make_tag_chip(t)
+            chip = self._make_tag_chip(t, self._remove_test_tag)
             self.tags_layout.insertWidget(i, chip)
         # スクロール内部のサイズを更新
         self._tags_inner.adjustSize()
 
-    def _make_tag_chip(self, text: str) -> QWidget:
+    def _make_tag_chip(self, text: str, remove_callback) -> QWidget:
         chip = QWidget()
         chip.setFixedHeight(32)
         chip.setStyleSheet(
@@ -817,9 +884,42 @@ class NewsEditDialog(QDialog):
             " min-height:0px; padding:0px; }"
             "QPushButton:hover { color:#1d4ed8; }"
         )
-        btn.clicked.connect(lambda _=False, t=text: self._remove_test_tag(t))
+        btn.clicked.connect(lambda _=False, t=text: remove_callback(t))
         hl.addWidget(btn)
         return chip
+
+    # ── サンプルタグ選択 ─────────────────────────────────────────────────────
+
+    def _open_sample_select_dialog(self) -> None:
+        samples = self._get_sample_names()
+        dlg = _TestSelectDialog(
+            samples, list(self._selected_samples), parent=self
+        )
+        dlg.setWindowTitle("サンプルの選択")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._selected_samples = dlg.selected_tests()
+            self._rebuild_sample_tags()
+
+    def _add_sample_tag(self, text: str) -> None:
+        if not text or text in self._selected_samples:
+            return
+        self._selected_samples.append(text)
+        self._rebuild_sample_tags()
+
+    def _remove_sample_tag(self, text: str) -> None:
+        if text in self._selected_samples:
+            self._selected_samples.remove(text)
+            self._rebuild_sample_tags()
+
+    def _rebuild_sample_tags(self) -> None:
+        while self.samples_layout.count() > 1:
+            item = self.samples_layout.takeAt(0)
+            if w := item.widget():
+                w.deleteLater()
+        for i, t in enumerate(self._selected_samples):
+            chip = self._make_tag_chip(t, self._remove_sample_tag)
+            self.samples_layout.insertWidget(i, chip)
+        self._samples_inner.adjustSize()
 
     def _on_ok(self) -> None:
         if not self.edit_title.text().strip():
@@ -829,6 +929,7 @@ class NewsEditDialog(QDialog):
 
     def result_data(self) -> dict:
         tests = list(self._selected_tests)
+        samples = list(self._selected_samples)
         links = [
             {"label": lbl.text().strip(), "url": url.text().strip()}
             for lbl, url in self._link_rows
@@ -838,6 +939,7 @@ class NewsEditDialog(QDialog):
             "title": self.edit_title.text().strip(),
             "body": self.edit_body.toPlainText(),
             "target_tests": tests,
+            "target_samples": samples,
             "target_period_from": self.edit_period_from.text().strip(),
             "target_period_to": self.edit_period_to.text().strip(),
             "links": links,
