@@ -599,14 +599,6 @@ class NewsEditDialog(QDialog):
             hl.addWidget(widget, 1)
             return hl
 
-        # 重要フラグ
-        self.chk_important = QCheckBox("重要（一覧の先頭に目立つように表示）")
-        self.chk_important.setStyleSheet(
-            f"QCheckBox {{ font-size:12px; color:{_IMPORTANT_FG}; font-weight:600; }}"
-            f"QCheckBox::indicator:checked {{ background:{_IMPORTANT_FG}; border-color:{_IMPORTANT_FG}; }}"
-        )
-        root.addWidget(self.chk_important)
-
         # タイトル
         self.edit_title = QLineEdit()
         self.edit_title.setPlaceholderText("ニュースタイトル")
@@ -701,6 +693,14 @@ class NewsEditDialog(QDialog):
         )
         self.btn_add_link.clicked.connect(lambda: self._add_link_row())
         root.addWidget(self.btn_add_link)
+
+        # 重要フラグ
+        self.chk_important = QCheckBox("重要（一覧の先頭に目立つように表示）")
+        self.chk_important.setStyleSheet(
+            f"QCheckBox {{ font-size:12px; color:{_IMPORTANT_FG}; font-weight:600; }}"
+            f"QCheckBox::indicator:checked {{ background:{_IMPORTANT_FG}; border-color:{_IMPORTANT_FG}; }}"
+        )
+        root.addWidget(self.chk_important)
 
         root.addStretch()
 
