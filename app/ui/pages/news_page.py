@@ -891,9 +891,8 @@ class NewsEditDialog(QDialog):
     # ── サンプルタグ選択 ─────────────────────────────────────────────────────
 
     def _open_sample_select_dialog(self) -> None:
-        samples = self._get_sample_names()
         dlg = _TestSelectDialog(
-            samples, list(self._selected_samples), parent=self
+            self._available_samples, list(self._selected_samples), parent=self
         )
         dlg.setWindowTitle("サンプルの選択")
         if dlg.exec() == QDialog.DialogCode.Accepted:
