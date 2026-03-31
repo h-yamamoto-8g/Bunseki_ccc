@@ -612,19 +612,36 @@ class NewsEditDialog(QDialog):
         self._style_input(self.edit_title)
         root.addLayout(row("タイトル *", self.edit_title))
 
-        # 対象分析項目（タグ選択）
+        # 分析項目（タグ選択）
         tests_w = QWidget()
-        tests_w.setMinimumHeight(40)
+        tests_w.setFixedHeight(44)
         tests_w.setStyleSheet("background:transparent;")
-        tests_vl = QVBoxLayout(tests_w)
-        tests_vl.setContentsMargins(0, 2, 0, 2)
-        tests_vl.setSpacing(6)
+        tests_hl = QHBoxLayout(tests_w)
+        tests_hl.setContentsMargins(0, 0, 0, 0)
+        tests_hl.setSpacing(6)
 
-        # 選択済みタグ + 追加ボタンを横並びにする行
+        # 選択済みタグ（横スクロール）
         self._selected_tests: list[str] = []
-        self.tags_layout = QHBoxLayout()
+        self._tags_scroll = QScrollArea()
+        self._tags_scroll.setWidgetResizable(True)
+        self._tags_scroll.setFixedHeight(40)
+        self._tags_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._tags_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._tags_scroll.setStyleSheet(
+            "QScrollArea { border:none; background:transparent; }"
+        )
+        self._tags_inner = QWidget()
+        self._tags_inner.setStyleSheet("background:transparent;")
+        self.tags_layout = QHBoxLayout(self._tags_inner)
         self.tags_layout.setContentsMargins(0, 0, 0, 0)
         self.tags_layout.setSpacing(6)
+        self.tags_layout.addStretch()
+        self._tags_scroll.setWidget(self._tags_inner)
+        tests_hl.addWidget(self._tags_scroll, 1)
 
         # + ボタン
         self.btn_add_test = QPushButton("+")
@@ -638,11 +655,9 @@ class NewsEditDialog(QDialog):
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_add_test.clicked.connect(self._open_test_select_dialog)
-        self.tags_layout.addWidget(self.btn_add_test)
-        self.tags_layout.addStretch()
+        tests_hl.addWidget(self.btn_add_test)
 
-        tests_vl.addLayout(self.tags_layout)
-        root.addLayout(row("対象分析項目", tests_w))
+        root.addLayout(row("分析項目", tests_w))
 
         # 対象期間
         period_w = QWidget()
@@ -770,15 +785,17 @@ class NewsEditDialog(QDialog):
             self._rebuild_tags()
 
     def _rebuild_tags(self) -> None:
-        # +ボタンとstretch以外を全て削除（末尾2つを残す）
-        while self.tags_layout.count() > 2:
+        # stretch以外を全て削除（末尾1つを残す）
+        while self.tags_layout.count() > 1:
             item = self.tags_layout.takeAt(0)
             if w := item.widget():
                 w.deleteLater()
-        # 選択済みタグを+ボタンの前に挿入
+        # 選択済みタグをstretchの前に挿入
         for i, t in enumerate(self._selected_tests):
             chip = self._make_tag_chip(t)
             self.tags_layout.insertWidget(i, chip)
+        # スクロール内部のサイズを更新
+        self._tags_inner.adjustSize()
 
     def _make_tag_chip(self, text: str) -> QWidget:
         chip = QWidget()
