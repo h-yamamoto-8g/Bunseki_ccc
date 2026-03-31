@@ -12,6 +12,7 @@ from .page import HomePageUI
 class HomePage(QWidget):
     navigate_to_new_task = Signal()
     navigate_to_task = Signal(str)
+    navigate_to_news = Signal(str)
 
     def __init__(self, task_service: TaskService, parent=None) -> None:
         super().__init__(parent)
@@ -24,6 +25,7 @@ class HomePage(QWidget):
 
         self._ui.navigate_to_new_task.connect(self.navigate_to_new_task)
         self._ui.navigate_to_task.connect(self.navigate_to_task)
+        self._ui.navigate_to_news.connect(self.navigate_to_news)
 
     def refresh(self) -> None:
         tasks = self._task_service.get_all_tasks()

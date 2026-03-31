@@ -424,6 +424,7 @@ class MainWindow(QMainWindow):
 
         self.home_page.navigate_to_new_task.connect(self._open_new_task)
         self.home_page.navigate_to_task.connect(self._open_task)
+        self.home_page.navigate_to_news.connect(self._open_news)
         self.tasks_page.navigate_home.connect(self._go_home)
         self.tasks_page.task_context_changed.connect(self.set_task_context)
         self.tasks_page.task_context_cleared.connect(self.clear_task_context)
@@ -507,6 +508,12 @@ class MainWindow(QMainWindow):
         """ホームページへ戻る。"""
         self.sidebar.set_active("home")
         self._on_page_change("home")
+
+    def _open_news(self, news_id: str) -> None:
+        """ニュースページを開いて対象ニュースを選択する。"""
+        self.sidebar.set_active("news")
+        self._on_page_change("news")
+        self.news_page.select_news(news_id)
 
     # ─── 公開 API ─────────────────────────────────────────────────────────────
 

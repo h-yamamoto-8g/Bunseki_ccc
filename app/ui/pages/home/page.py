@@ -91,6 +91,7 @@ class HomePageUI(QWidget):
 
     navigate_to_new_task = Signal()
     navigate_to_task = Signal(str)
+    navigate_to_news = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -229,6 +230,7 @@ class HomePageUI(QWidget):
 
     def _build_news_card(self, news: dict) -> QWidget:
         """ニュース1件分のカードウィジェットを構築する。"""
+        news_id = news.get("id", "")
         is_important = news.get("is_important", False)
         card = QWidget()
         bg = "#fef2f2" if is_important else "transparent"
@@ -258,6 +260,20 @@ class HomePageUI(QWidget):
         )
         title.setWordWrap(False)
         title_row.addWidget(title, 1)
+
+        # 開くボタン
+        btn_open = QPushButton("開く")
+        btn_open.setFixedHeight(22)
+        btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_open.setStyleSheet(
+            f"QPushButton {{ background:transparent; color:{_ACCENT}; border:none;"
+            f" font-size:11px; font-weight:600; min-height:0px; padding:2px 6px; }}"
+            f"QPushButton:hover {{ text-decoration:underline; }}"
+        )
+        btn_open.clicked.connect(
+            lambda _=False, nid=news_id: self.navigate_to_news.emit(nid)
+        )
+        title_row.addWidget(btn_open)
         vl.addLayout(title_row)
 
         # 日付

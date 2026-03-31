@@ -316,6 +316,18 @@ class NewsPage(QWidget):
     def refresh(self) -> None:
         self._reload_list()
 
+    def select_news(self, news_id: str) -> None:
+        """指定IDのニュースを選択して表示する。"""
+        self._selected_id = news_id
+        self._is_new = False
+        self._reload_list()
+        # リスト内の該当アイテムを選択状態にする
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            if item and item.data(Qt.ItemDataRole.UserRole) == news_id:
+                self.list_widget.setCurrentItem(item)
+                break
+
     # ── 一覧操作 ──────────────────────────────────────────────────────────────
 
     def _reload_list(self) -> None:
