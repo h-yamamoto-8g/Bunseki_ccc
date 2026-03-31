@@ -602,7 +602,9 @@ class NewsEditDialog(QDialog):
         self.setMinimumSize(600, 520)
         self._build_ui()
         if news:
-            self._load(news)
+            # ダイアログ表示後にロードしてレイアウトが正しく計算されるようにする
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._load(news))
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
