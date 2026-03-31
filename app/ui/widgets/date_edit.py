@@ -14,10 +14,12 @@ from datetime import date
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCalendarWidget,
     QHBoxLayout,
     QLineEdit,
     QMenu,
+    QTableView,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -133,24 +135,9 @@ class DateEdit(QWidget):
         cal.setVerticalHeaderFormat(
             QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader
         )
-        # グローバルQSSを上書き（セルのcolorは指定しない→QTextCharFormatを優先）
+        # グローバルQSSを上書き
         cal.setStyleSheet("""
             QCalendarWidget { background:#ffffff; }
-            QCalendarWidget QWidget { background:#ffffff; }
-            QCalendarWidget QTableView {
-                background:#ffffff;
-                selection-background-color:#3b82f6; selection-color:#ffffff;
-            }
-            QCalendarWidget QTableView::item {
-                background:#ffffff;
-                padding:6px;
-            }
-            QCalendarWidget QTableView::item:alternate {
-                background:#ffffff;
-            }
-            QCalendarWidget QTableView::item:selected {
-                background:#3b82f6; color:#ffffff;
-            }
             QCalendarWidget QToolButton {
                 color:#333333; background:#ffffff;
                 border:none; padding:4px 8px;
@@ -158,10 +145,15 @@ class DateEdit(QWidget):
             QCalendarWidget QToolButton:hover { background:#f3f4f6; }
             QCalendarWidget QMenu { color:#333333; background:#ffffff; }
             QCalendarWidget QSpinBox { color:#333333; background:#ffffff; border:none; }
-            QCalendarWidget QAbstractItemView {
-                font-size:13px;
-            }
         """)
+        # 内部テーブルビューのQSSをクリアして QTextCharFormat を優先させる
+        for child in cal.findChildren(QTableView):
+            child.setStyleSheet(
+                "QTableView { background:#ffffff; font-size:13px; }"
+                "QTableView::item { background:#ffffff; padding:6px; }"
+                "QTableView::item:alternate { background:#ffffff; }"
+                "QTableView::item:selected { background:#3b82f6; color:#ffffff; }"
+            )
 
         # 平日: 黒、日曜: 赤、土曜: 青
         fmt_weekday = QTextCharFormat()
