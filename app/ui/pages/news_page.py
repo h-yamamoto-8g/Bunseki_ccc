@@ -7,7 +7,7 @@ from datetime import datetime
 from PySide6.QtCore import Qt, QRect, QSize, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+    QCheckBox, QDialog, QDialogButtonBox,
     QFrame, QHBoxLayout, QLabel, QLayout, QLayoutItem,
     QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy,
@@ -28,6 +28,14 @@ class _FlowLayout(QLayout):
 
     def addItem(self, item: QLayoutItem) -> None:  # noqa: N802
         self._items.append(item)
+
+    def insertWidget(self, index: int, widget: QWidget) -> None:  # noqa: N802
+        """指定位置にウィジェットを挿入する。"""
+        from PySide6.QtWidgets import QWidgetItem
+        self.addChildWidget(widget)
+        item = QWidgetItem(widget)
+        self._items.insert(index, item)
+        self.invalidate()
 
     def count(self) -> int:
         return len(self._items)
@@ -607,28 +615,25 @@ class NewsEditDialog(QDialog):
         tests_vl.setContentsMargins(0, 0, 0, 0)
         tests_vl.setSpacing(6)
 
-        # 選択済みタグ表示エリア（FlowLayout 風）
+        # 選択済みタグ + 追加ボタンを横並びにする行
         self._selected_tests: list[str] = []
-        self.tags_container = QWidget()
-        self.tags_container.setStyleSheet("background:transparent;")
-        self.tags_flow = _FlowLayout(self.tags_container, h_spacing=6, v_spacing=4)
-        tests_vl.addWidget(self.tags_container)
+        tags_row = QWidget()
+        tags_row.setStyleSheet("background:transparent;")
+        self.tags_flow = _FlowLayout(tags_row, h_spacing=6, v_spacing=4)
 
-        # ドロップダウン選択
-        self.combo_tests = QComboBox()
-        self.combo_tests.setFixedHeight(30)
-        self.combo_tests.setStyleSheet(
-            f"QComboBox {{ border:1px solid {_BORDER}; border-radius:4px;"
-            f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
-            f"QComboBox:focus {{ border-color:{_ACCENT}; }}"
-            f"QComboBox QAbstractItemView {{ border:1px solid {_BORDER}; }}"
+        # + ボタン（常にフロー内の末尾に配置）
+        self.btn_add_test = QPushButton("+")
+        self.btn_add_test.setFixedSize(28, 28)
+        self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add_test.setStyleSheet(
+            f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
+            f" border-radius:14px; font-size:16px; font-weight:700; }}"
+            f"QPushButton:hover {{ background:#2563eb; }}"
         )
-        self.combo_tests.addItem("— 分析項目を選択 —")
-        for t in self._available_tests:
-            self.combo_tests.addItem(t)
-        self.combo_tests.currentIndexChanged.connect(self._on_test_combo_changed)
-        tests_vl.addWidget(self.combo_tests)
+        self.btn_add_test.clicked.connect(self._open_test_select_dialog)
+        self.tags_flow.addWidget(self.btn_add_test)
 
+        tests_vl.addWidget(tags_row)
         root.addLayout(row("対象分析項目", tests_w))
 
         # 対象期間
@@ -737,12 +742,13 @@ class NewsEditDialog(QDialog):
 
     # ── タグ選択 ──────────────────────────────────────────────────────────────
 
-    def _on_test_combo_changed(self, index: int) -> None:
-        if index <= 0:
-            return
-        text = self.combo_tests.currentText()
-        self.combo_tests.setCurrentIndex(0)
-        self._add_test_tag(text)
+    def _open_test_select_dialog(self) -> None:
+        dlg = _TestSelectDialog(
+            self._available_tests, list(self._selected_tests), parent=self
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._selected_tests = dlg.selected_tests()
+            self._rebuild_tags()
 
     def _add_test_tag(self, text: str) -> None:
         if not text or text in self._selected_tests:
@@ -756,14 +762,15 @@ class NewsEditDialog(QDialog):
             self._rebuild_tags()
 
     def _rebuild_tags(self) -> None:
-        # FlowLayout 内の全ウィジェットを削除
-        while self.tags_flow.count():
+        # +ボタン以外を全て削除
+        while self.tags_flow.count() > 1:
             item = self.tags_flow.takeAt(0)
             if w := item.widget():
                 w.deleteLater()
-        for t in self._selected_tests:
+        # 選択済みタグを+ボタンの前に挿入
+        for i, t in enumerate(self._selected_tests):
             chip = self._make_tag_chip(t)
-            self.tags_flow.addWidget(chip)
+            self.tags_flow.insertWidget(i, chip)
 
     def _make_tag_chip(self, text: str) -> QWidget:
         chip = QWidget()
@@ -828,3 +835,101 @@ class NewsEditDialog(QDialog):
         lbl = QLabel(text)
         lbl.setStyleSheet(f"font-size:12px; font-weight:600; color:{_TEXT2};")
         return lbl
+
+
+# ── 分析項目選択ダイアログ ─────────────────────────────────────────────────────
+
+class _TestSelectDialog(QDialog):
+    """チェックボックス一覧で分析項目を複数選択するダイアログ。"""
+
+    def __init__(
+        self,
+        available: list[str],
+        current: list[str],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("対象分析項目の選択")
+        self.resize(400, 480)
+        self.setMinimumSize(320, 300)
+        self._checks: list[tuple[QCheckBox, str]] = []
+        self._build_ui(available, current)
+
+    def _build_ui(self, available: list[str], current: list[str]) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 12, 16, 12)
+        root.setSpacing(10)
+
+        # ヘッダー
+        header = QLabel("対象の分析項目を選択してください")
+        header.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT};")
+        root.addWidget(header)
+
+        # 検索フィルター
+        self._edit_filter = QLineEdit()
+        self._edit_filter.setPlaceholderText("検索...")
+        self._edit_filter.setFixedHeight(30)
+        self._edit_filter.setStyleSheet(
+            f"QLineEdit {{ border:1px solid {_BORDER}; border-radius:4px;"
+            f" padding:4px 8px; font-size:12px; color:{_TEXT}; }}"
+            f"QLineEdit:focus {{ border-color:{_ACCENT}; }}"
+        )
+        self._edit_filter.textChanged.connect(self._on_filter)
+        root.addWidget(self._edit_filter)
+
+        # チェックボックス一覧（スクロール）
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border:none; background:transparent; }")
+
+        list_w = QWidget()
+        list_w.setStyleSheet("background:#ffffff; border-radius:6px;")
+        self._list_vl = QVBoxLayout(list_w)
+        self._list_vl.setContentsMargins(8, 8, 8, 8)
+        self._list_vl.setSpacing(2)
+
+        current_set = set(current)
+        for name in available:
+            chk = QCheckBox(name)
+            chk.setChecked(name in current_set)
+            chk.setStyleSheet(
+                f"QCheckBox {{ font-size:12px; color:{_TEXT}; padding:4px 2px; }}"
+                f"QCheckBox::indicator {{ width:16px; height:16px; }}"
+                f"QCheckBox::indicator:checked {{ background:{_ACCENT}; border-color:{_ACCENT}; }}"
+            )
+            self._checks.append((chk, name))
+            self._list_vl.addWidget(chk)
+
+        self._list_vl.addStretch()
+        scroll.setWidget(list_w)
+        root.addWidget(scroll, 1)
+
+        # 選択数ラベル
+        self._lbl_count = QLabel()
+        self._lbl_count.setStyleSheet(f"font-size:11px; color:{_TEXT2};")
+        root.addWidget(self._lbl_count)
+        self._update_count()
+        for chk, _ in self._checks:
+            chk.toggled.connect(lambda: self._update_count())
+
+        # ボタン
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        btns.button(QDialogButtonBox.StandardButton.Ok).setText("決定")
+        btns.button(QDialogButtonBox.StandardButton.Cancel).setText("キャンセル")
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        root.addWidget(btns)
+
+    def _on_filter(self, text: str) -> None:
+        text_lower = text.lower()
+        for chk, name in self._checks:
+            chk.setVisible(text_lower in name.lower())
+
+    def _update_count(self) -> None:
+        n = sum(1 for chk, _ in self._checks if chk.isChecked())
+        self._lbl_count.setText(f"{n} 件選択中")
+
+    def selected_tests(self) -> list[str]:
+        return [name for chk, name in self._checks if chk.isChecked()]
