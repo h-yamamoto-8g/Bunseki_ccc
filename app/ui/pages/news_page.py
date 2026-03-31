@@ -96,6 +96,7 @@ class _FlowLayout(QLayout):
 from app.config import CURRENT_USER
 from app.core import news_store
 from app.services.data_service import DataService
+from app.ui.widgets.date_edit import DateEdit
 
 # ── デザイントークン ──────────────────────────────────────────────────────────
 _BG   = "#f8fafc"
@@ -664,16 +665,12 @@ class NewsEditDialog(QDialog):
         pl = QHBoxLayout(period_w)
         pl.setContentsMargins(0, 0, 0, 0)
         pl.setSpacing(8)
-        self.edit_period_from = QLineEdit()
-        self.edit_period_from.setPlaceholderText("YYYY-MM-DD")
-        self.edit_period_from.setFixedWidth(130)
-        self._style_input(self.edit_period_from)
+        self.edit_period_from = DateEdit()
+        self.edit_period_from.setFixedWidth(170)
         pl.addWidget(self.edit_period_from)
         pl.addWidget(QLabel("〜"))
-        self.edit_period_to = QLineEdit()
-        self.edit_period_to.setPlaceholderText("YYYY-MM-DD")
-        self.edit_period_to.setFixedWidth(130)
-        self._style_input(self.edit_period_to)
+        self.edit_period_to = DateEdit()
+        self.edit_period_to.setFixedWidth(170)
         pl.addWidget(self.edit_period_to)
         pl.addStretch()
         root.addLayout(row("対象期間", period_w))

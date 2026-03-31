@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from app.services.data_service import DataService
 from app.ui.states.result_verification.state import TrendDialog
+from app.ui.widgets.date_edit import DateEdit
 from app.ui.widgets.icon_utils import get_icon
 from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
@@ -112,10 +113,12 @@ class DataPage(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(12)
         row1.addWidget(self._label("サンプリング日"))
-        self.edit_date_from = self._input("YYYY-MM-DD", 120)
+        self.edit_date_from = DateEdit()
+        self.edit_date_from.setFixedWidth(170)
         row1.addWidget(self.edit_date_from)
         row1.addWidget(self._label("〜"))
-        self.edit_date_to = self._input("YYYY-MM-DD", 120)
+        self.edit_date_to = DateEdit()
+        self.edit_date_to.setFixedWidth(170)
         row1.addWidget(self.edit_date_to)
         row1.addSpacing(20)
         row1.addWidget(self._label("依頼番号"))

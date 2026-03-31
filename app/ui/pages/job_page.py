@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from app.config import CURRENT_USER
 from app.services.job_service import JobService
+from app.ui.widgets.date_edit import DateEdit
 from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 # ── デザイントークン ──────────────────────────────────────────────────────────
@@ -251,15 +252,11 @@ class JobEditDialog(QDialog):
         root.addLayout(self._row("JOB番号 *", self.edit_job_number))
 
         # 開始日
-        self.edit_start_date = QLineEdit()
-        self.edit_start_date.setPlaceholderText("YYYY-MM-DD")
-        self._style_input(self.edit_start_date)
+        self.edit_start_date = DateEdit()
         root.addLayout(self._row("開始日 *", self.edit_start_date))
 
         # 終了日
-        self.edit_end_date = QLineEdit()
-        self.edit_end_date.setPlaceholderText("YYYY-MM-DD")
-        self._style_input(self.edit_end_date)
+        self.edit_end_date = DateEdit()
         root.addLayout(self._row("終了日 *", self.edit_end_date))
 
         # メモ
@@ -298,10 +295,7 @@ class JobEditDialog(QDialog):
         if not start or not end:
             QMessageBox.warning(self, "入力エラー", "開始日と終了日を入力してください。")
             return
-        import re
-
-        date_re = r"^\d{4}-\d{2}-\d{2}$"
-        if not re.match(date_re, start) or not re.match(date_re, end):
+        if not self.edit_start_date.isValid() or not self.edit_end_date.isValid():
             QMessageBox.warning(
                 self, "入力エラー", "日付はYYYY-MM-DD形式で入力してください。"
             )
