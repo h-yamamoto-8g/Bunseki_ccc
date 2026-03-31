@@ -334,7 +334,7 @@ class NewsPage(QWidget):
         w = QWidget()
         if is_important:
             w.setStyleSheet(
-                f"background:{_IMPORTANT_BG}; border-left:3px solid {_IMPORTANT_FG};"
+                f"background:{_IMPORTANT_BG};"
             )
         else:
             w.setStyleSheet("background:transparent;")
