@@ -633,7 +633,8 @@ class NewsEditDialog(QDialog):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self._tags_scroll.setStyleSheet(
-            "QScrollArea { border:none; background:transparent; }"
+            f"QScrollArea {{ border:1px solid {_BORDER}; border-radius:6px;"
+            f" background:#ffffff; }}"
         )
         self._tags_inner = QWidget()
         self._tags_inner.setStyleSheet("background:transparent;")
