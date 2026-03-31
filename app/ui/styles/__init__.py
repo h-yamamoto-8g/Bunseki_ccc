@@ -262,7 +262,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 QSplitter::handle { background: #e5e7eb; }
 
 /* ── カレンダー ── */
-QCalendarWidget QWidget { background: #ffffff; color: #333333; }
+QCalendarWidget QWidget { background: #ffffff; }
 QCalendarWidget QToolButton {
     color: #333333; background: #ffffff;
     border: none; padding: 4px 8px;
@@ -270,7 +270,7 @@ QCalendarWidget QToolButton {
 QCalendarWidget QToolButton:hover { background: #f3f4f6; }
 QCalendarWidget QMenu { color: #333333; background: #ffffff; }
 QCalendarWidget QSpinBox { color: #333333; background: #ffffff; border: none; }
-QCalendarWidget QAbstractItemView:enabled { color: #333333; background: #ffffff; }
+QCalendarWidget QAbstractItemView:enabled { background: #ffffff; }
 QCalendarWidget QAbstractItemView:disabled { color: #9ca3af; }
 QCalendarWidget QAbstractItemView:selected { background: #3b82f6; color: white; }
 
