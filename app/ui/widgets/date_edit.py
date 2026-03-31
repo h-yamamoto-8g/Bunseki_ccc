@@ -128,21 +128,22 @@ class DateEdit(QWidget):
         )
 
         cal = QCalendarWidget()
+        cal.setMinimumSize(300, 250)
         cal.setGridVisible(False)
         cal.setVerticalHeaderFormat(
             QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader
         )
-        # グローバルQSSのQTableView/QWidget設定を完全に上書き
+        # グローバルQSSを上書き（セルのcolorは指定しない→QTextCharFormatを優先）
         cal.setStyleSheet("""
             QCalendarWidget { background:#ffffff; }
-            QCalendarWidget QWidget { background:#ffffff; color:#333333; }
+            QCalendarWidget QWidget { background:#ffffff; }
             QCalendarWidget QTableView {
-                background:#ffffff; color:#333333;
+                background:#ffffff;
                 selection-background-color:#3b82f6; selection-color:#ffffff;
             }
             QCalendarWidget QTableView::item {
-                background:#ffffff; color:#333333;
-                padding:4px;
+                background:#ffffff;
+                padding:6px;
             }
             QCalendarWidget QTableView::item:alternate {
                 background:#ffffff;
@@ -157,6 +158,9 @@ class DateEdit(QWidget):
             QCalendarWidget QToolButton:hover { background:#f3f4f6; }
             QCalendarWidget QMenu { color:#333333; background:#ffffff; }
             QCalendarWidget QSpinBox { color:#333333; background:#ffffff; border:none; }
+            QCalendarWidget QAbstractItemView {
+                font-size:13px;
+            }
         """)
 
         # 平日: 黒、日曜: 赤、土曜: 青
