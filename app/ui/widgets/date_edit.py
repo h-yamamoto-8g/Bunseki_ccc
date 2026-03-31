@@ -132,6 +132,32 @@ class DateEdit(QWidget):
         cal.setVerticalHeaderFormat(
             QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader
         )
+        # グローバルQSSのQTableView/QWidget設定を完全に上書き
+        cal.setStyleSheet("""
+            QCalendarWidget { background:#ffffff; }
+            QCalendarWidget QWidget { background:#ffffff; color:#333333; }
+            QCalendarWidget QTableView {
+                background:#ffffff; color:#333333;
+                selection-background-color:#3b82f6; selection-color:#ffffff;
+            }
+            QCalendarWidget QTableView::item {
+                background:#ffffff; color:#333333;
+                padding:4px;
+            }
+            QCalendarWidget QTableView::item:alternate {
+                background:#ffffff;
+            }
+            QCalendarWidget QTableView::item:selected {
+                background:#3b82f6; color:#ffffff;
+            }
+            QCalendarWidget QToolButton {
+                color:#333333; background:#ffffff;
+                border:none; padding:4px 8px;
+            }
+            QCalendarWidget QToolButton:hover { background:#f3f4f6; }
+            QCalendarWidget QMenu { color:#333333; background:#ffffff; }
+            QCalendarWidget QSpinBox { color:#333333; background:#ffffff; border:none; }
+        """)
 
         # 平日: 黒、日曜: 赤、土曜: 青
         fmt_weekday = QTextCharFormat()
