@@ -888,6 +888,30 @@ class _TestSelectDialog(QDialog):
         self._edit_filter.textChanged.connect(self._on_filter)
         root.addWidget(self._edit_filter)
 
+        # 全選択 / 全解除ボタン
+        sel_row = QHBoxLayout()
+        sel_row.setSpacing(8)
+        btn_all = QPushButton("全選択")
+        btn_all.setStyleSheet(
+            f"QPushButton {{ font-size:11px; color:{_ACCENT}; background:transparent;"
+            f" border:none; padding:2px 4px; min-height:0px; }}"
+            f"QPushButton:hover {{ text-decoration:underline; }}"
+        )
+        btn_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_all.clicked.connect(self._select_all)
+        sel_row.addWidget(btn_all)
+        btn_none = QPushButton("全解除")
+        btn_none.setStyleSheet(
+            f"QPushButton {{ font-size:11px; color:{_TEXT2}; background:transparent;"
+            f" border:none; padding:2px 4px; min-height:0px; }}"
+            f"QPushButton:hover {{ text-decoration:underline; }}"
+        )
+        btn_none.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_none.clicked.connect(self._deselect_all)
+        sel_row.addWidget(btn_none)
+        sel_row.addStretch()
+        root.addLayout(sel_row)
+
         # チェックボックス一覧（スクロール）
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -932,6 +956,18 @@ class _TestSelectDialog(QDialog):
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         root.addWidget(btns)
+
+    def _select_all(self) -> None:
+        for chk, _ in self._checks:
+            if chk.isVisible():
+                chk.setChecked(True)
+        self._update_count()
+
+    def _deselect_all(self) -> None:
+        for chk, _ in self._checks:
+            if chk.isVisible():
+                chk.setChecked(False)
+        self._update_count()
 
     def _on_filter(self, text: str) -> None:
         text_lower = text.lower()
