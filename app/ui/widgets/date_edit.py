@@ -11,14 +11,17 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from PySide6.QtCore import Qt, QDate, Signal
-from PySide6.QtGui import QColor, QTextCharFormat
+from PySide6.QtCore import Qt, QDate, QModelIndex, Signal
+from PySide6.QtGui import QColor, QPainter, QTextCharFormat
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCalendarWidget,
     QHBoxLayout,
     QLineEdit,
     QMenu,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableView,
     QToolButton,
     QVBoxLayout,
@@ -34,6 +37,35 @@ _ACCENT = "#3b82f6"
 _TEXT = "#1e293b"
 _TEXT2 = "#64748b"
 _ERROR = "#ef4444"
+
+
+class _CalendarDelegate(QStyledItemDelegate):
+    """カレンダーの日付セルを曜日ごとに色分けして描画するデリゲート。"""
+
+    _COLORS = {
+        0: QColor("#dc2626"),  # 日曜（列0）
+        6: QColor("#2563eb"),  # 土曜（列6）
+    }
+    _DEFAULT = QColor("#333333")
+
+    def paint(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+    ) -> None:
+        # 選択中セルはデフォルト描画（青背景+白文字）
+        if option.state & QStyle.StateFlag.State_Selected:
+            super().paint(painter, option, index)
+            return
+        # 背景を白で塗る
+        painter.fillRect(option.rect, QColor("#ffffff"))
+        # 曜日に応じた文字色を設定
+        col = index.column()
+        color = self._COLORS.get(col, self._DEFAULT)
+        painter.setPen(color)
+        painter.drawText(
+            option.rect,
+            Qt.AlignmentFlag.AlignCenter,
+            index.data() or "",
+        )
 
 
 class DateEdit(QWidget):
@@ -146,35 +178,13 @@ class DateEdit(QWidget):
             QCalendarWidget QMenu { color:#333333; background:#ffffff; }
             QCalendarWidget QSpinBox { color:#333333; background:#ffffff; border:none; }
         """)
-        # 内部テーブルビューのQSSをクリアして QTextCharFormat を優先させる
+        # 内部テーブルビューにカスタムデリゲートを設定して曜日色を強制
         for child in cal.findChildren(QTableView):
             child.setStyleSheet(
                 "QTableView { background:#ffffff; font-size:13px; }"
-                "QTableView::item { background:#ffffff; padding:6px; }"
-                "QTableView::item:alternate { background:#ffffff; }"
-                "QTableView::item:selected { background:#3b82f6; color:#ffffff; }"
+                "QTableView::item { padding:6px; }"
             )
-
-        # 平日: 黒、日曜: 赤、土曜: 青
-        fmt_weekday = QTextCharFormat()
-        fmt_weekday.setForeground(QColor("#333333"))
-        fmt_weekday.setBackground(QColor("#ffffff"))
-        for d in (
-            Qt.DayOfWeek.Monday, Qt.DayOfWeek.Tuesday,
-            Qt.DayOfWeek.Wednesday, Qt.DayOfWeek.Thursday,
-            Qt.DayOfWeek.Friday,
-        ):
-            cal.setWeekdayTextFormat(d, fmt_weekday)
-
-        fmt_sunday = QTextCharFormat()
-        fmt_sunday.setForeground(QColor("#dc2626"))
-        fmt_sunday.setBackground(QColor("#ffffff"))
-        cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt_sunday)
-
-        fmt_saturday = QTextCharFormat()
-        fmt_saturday.setForeground(QColor("#2563eb"))
-        fmt_saturday.setBackground(QColor("#ffffff"))
-        cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt_saturday)
+            child.setItemDelegate(_CalendarDelegate(child))
 
         # 現在の入力値があればカレンダーに反映
         text = self.text()
