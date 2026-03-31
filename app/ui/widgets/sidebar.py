@@ -135,7 +135,7 @@ class _NavButton(QToolButton):
             """)
 
 
-class Sidebar(QFrame):
+class Sidebar(QWidget):
     """アプリケーションサイドバーナビゲーション（75px 幅）。
 
     MainWindow.ui の frame_sidebar 仕様に準拠。

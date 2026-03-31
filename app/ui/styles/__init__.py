@@ -20,7 +20,6 @@ QWidget#frame_sidebar {
     background: #ffffff;
     border-right: none;
 }
-/* border-right は sidebar.py で直接設定 */
 
 /* ── メインエリア ── */
 QWidget#widget_main {
@@ -28,7 +27,6 @@ QWidget#widget_main {
 }
 
 /* ── ヘッダー ── */
-QWidget#widget_header {
 QWidget#widget_header {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
@@ -68,11 +66,6 @@ QLabel#label_user   { color: #9ca3af; font-size: 11px; }
 QWidget#widget_step {
     background: #ffffff;
     border-bottom: 1px solid #e5e7eb;
-}
-
-/* ── ページスタック ── */
-QStackedWidget#stack_pages {
-    padding-top: 12px;
 }
 
 /* ── ページスタック ── */
