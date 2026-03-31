@@ -598,8 +598,8 @@ class NewsEditDialog(QDialog):
         self._link_rows: list[tuple[QLineEdit, QLineEdit]] = []
 
         self.setWindowTitle("ニュース編集" if news else "ニュース作成")
-        self.resize(620, 640)
-        self.setMinimumSize(500, 480)
+        self.resize(700, 720)
+        self.setMinimumSize(600, 520)
         self._build_ui()
         if news:
             self._load(news)
@@ -791,6 +791,9 @@ class NewsEditDialog(QDialog):
         self.edit_body.setPlainText(news.get("body", ""))
         for link in news.get("links", []):
             self._add_link_row(link.get("label", ""), link.get("url", ""))
+        # タグ復元後にスクロール内部サイズを更新
+        self._tags_inner.adjustSize()
+        self._samples_inner.adjustSize()
 
     def _add_link_row(self, label: str = "", url: str = "") -> None:
         row_w = QWidget()
