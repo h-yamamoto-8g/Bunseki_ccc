@@ -674,7 +674,7 @@ class NewsEditDialog(QDialog):
             f" border-radius:5px; font-size:12px; }}"
             f"QPushButton:hover {{ background:#eff6ff; }}"
         )
-        self.btn_add_link.clicked.connect(self._add_link_row)
+        self.btn_add_link.clicked.connect(lambda: self._add_link_row())
         root.addWidget(self.btn_add_link)
 
         root.addStretch()
