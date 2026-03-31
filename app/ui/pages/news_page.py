@@ -627,7 +627,8 @@ class NewsEditDialog(QDialog):
         self.btn_add_test.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_add_test.setStyleSheet(
             f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" border-radius:14px; font-size:16px; font-weight:700; }}"
+            f" border-radius:14px; font-size:16px; font-weight:700;"
+            f" min-height:0px; padding:0px; }}"
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self.btn_add_test.clicked.connect(self._open_test_select_dialog)
@@ -725,7 +726,8 @@ class NewsEditDialog(QDialog):
         btn_del.setFixedSize(28, 28)
         btn_del.setStyleSheet(
             f"QPushButton {{ background:#fef2f2; color:{_DANGER}; border:none;"
-            f" border-radius:4px; font-size:14px; }}"
+            f" border-radius:4px; font-size:14px; font-weight:700;"
+            f" min-height:0px; padding:0px; }}"
             f"QPushButton:hover {{ background:#fee2e2; }}"
         )
         pair = (edit_label, edit_url)
@@ -788,9 +790,10 @@ class NewsEditDialog(QDialog):
         btn.setFixedSize(18, 18)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(
-            "QPushButton { background:transparent; color:#93c5fd;"
-            " border:none; font-size:13px; font-weight:700; }"
-            "QPushButton:hover { color:#2563eb; }"
+            "QPushButton { background:transparent; color:#3b82f6;"
+            " border:none; font-size:13px; font-weight:700;"
+            " min-height:0px; padding:0px; }"
+            "QPushButton:hover { color:#1d4ed8; }"
         )
         btn.clicked.connect(lambda _=False, t=text: self._remove_test_tag(t))
         hl.addWidget(btn)
@@ -850,6 +853,8 @@ class _TestSelectDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("対象分析項目の選択")
+        self.setStyleSheet("QDialog { background:#f9fafb; }")
+        self.setModal(True)
         self.resize(400, 480)
         self.setMinimumSize(320, 300)
         self._checks: list[tuple[QCheckBox, str]] = []
