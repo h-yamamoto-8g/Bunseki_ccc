@@ -126,7 +126,7 @@ class EquipmentTab(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
+        root.setContentsMargins(12, 4, 12, 12)
         root.setSpacing(8)
 
         header = QHBoxLayout()
@@ -366,7 +366,7 @@ class ReagentTab(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
+        root.setContentsMargins(12, 4, 12, 12)
         root.setSpacing(8)
 
         header = QHBoxLayout()
