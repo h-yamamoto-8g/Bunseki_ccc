@@ -164,6 +164,7 @@ class EquipmentTab(QWidget):
         header.addWidget(self.btn_new)
 
         root.addLayout(header)
+        root.addSpacing(4)
 
         self.table = QTableWidget()
         self.table.setColumnCount(3)
@@ -409,6 +410,7 @@ class ReagentTab(QWidget):
         header.addWidget(self.btn_new)
 
         root.addLayout(header)
+        root.addSpacing(4)
 
         self.table = QTableWidget()
         self.table.setColumnCount(6)
