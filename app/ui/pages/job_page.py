@@ -66,24 +66,41 @@ class JobPage(QWidget):
         )
         self.btn_new.clicked.connect(self._on_new)
         header.addWidget(self.btn_new)
+
+        self.btn_edit = QPushButton("編集")
+        self.btn_edit.setFixedHeight(28)
+        self.btn_edit.setStyleSheet(
+            f"QPushButton {{ background:{_BG2}; color:{_TEXT2}; border:1px solid {_BORDER};"
+            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#f1f5f9; }}"
+        )
+        self.btn_edit.clicked.connect(self._on_edit_selected)
+        header.addWidget(self.btn_edit)
+
+        self.btn_del = QPushButton("削除")
+        self.btn_del.setFixedHeight(28)
+        self.btn_del.setStyleSheet(
+            f"QPushButton {{ background:#fef2f2; color:{_DANGER}; border:1px solid #fecaca;"
+            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#fee2e2; }}"
+        )
+        self.btn_del.clicked.connect(self._on_delete_selected)
+        header.addWidget(self.btn_del)
+
         root.addLayout(header)
 
         # テーブル
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(
-            ["JOB番号", "開始日", "終了日", "メモ", "状態", "操作"]
+            ["JOB番号", "開始日", "終了日", "メモ", "状態"]
         )
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
-        self.table.horizontalHeader().setSectionResizeMode(
-            5, QHeaderView.ResizeMode.Fixed
-        )
-        self.table.setColumnWidth(5, 140)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.verticalHeader().setDefaultSectionSize(40)
+        self.table.verticalHeader().setDefaultSectionSize(36)
         enable_row_numbers_and_sort(self.table, self._on_sort_column)
         self.table.setStyleSheet(
             f"QTableWidget {{ border:1px solid {_BORDER}; border-radius:6px;"
@@ -141,42 +158,25 @@ class JobPage(QWidget):
             )
             self.table.setItem(row, 4, status_item)
 
-            # 操作ボタン
-            actions = QWidget()
-            hl = QHBoxLayout(actions)
-            hl.setContentsMargins(4, 2, 4, 2)
-            hl.setSpacing(4)
-
-            btn_edit = QPushButton("編集")
-            btn_edit.setFixedHeight(22)
-            btn_edit.setStyleSheet(
-                f"QPushButton {{ background:{_BG2}; color:{_TEXT2};"
-                f" border:1px solid {_BORDER}; padding:1px 8px;"
-                f" border-radius:4px; font-size:11px; }}"
-                f"QPushButton:hover {{ background:#f1f5f9; }}"
-            )
-            job_id = job["id"]
-            btn_edit.clicked.connect(
-                lambda _=False, jid=job_id: self._on_edit(jid)
-            )
-            hl.addWidget(btn_edit)
-
-            btn_del = QPushButton("削除")
-            btn_del.setFixedHeight(22)
-            btn_del.setStyleSheet(
-                f"QPushButton {{ background:#fef2f2; color:{_DANGER};"
-                f" border:1px solid #fecaca; padding:1px 8px;"
-                f" border-radius:4px; font-size:11px; }}"
-                f"QPushButton:hover {{ background:#fee2e2; }}"
-            )
-            btn_del.clicked.connect(
-                lambda _=False, jid=job_id: self._on_delete(jid)
-            )
-            hl.addWidget(btn_del)
-
-            self.table.setCellWidget(row, 5, actions)
-
     # ── ハンドラ ──────────────────────────────────────────────────────────────
+
+    def _get_selected_job_id(self) -> str | None:
+        """選択行のjob_idを返す。未選択ならメッセージを出してNone。"""
+        row = self.table.currentRow()
+        if row < 0 or not hasattr(self, "_jobs_data") or row >= len(self._jobs_data):
+            QMessageBox.information(self, "選択なし", "行を選択してください。")
+            return None
+        return self._jobs_data[row]["id"]
+
+    def _on_edit_selected(self) -> None:
+        job_id = self._get_selected_job_id()
+        if job_id:
+            self._on_edit(job_id)
+
+    def _on_delete_selected(self) -> None:
+        job_id = self._get_selected_job_id()
+        if job_id:
+            self._on_delete(job_id)
 
     def _on_new(self) -> None:
         dlg = JobEditDialog(parent=self)
