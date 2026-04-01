@@ -57,16 +57,6 @@ class JobPage(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        self.btn_new = QPushButton("+ 新規")
-        self.btn_new.setFixedHeight(28)
-        self.btn_new.setStyleSheet(
-            f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
-            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600; }}"
-            f"QPushButton:hover {{ background:#2563eb; }}"
-        )
-        self.btn_new.clicked.connect(self._on_new)
-        header.addWidget(self.btn_new)
-
         self.btn_edit = QPushButton("編集")
         self.btn_edit.setFixedHeight(28)
         self.btn_edit.setStyleSheet(
@@ -86,6 +76,16 @@ class JobPage(QWidget):
         )
         self.btn_del.clicked.connect(self._on_delete_selected)
         header.addWidget(self.btn_del)
+
+        self.btn_new = QPushButton("+ 新規")
+        self.btn_new.setFixedHeight(28)
+        self.btn_new.setStyleSheet(
+            f"QPushButton {{ background:{_ACCENT}; color:white; border:none;"
+            f" padding:4px 12px; border-radius:5px; font-size:12px; font-weight:600; }}"
+            f"QPushButton:hover {{ background:#2563eb; }}"
+        )
+        self.btn_new.clicked.connect(self._on_new)
+        header.addWidget(self.btn_new)
 
         root.addLayout(header)
 
