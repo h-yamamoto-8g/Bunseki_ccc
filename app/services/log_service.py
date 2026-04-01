@@ -1,6 +1,6 @@
 """ログページのサービス層。
 
-分析装置マスタと調整試薬マスタ＋履歴の操作を提供する。
+分析装置マスタと調整試薬マスタの操作を提供する。
 UIはこのクラスのみを通じてデータを操作する。
 """
 from __future__ import annotations
@@ -52,40 +52,15 @@ class LogService:
         holder_group_code: str,
         holder_group_name: str,
         created_by: str,
+        preparation_date: str = "",
     ) -> dict:
         return reagent_store.create(
-            name, shelf_life_days, holder_group_code, holder_group_name, created_by,
+            name, shelf_life_days, holder_group_code, holder_group_name,
+            created_by, preparation_date,
         )
 
-    def update_reagent(self, item_id: str, **fields) -> dict | None:
-        return reagent_store.update(item_id, **fields)
+    def update_reagent(self, item_id: str, updated_by: str, **fields) -> dict | None:
+        return reagent_store.update(item_id, updated_by, **fields)
 
     def delete_reagent(self, item_id: str) -> bool:
         return reagent_store.delete(item_id)
-
-    # ── 調整試薬履歴 ──────────────────────────────────────────────────────────
-
-    def get_reagent_history(self, reagent_id: str) -> list[dict]:
-        return reagent_store.get_history(reagent_id)
-
-    def get_all_reagent_history(self) -> list[dict]:
-        return reagent_store.get_all_history()
-
-    def create_reagent_history(
-        self,
-        reagent_id: str,
-        preparation_date: str,
-        shelf_life_days: int,
-        prepared_by: str,
-    ) -> dict:
-        return reagent_store.create_history(
-            reagent_id, preparation_date, shelf_life_days, prepared_by,
-        )
-
-    def update_reagent_history(
-        self, history_id: str, preparation_date: str, shelf_life_days: int,
-    ) -> dict | None:
-        return reagent_store.update_history(history_id, preparation_date, shelf_life_days)
-
-    def delete_reagent_history(self, history_id: str) -> bool:
-        return reagent_store.delete_history(history_id)

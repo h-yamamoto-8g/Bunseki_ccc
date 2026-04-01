@@ -331,19 +331,13 @@ class EquipmentDialog(QDialog):
 
 
 class ReagentTab(QWidget):
-    """調整試薬マスタ + 履歴管理。
-
-    上半分: マスタ一覧
-    下半分: 選択した試薬の調整履歴
-    """
+    """調整試薬マスタ — 試薬名・分析項目・保存可能期間・最新調整日・使用期限・状態。"""
 
     def __init__(self, svc: LogService, ds: DataService, parent: QWidget | None = None):
         super().__init__(parent)
         self._svc = svc
         self._ds = ds
-        self._master_data: list[dict] = []
-        self._history_data: list[dict] = []
-        self._selected_reagent: dict | None = None
+        self._data: list[dict] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -351,144 +345,114 @@ class ReagentTab(QWidget):
         root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(8)
 
-        # ── マスタ部 ──
-        master_header = QHBoxLayout()
-        lbl = QLabel("試薬マスタ")
-        lbl.setStyleSheet(f"font-size:14px; font-weight:600; color:{_TEXT};")
-        master_header.addWidget(lbl)
-        master_header.addStretch()
+        header = QHBoxLayout()
+        header.addStretch()
 
-        self.btn_m_edit = QPushButton("編集")
-        self.btn_m_edit.setFixedHeight(28)
-        self.btn_m_edit.setStyleSheet(_BTN_SECONDARY)
-        self.btn_m_edit.clicked.connect(self._on_master_edit)
-        master_header.addWidget(self.btn_m_edit)
+        self.btn_log = QPushButton("変更履歴")
+        self.btn_log.setFixedHeight(28)
+        self.btn_log.setStyleSheet(_BTN_SECONDARY)
+        self.btn_log.clicked.connect(self._on_change_log)
+        header.addWidget(self.btn_log)
 
-        self.btn_m_del = QPushButton("削除")
-        self.btn_m_del.setFixedHeight(28)
-        self.btn_m_del.setStyleSheet(_BTN_DANGER)
-        self.btn_m_del.clicked.connect(self._on_master_delete)
-        master_header.addWidget(self.btn_m_del)
+        self.btn_edit = QPushButton("編集")
+        self.btn_edit.setFixedHeight(28)
+        self.btn_edit.setStyleSheet(_BTN_SECONDARY)
+        self.btn_edit.clicked.connect(self._on_edit)
+        header.addWidget(self.btn_edit)
 
-        self.btn_m_new = QPushButton("+ 新規")
-        self.btn_m_new.setFixedHeight(28)
-        self.btn_m_new.setStyleSheet(_BTN_PRIMARY)
-        self.btn_m_new.clicked.connect(self._on_master_new)
-        master_header.addWidget(self.btn_m_new)
+        self.btn_del = QPushButton("削除")
+        self.btn_del.setFixedHeight(28)
+        self.btn_del.setStyleSheet(_BTN_DANGER)
+        self.btn_del.clicked.connect(self._on_delete)
+        header.addWidget(self.btn_del)
 
-        root.addLayout(master_header)
+        self.btn_new = QPushButton("+ 新規")
+        self.btn_new.setFixedHeight(28)
+        self.btn_new.setStyleSheet(_BTN_PRIMARY)
+        self.btn_new.clicked.connect(self._on_new)
+        header.addWidget(self.btn_new)
 
-        self.master_table = QTableWidget()
-        self.master_table.setColumnCount(3)
-        self.master_table.setHorizontalHeaderLabels(["試薬名", "保存可能期間", "分析項目"])
-        self.master_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.master_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.master_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.master_table.verticalHeader().setDefaultSectionSize(36)
-        self.master_table.setStyleSheet(_TABLE_STYLE)
-        self.master_table.clicked.connect(self._on_master_selected)
-        enable_row_numbers_and_sort(self.master_table, self._on_master_sort)
-        root.addWidget(self.master_table, 1)
+        root.addLayout(header)
 
-        # ── 履歴部 ──
-        hist_header = QHBoxLayout()
-        self.lbl_history = QLabel("調整履歴")
-        self.lbl_history.setStyleSheet(f"font-size:14px; font-weight:600; color:{_TEXT};")
-        hist_header.addWidget(self.lbl_history)
-        hist_header.addStretch()
-
-        self.btn_h_edit = QPushButton("編集")
-        self.btn_h_edit.setFixedHeight(28)
-        self.btn_h_edit.setStyleSheet(_BTN_SECONDARY)
-        self.btn_h_edit.clicked.connect(self._on_history_edit)
-        hist_header.addWidget(self.btn_h_edit)
-
-        self.btn_h_del = QPushButton("削除")
-        self.btn_h_del.setFixedHeight(28)
-        self.btn_h_del.setStyleSheet(_BTN_DANGER)
-        self.btn_h_del.clicked.connect(self._on_history_delete)
-        hist_header.addWidget(self.btn_h_del)
-
-        self.btn_h_new = QPushButton("+ 調整記録")
-        self.btn_h_new.setFixedHeight(28)
-        self.btn_h_new.setStyleSheet(_BTN_PRIMARY)
-        self.btn_h_new.clicked.connect(self._on_history_new)
-        hist_header.addWidget(self.btn_h_new)
-
-        root.addLayout(hist_header)
-
-        self.history_table = QTableWidget()
-        self.history_table.setColumnCount(4)
-        self.history_table.setHorizontalHeaderLabels(
-            ["調整日", "使用期限", "状態", "調整者"]
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(
+            ["試薬名", "分析項目", "保存可能期間", "最新調整日", "使用期限", "状態"]
         )
-        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.history_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.history_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.history_table.verticalHeader().setDefaultSectionSize(36)
-        self.history_table.setStyleSheet(_TABLE_STYLE)
-        enable_row_numbers_and_sort(self.history_table, self._on_history_sort)
-        root.addWidget(self.history_table, 1)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setDefaultSectionSize(36)
+        self.table.setStyleSheet(_TABLE_STYLE)
+        enable_row_numbers_and_sort(self.table, self._on_sort)
+        root.addWidget(self.table, 1)
 
-    # ── マスタ操作 ────────────────────────────────────────────────────────────
+    _SORT_KEYS = [
+        "name", "holder_group_name", "shelf_life_days",
+        "preparation_date", "expiry_date", "",
+    ]
 
-    _MASTER_SORT_KEYS = ["name", "shelf_life_days", "holder_group_name"]
-
-    def _on_master_sort(self, col: int, ascending: bool) -> None:
-        if col < len(self._MASTER_SORT_KEYS):
-            key = self._MASTER_SORT_KEYS[col]
-            self._master_data.sort(key=lambda x: x.get(key, ""), reverse=not ascending)
-            self._populate_master(self._master_data)
+    def _on_sort(self, col: int, ascending: bool) -> None:
+        if col < len(self._SORT_KEYS) and self._SORT_KEYS[col]:
+            key = self._SORT_KEYS[col]
+            self._data.sort(key=lambda x: x.get(key, ""), reverse=not ascending)
+            self._populate(self._data)
 
     def refresh(self) -> None:
-        self._master_data = self._svc.get_all_reagents()
-        self._populate_master(self._master_data)
-        self._selected_reagent = None
-        self._history_data = []
-        self._populate_history([])
-        self.lbl_history.setText("調整履歴")
+        self._data = self._svc.get_all_reagents()
+        self._populate(self._data)
 
-    def _populate_master(self, items: list[dict]) -> None:
-        self.master_table.setRowCount(len(items))
+    def _populate(self, items: list[dict]) -> None:
+        self.table.setRowCount(len(items))
+        today = date.today().isoformat()
         for row, item in enumerate(items):
-            self.master_table.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
+            self.table.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
+            self.table.setItem(row, 1, QTableWidgetItem(item.get("holder_group_name", "")))
+
             days = item.get("shelf_life_days", 0)
             shelf_text = "使い切り" if days == 0 else f"{days}日"
-            self.master_table.setItem(row, 1, QTableWidgetItem(shelf_text))
-            self.master_table.setItem(row, 2, QTableWidgetItem(item.get("holder_group_name", "")))
+            self.table.setItem(row, 2, QTableWidgetItem(shelf_text))
 
-    def _on_master_selected(self) -> None:
-        row = self.master_table.currentRow()
-        if row < 0 or row >= len(self._master_data):
-            return
-        self._selected_reagent = self._master_data[row]
-        reagent_id = self._selected_reagent["id"]
-        self._history_data = self._svc.get_reagent_history(reagent_id)
-        self._populate_history(self._history_data)
-        self.lbl_history.setText(f"調整履歴 — {self._selected_reagent.get('name', '')}")
+            self.table.setItem(row, 3, QTableWidgetItem(item.get("preparation_date", "")))
+            self.table.setItem(row, 4, QTableWidgetItem(item.get("expiry_date", "")))
 
-    def _get_selected_master_id(self) -> str | None:
-        row = self.master_table.currentRow()
-        if row < 0 or row >= len(self._master_data):
-            QMessageBox.information(self, "選択なし", "試薬を選択してください。")
+            expiry = item.get("expiry_date", "")
+            prep = item.get("preparation_date", "")
+            if not prep:
+                status = QTableWidgetItem("未調整")
+                status.setForeground(QColor("#94a3b8"))
+            elif expiry and expiry >= today:
+                status = QTableWidgetItem("有効")
+                status.setForeground(QColor("#16a34a"))
+            else:
+                status = QTableWidgetItem("期限切れ")
+                status.setForeground(QColor(_DANGER))
+            self.table.setItem(row, 5, status)
+
+    def _get_selected_id(self) -> str | None:
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self._data):
+            QMessageBox.information(self, "選択なし", "行を選択してください。")
             return None
-        return self._master_data[row]["id"]
+        return self._data[row]["id"]
 
-    def _on_master_new(self) -> None:
+    def _on_new(self) -> None:
         hg = self._ds.get_holder_groups()
         dlg = ReagentDialog(holder_groups=hg, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.result_data()
             self._svc.create_reagent(
-                name=d["name"], shelf_life_days=d["shelf_life_days"],
+                name=d["name"],
+                shelf_life_days=d["shelf_life_days"],
                 holder_group_code=d["holder_group_code"],
                 holder_group_name=d["holder_group_name"],
                 created_by=CURRENT_USER,
+                preparation_date=d["preparation_date"],
             )
             self.refresh()
 
-    def _on_master_edit(self) -> None:
-        item_id = self._get_selected_master_id()
+    def _on_edit(self) -> None:
+        item_id = self._get_selected_id()
         if not item_id:
             return
         item = self._svc.get_reagent(item_id)
@@ -499,14 +463,18 @@ class ReagentTab(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.result_data()
             self._svc.update_reagent(
-                item_id, name=d["name"], shelf_life_days=d["shelf_life_days"],
+                item_id,
+                updated_by=CURRENT_USER,
+                name=d["name"],
+                shelf_life_days=d["shelf_life_days"],
                 holder_group_code=d["holder_group_code"],
                 holder_group_name=d["holder_group_name"],
+                preparation_date=d["preparation_date"],
             )
             self.refresh()
 
-    def _on_master_delete(self) -> None:
-        item_id = self._get_selected_master_id()
+    def _on_delete(self) -> None:
+        item_id = self._get_selected_id()
         if not item_id:
             return
         item = self._svc.get_reagent(item_id)
@@ -514,105 +482,37 @@ class ReagentTab(QWidget):
             return
         reply = QMessageBox.question(
             self, "削除確認",
-            f"「{item.get('name', '')}」を削除しますか？\n関連する調整履歴も削除されます。",
+            f"「{item.get('name', '')}」を削除しますか？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            for h in self._svc.get_reagent_history(item_id):
-                self._svc.delete_reagent_history(h["id"])
             self._svc.delete_reagent(item_id)
             self.refresh()
 
-    # ── 履歴操作 ──────────────────────────────────────────────────────────────
-
-    _HISTORY_SORT_KEYS = ["preparation_date", "expiry_date", "", "prepared_by"]
-
-    def _on_history_sort(self, col: int, ascending: bool) -> None:
-        if col < len(self._HISTORY_SORT_KEYS) and self._HISTORY_SORT_KEYS[col]:
-            key = self._HISTORY_SORT_KEYS[col]
-            self._history_data.sort(key=lambda x: x.get(key, ""), reverse=not ascending)
-            self._populate_history(self._history_data)
-
-    def _populate_history(self, items: list[dict]) -> None:
-        self.history_table.setRowCount(len(items))
-        today = date.today().isoformat()
-        for row, item in enumerate(items):
-            self.history_table.setItem(
-                row, 0, QTableWidgetItem(item.get("preparation_date", ""))
-            )
-            self.history_table.setItem(
-                row, 1, QTableWidgetItem(item.get("expiry_date", ""))
-            )
-            expiry = item.get("expiry_date", "")
-            if expiry and expiry >= today:
-                status = QTableWidgetItem("有効")
-                status.setForeground(QColor("#16a34a"))
-            else:
-                status = QTableWidgetItem("期限切れ")
-                status.setForeground(QColor("#94a3b8"))
-            self.history_table.setItem(row, 2, status)
-            self.history_table.setItem(
-                row, 3, QTableWidgetItem(item.get("prepared_by", ""))
-            )
-
-    def _get_selected_history_id(self) -> str | None:
-        row = self.history_table.currentRow()
-        if row < 0 or row >= len(self._history_data):
-            QMessageBox.information(self, "選択なし", "履歴行を選択してください。")
-            return None
-        return self._history_data[row]["id"]
-
-    def _on_history_new(self) -> None:
-        if not self._selected_reagent:
-            QMessageBox.information(self, "選択なし", "まず試薬を選択してください。")
+    def _on_change_log(self) -> None:
+        item_id = self._get_selected_id()
+        if not item_id:
             return
-        days = self._selected_reagent.get("shelf_life_days", 0)
-        dlg = ReagentHistoryDialog(shelf_life_days=days, parent=self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            self._svc.create_reagent_history(
-                reagent_id=self._selected_reagent["id"],
-                preparation_date=dlg.result_date(),
-                shelf_life_days=days,
-                prepared_by=CURRENT_USER,
-            )
-            self._on_master_selected()
-
-    def _on_history_edit(self) -> None:
-        if not self._selected_reagent:
-            QMessageBox.information(self, "選択なし", "まず試薬を選択してください。")
+        item = self._svc.get_reagent(item_id)
+        if not item:
             return
-        hist_id = self._get_selected_history_id()
-        if not hist_id:
-            return
-        row = self.history_table.currentRow()
-        current_date = self._history_data[row].get("preparation_date", "")
-        days = self._selected_reagent.get("shelf_life_days", 0)
-        dlg = ReagentHistoryDialog(
-            shelf_life_days=days, current_date=current_date, parent=self,
+        dlg = ChangeLogDialog(
+            title=item.get("name", ""),
+            change_log=item.get("change_log", []),
+            parent=self,
         )
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            self._svc.update_reagent_history(
-                hist_id, preparation_date=dlg.result_date(), shelf_life_days=days,
-            )
-            self._on_master_selected()
-
-    def _on_history_delete(self) -> None:
-        hist_id = self._get_selected_history_id()
-        if not hist_id:
-            return
-        reply = QMessageBox.question(
-            self, "削除確認", "この調整記録を削除しますか？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self._svc.delete_reagent_history(hist_id)
-            self._on_master_selected()
+        dlg.exec()
 
 
 # ── 調整試薬ダイアログ ─────────────────────────────────────────────────────────
 
 
 class ReagentDialog(QDialog):
+    """試薬の新規作成・編集ダイアログ。
+
+    調整日を入力すると使用期限が自動計算される。
+    """
+
     def __init__(
         self,
         holder_groups: list[dict],
@@ -623,7 +523,7 @@ class ReagentDialog(QDialog):
         self._item = item
         self._hg = holder_groups
         self.setWindowTitle("試薬編集" if item else "試薬作成")
-        self.resize(460, 240)
+        self.resize(480, 320)
         self._build_ui()
         if item:
             self._load(item)
@@ -638,19 +538,6 @@ class ReagentDialog(QDialog):
         _style_input(self.edit_name)
         root.addLayout(_row("試薬名 *", self.edit_name))
 
-        shelf_row = QHBoxLayout()
-        self.spin_shelf = QSpinBox()
-        self.spin_shelf.setFixedHeight(30)
-        self.spin_shelf.setRange(0, 9999)
-        self.spin_shelf.setSuffix(" 日")
-        self.spin_shelf.setSpecialValueText("使い切り")
-        shelf_row_widget = QWidget()
-        shelf_row_widget.setLayout(QHBoxLayout())
-        shelf_row_widget.layout().setContentsMargins(0, 0, 0, 0)
-        shelf_row_widget.layout().addWidget(self.spin_shelf)
-        shelf_row_widget.layout().addWidget(QLabel("（0 = 使い切り）"))
-        root.addLayout(_row("保存日数 *", shelf_row_widget))
-
         self.combo_hg = QComboBox()
         self.combo_hg.setFixedHeight(30)
         for hg in self._hg:
@@ -659,6 +546,27 @@ class ReagentDialog(QDialog):
                 hg.get("holder_group_code", ""),
             )
         root.addLayout(_row("分析項目 *", self.combo_hg))
+
+        shelf_w = QWidget()
+        shelf_l = QHBoxLayout(shelf_w)
+        shelf_l.setContentsMargins(0, 0, 0, 0)
+        self.spin_shelf = QSpinBox()
+        self.spin_shelf.setFixedHeight(30)
+        self.spin_shelf.setRange(0, 9999)
+        self.spin_shelf.setSuffix(" 日")
+        self.spin_shelf.setSpecialValueText("使い切り")
+        self.spin_shelf.valueChanged.connect(self._update_expiry)
+        shelf_l.addWidget(self.spin_shelf)
+        shelf_l.addWidget(QLabel("（0 = 使い切り）"))
+        root.addLayout(_row("保存日数 *", shelf_w))
+
+        self.edit_date = DateEdit()
+        self.edit_date.textChanged.connect(self._update_expiry)
+        root.addLayout(_row("最新調整日", self.edit_date))
+
+        self.lbl_expiry = QLabel("—")
+        self.lbl_expiry.setStyleSheet(f"font-size:13px; color:{_TEXT}; font-weight:600;")
+        root.addLayout(_row("使用期限", self.lbl_expiry))
 
         root.addStretch()
         btns = QDialogButtonBox(
@@ -672,10 +580,21 @@ class ReagentDialog(QDialog):
 
     def _load(self, item: dict) -> None:
         self.edit_name.setText(item.get("name", ""))
-        self.spin_shelf.setValue(item.get("shelf_life_days", 0))
         idx_hg = self.combo_hg.findData(item.get("holder_group_code", ""))
         if idx_hg >= 0:
             self.combo_hg.setCurrentIndex(idx_hg)
+        self.spin_shelf.setValue(item.get("shelf_life_days", 0))
+        self.edit_date.setText(item.get("preparation_date", ""))
+        self._update_expiry()
+
+    def _update_expiry(self) -> None:
+        d = self.edit_date.text().strip()
+        days = self.spin_shelf.value()
+        if d:
+            expiry = calc_expiry(d, days)
+            self.lbl_expiry.setText(expiry if expiry else "—")
+        else:
+            self.lbl_expiry.setText("—")
 
     def _on_ok(self) -> None:
         if not self.edit_name.text().strip():
@@ -683,6 +602,10 @@ class ReagentDialog(QDialog):
             return
         if self.combo_hg.currentIndex() < 0:
             QMessageBox.warning(self, "入力エラー", "分析項目を選択してください。")
+            return
+        d = self.edit_date.text().strip()
+        if d and not self.edit_date.isValid():
+            QMessageBox.warning(self, "入力エラー", "日付はYYYY-MM-DD形式で入力してください。")
             return
         self.accept()
 
@@ -692,77 +615,66 @@ class ReagentDialog(QDialog):
             "shelf_life_days": self.spin_shelf.value(),
             "holder_group_code": self.combo_hg.currentData(),
             "holder_group_name": self.combo_hg.currentText(),
+            "preparation_date": self.edit_date.text().strip(),
         }
 
 
-# ── 調整履歴ダイアログ ─────────────────────────────────────────────────────────
+# ── 変更履歴ダイアログ ─────────────────────────────────────────────────────────
 
 
-class ReagentHistoryDialog(QDialog):
-    """調整日を入力 → 使用期限を自動計算して表示。"""
+class ChangeLogDialog(QDialog):
+    """変更履歴を一覧表示するダイアログ。"""
 
     def __init__(
         self,
-        shelf_life_days: int,
-        current_date: str = "",
+        title: str,
+        change_log: list[dict],
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self._shelf_life_days = shelf_life_days
-        self.setWindowTitle("調整記録")
-        self.resize(400, 180)
-        self._build_ui()
-        if current_date:
-            self.edit_date.setText(current_date)
-            self._update_expiry()
+        self.setWindowTitle(f"変更履歴 — {title}")
+        self.resize(600, 400)
+        self._build_ui(change_log)
 
-    def _build_ui(self) -> None:
+    def _build_ui(self, change_log: list[dict]) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 16, 20, 16)
-        root.setSpacing(12)
+        root.setContentsMargins(16, 12, 16, 12)
+        root.setSpacing(8)
 
-        self.edit_date = DateEdit()
-        self.edit_date.textChanged.connect(self._update_expiry)
-        root.addLayout(_row("調整日 *", self.edit_date))
-
-        self.lbl_expiry = QLabel("—")
-        self.lbl_expiry.setStyleSheet(f"font-size:13px; color:{_TEXT}; font-weight:600;")
-        root.addLayout(_row("使用期限", self.lbl_expiry))
-
-        shelf_text = "使い切り" if self._shelf_life_days == 0 else f"{self._shelf_life_days}日"
-        lbl_shelf = QLabel(shelf_text)
-        lbl_shelf.setStyleSheet(f"font-size:12px; color:{_TEXT2};")
-        root.addLayout(_row("保存日数", lbl_shelf))
-
-        root.addStretch()
-        btns = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        table = QTableWidget()
+        table.setColumnCount(3)
+        table.setHorizontalHeaderLabels(["日時", "ユーザー", "内容"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
         )
-        btns.button(QDialogButtonBox.StandardButton.Ok).setText("保存")
-        btns.button(QDialogButtonBox.StandardButton.Cancel).setText("キャンセル")
-        btns.accepted.connect(self._on_ok)
-        btns.rejected.connect(self.reject)
-        root.addWidget(btns)
+        table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.verticalHeader().setDefaultSectionSize(32)
+        table.verticalHeader().setVisible(False)
+        table.setStyleSheet(_TABLE_STYLE)
 
-    def _update_expiry(self) -> None:
-        d = self.edit_date.text().strip()
-        if d:
-            expiry = calc_expiry(d, self._shelf_life_days)
-            self.lbl_expiry.setText(expiry if expiry else "—")
-        else:
-            self.lbl_expiry.setText("—")
+        # 新しい順に表示
+        logs = sorted(change_log, key=lambda x: x.get("timestamp", ""), reverse=True)
+        table.setRowCount(len(logs))
+        for row, entry in enumerate(logs):
+            table.setItem(row, 0, QTableWidgetItem(entry.get("timestamp", "")))
+            table.setItem(row, 1, QTableWidgetItem(entry.get("user", "")))
+            action = entry.get("action", "")
+            details = entry.get("details", "")
+            content = f"{action}: {details}" if details else action
+            table.setItem(row, 2, QTableWidgetItem(content))
 
-    def _on_ok(self) -> None:
-        if not self.edit_date.text().strip():
-            QMessageBox.warning(self, "入力エラー", "調整日を入力してください。")
-            return
-        if not self.edit_date.isValid():
-            QMessageBox.warning(self, "入力エラー", "日付はYYYY-MM-DD形式で入力してください。")
-            return
-        self.accept()
+        root.addWidget(table, 1)
 
-    def result_date(self) -> str:
-        return self.edit_date.text().strip()
+        btn_close = QPushButton("閉じる")
+        btn_close.setFixedHeight(28)
+        btn_close.setStyleSheet(_BTN_SECONDARY)
+        btn_close.clicked.connect(self.accept)
+        root.addWidget(btn_close, alignment=Qt.AlignmentFlag.AlignRight)
 
 
 # ── 共通ヘルパー ──────────────────────────────────────────────────────────────
