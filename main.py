@@ -186,6 +186,7 @@ def _load_app_modules(qapp: QApplication) -> None:
     g["_run_data_update"] = _run_data_update
     g["HgConfigService"] = HgConfigService
     g["JobService"] = JobService
+    g["LogService"] = LogService
     g["UserService"] = UserService
     g["LogonDialog"] = LogonDialog
     g["SetupRootDialog"] = SetupRootDialog
