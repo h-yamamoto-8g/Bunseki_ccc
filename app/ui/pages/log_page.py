@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QTabWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -23,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.config import CURRENT_USER
-from app.core.reagent_store import SHELF_LIFE_TYPES, SHELF_LIFE_LABELS, calc_expiry
+from app.core.reagent_store import calc_expiry
 from app.services.data_service import DataService
 from app.services.log_service import LogService
 from app.ui.widgets.date_edit import DateEdit
@@ -431,7 +432,7 @@ class ReagentTab(QWidget):
 
     # ── マスタ操作 ────────────────────────────────────────────────────────────
 
-    _MASTER_SORT_KEYS = ["name", "shelf_life", "holder_group_name"]
+    _MASTER_SORT_KEYS = ["name", "shelf_life_days", "holder_group_name"]
 
     def _on_master_sort(self, col: int, ascending: bool) -> None:
         if col < len(self._MASTER_SORT_KEYS):
@@ -451,8 +452,9 @@ class ReagentTab(QWidget):
         self.master_table.setRowCount(len(items))
         for row, item in enumerate(items):
             self.master_table.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
-            shelf = SHELF_LIFE_LABELS.get(item.get("shelf_life", ""), item.get("shelf_life", ""))
-            self.master_table.setItem(row, 1, QTableWidgetItem(shelf))
+            days = item.get("shelf_life_days", 0)
+            shelf_text = "使い切り" if days == 0 else f"{days}日"
+            self.master_table.setItem(row, 1, QTableWidgetItem(shelf_text))
             self.master_table.setItem(row, 2, QTableWidgetItem(item.get("holder_group_name", "")))
 
     def _on_master_selected(self) -> None:
@@ -478,7 +480,7 @@ class ReagentTab(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.result_data()
             self._svc.create_reagent(
-                name=d["name"], shelf_life=d["shelf_life"],
+                name=d["name"], shelf_life_days=d["shelf_life_days"],
                 holder_group_code=d["holder_group_code"],
                 holder_group_name=d["holder_group_name"],
                 created_by=CURRENT_USER,
@@ -497,7 +499,7 @@ class ReagentTab(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.result_data()
             self._svc.update_reagent(
-                item_id, name=d["name"], shelf_life=d["shelf_life"],
+                item_id, name=d["name"], shelf_life_days=d["shelf_life_days"],
                 holder_group_code=d["holder_group_code"],
                 holder_group_name=d["holder_group_name"],
             )
@@ -564,13 +566,13 @@ class ReagentTab(QWidget):
         if not self._selected_reagent:
             QMessageBox.information(self, "選択なし", "まず試薬を選択してください。")
             return
-        shelf = self._selected_reagent.get("shelf_life", "")
-        dlg = ReagentHistoryDialog(shelf_life=shelf, parent=self)
+        days = self._selected_reagent.get("shelf_life_days", 0)
+        dlg = ReagentHistoryDialog(shelf_life_days=days, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._svc.create_reagent_history(
                 reagent_id=self._selected_reagent["id"],
                 preparation_date=dlg.result_date(),
-                shelf_life=shelf,
+                shelf_life_days=days,
                 prepared_by=CURRENT_USER,
             )
             self._on_master_selected()
@@ -584,13 +586,13 @@ class ReagentTab(QWidget):
             return
         row = self.history_table.currentRow()
         current_date = self._history_data[row].get("preparation_date", "")
-        shelf = self._selected_reagent.get("shelf_life", "")
+        days = self._selected_reagent.get("shelf_life_days", 0)
         dlg = ReagentHistoryDialog(
-            shelf_life=shelf, current_date=current_date, parent=self,
+            shelf_life_days=days, current_date=current_date, parent=self,
         )
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._svc.update_reagent_history(
-                hist_id, preparation_date=dlg.result_date(), shelf_life=shelf,
+                hist_id, preparation_date=dlg.result_date(), shelf_life_days=days,
             )
             self._on_master_selected()
 
@@ -636,11 +638,18 @@ class ReagentDialog(QDialog):
         _style_input(self.edit_name)
         root.addLayout(_row("試薬名 *", self.edit_name))
 
-        self.combo_shelf = QComboBox()
-        self.combo_shelf.setFixedHeight(30)
-        for code, label in SHELF_LIFE_TYPES:
-            self.combo_shelf.addItem(label, code)
-        root.addLayout(_row("保存期間 *", self.combo_shelf))
+        shelf_row = QHBoxLayout()
+        self.spin_shelf = QSpinBox()
+        self.spin_shelf.setFixedHeight(30)
+        self.spin_shelf.setRange(0, 9999)
+        self.spin_shelf.setSuffix(" 日")
+        self.spin_shelf.setSpecialValueText("使い切り")
+        shelf_row_widget = QWidget()
+        shelf_row_widget.setLayout(QHBoxLayout())
+        shelf_row_widget.layout().setContentsMargins(0, 0, 0, 0)
+        shelf_row_widget.layout().addWidget(self.spin_shelf)
+        shelf_row_widget.layout().addWidget(QLabel("（0 = 使い切り）"))
+        root.addLayout(_row("保存日数 *", shelf_row_widget))
 
         self.combo_hg = QComboBox()
         self.combo_hg.setFixedHeight(30)
@@ -663,9 +672,7 @@ class ReagentDialog(QDialog):
 
     def _load(self, item: dict) -> None:
         self.edit_name.setText(item.get("name", ""))
-        idx_shelf = self.combo_shelf.findData(item.get("shelf_life", ""))
-        if idx_shelf >= 0:
-            self.combo_shelf.setCurrentIndex(idx_shelf)
+        self.spin_shelf.setValue(item.get("shelf_life_days", 0))
         idx_hg = self.combo_hg.findData(item.get("holder_group_code", ""))
         if idx_hg >= 0:
             self.combo_hg.setCurrentIndex(idx_hg)
@@ -682,7 +689,7 @@ class ReagentDialog(QDialog):
     def result_data(self) -> dict:
         return {
             "name": self.edit_name.text().strip(),
-            "shelf_life": self.combo_shelf.currentData(),
+            "shelf_life_days": self.spin_shelf.value(),
             "holder_group_code": self.combo_hg.currentData(),
             "holder_group_name": self.combo_hg.currentText(),
         }
@@ -696,12 +703,12 @@ class ReagentHistoryDialog(QDialog):
 
     def __init__(
         self,
-        shelf_life: str,
+        shelf_life_days: int,
         current_date: str = "",
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self._shelf_life = shelf_life
+        self._shelf_life_days = shelf_life_days
         self.setWindowTitle("調整記録")
         self.resize(400, 180)
         self._build_ui()
@@ -722,10 +729,10 @@ class ReagentHistoryDialog(QDialog):
         self.lbl_expiry.setStyleSheet(f"font-size:13px; color:{_TEXT}; font-weight:600;")
         root.addLayout(_row("使用期限", self.lbl_expiry))
 
-        shelf_label = SHELF_LIFE_LABELS.get(self._shelf_life, self._shelf_life)
-        lbl_shelf = QLabel(shelf_label)
+        shelf_text = "使い切り" if self._shelf_life_days == 0 else f"{self._shelf_life_days}日"
+        lbl_shelf = QLabel(shelf_text)
         lbl_shelf.setStyleSheet(f"font-size:12px; color:{_TEXT2};")
-        root.addLayout(_row("保存期間", lbl_shelf))
+        root.addLayout(_row("保存日数", lbl_shelf))
 
         root.addStretch()
         btns = QDialogButtonBox(
@@ -740,7 +747,7 @@ class ReagentHistoryDialog(QDialog):
     def _update_expiry(self) -> None:
         d = self.edit_date.text().strip()
         if d:
-            expiry = calc_expiry(d, self._shelf_life)
+            expiry = calc_expiry(d, self._shelf_life_days)
             self.lbl_expiry.setText(expiry if expiry else "—")
         else:
             self.lbl_expiry.setText("—")
