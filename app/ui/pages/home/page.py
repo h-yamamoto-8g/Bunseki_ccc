@@ -7,7 +7,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
-    QAbstractItemView,
+    QAbstractItemView, QDialog,
 )
 from PySide6.QtCore import Signal, Qt, QSize, QUrl
 from PySide6.QtGui import QColor, QFont, QIcon
@@ -179,6 +179,25 @@ class HomePageUI(QWidget):
                 '</body></html>'
             )
 
+        # ── カレンダーラベル行に最大化ボタンを追加 ────────────────────────────
+        layout2 = self._form.verticalLayout_2
+        layout2.removeWidget(self._form.label_calendar)
+        cal_header = QHBoxLayout()
+        cal_header.setContentsMargins(0, 0, 0, 0)
+        cal_header.addWidget(self._form.label_calendar)
+        cal_header.addStretch()
+        btn_expand = QPushButton("⛶")
+        btn_expand.setFixedSize(24, 24)
+        btn_expand.setToolTip("カレンダーを最大化")
+        btn_expand.setStyleSheet(
+            f"QPushButton {{ background:transparent; border:1px solid {_BORDER};"
+            f" border-radius:4px; font-size:14px; color:{_TEXT2}; }}"
+            f"QPushButton:hover {{ background:#f1f5f9; }}"
+        )
+        btn_expand.clicked.connect(self._on_expand_calendar)
+        cal_header.addWidget(btn_expand)
+        layout2.insertLayout(0, cal_header)
+
         # ── 統計チップ行を content.layout() 先頭に挿入 ────────────────────
         stats_row = self._build_stats_row()
         content.layout().insertWidget(0, stats_row)
@@ -196,6 +215,26 @@ class HomePageUI(QWidget):
         self._form.widget_bottom.setStyleSheet(f"background:{_BG};")
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def _on_expand_calendar(self) -> None:
+        """カレンダーをフルスクリーンダイアログで表示する。"""
+        from app.core import home_settings_store
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+
+        cal_url = home_settings_store.get_calendar_url()
+        if not cal_url:
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("カレンダー")
+        dlg.resize(1200, 800)
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(0, 0, 0, 0)
+        web = QWebEngineView()
+        web.setUrl(QUrl(cal_url))
+        layout.addWidget(web)
+        dlg.showMaximized()
+        dlg.exec()
 
     def reload_calendar(self) -> None:
         """設定変更後にカレンダーURLを再読み込みする。"""
