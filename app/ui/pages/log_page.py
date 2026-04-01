@@ -114,13 +114,14 @@ class LogPage(QWidget):
 
 
 class EquipmentTab(QWidget):
-    """分析装置マスタ一覧 — 名前・リンク・分析項目。"""
+    """分析装置マスタ一覧 — 名前・分析項目・リンク。"""
 
     def __init__(self, svc: LogService, ds: DataService, parent: QWidget | None = None):
         super().__init__(parent)
         self._svc = svc
         self._ds = ds
         self._data: list[dict] = []
+        self._all_data: list[dict] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -129,6 +130,19 @@ class EquipmentTab(QWidget):
         root.setSpacing(8)
 
         header = QHBoxLayout()
+
+        self.combo_filter = QComboBox()
+        self.combo_filter.setFixedHeight(28)
+        self.combo_filter.setMinimumWidth(160)
+        self.combo_filter.addItem("すべての分析項目", "")
+        for hg in self._ds.get_holder_groups():
+            self.combo_filter.addItem(
+                hg.get("holder_group_name", ""),
+                hg.get("holder_group_code", ""),
+            )
+        self.combo_filter.currentIndexChanged.connect(self._apply_filter)
+        header.addWidget(self.combo_filter)
+
         header.addStretch()
 
         self.btn_edit = QPushButton("編集")
@@ -153,7 +167,7 @@ class EquipmentTab(QWidget):
 
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["分析装置名", "リンク", "分析項目"])
+        self.table.setHorizontalHeaderLabels(["分析装置名", "分析項目", "リンク"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -163,7 +177,7 @@ class EquipmentTab(QWidget):
         enable_row_numbers_and_sort(self.table, self._on_sort)
         root.addWidget(self.table, 1)
 
-    _SORT_KEYS = ["name", "link", "holder_group_name"]
+    _SORT_KEYS = ["name", "holder_group_name", "link"]
 
     def _on_sort(self, col: int, ascending: bool) -> None:
         if col < len(self._SORT_KEYS):
@@ -172,17 +186,25 @@ class EquipmentTab(QWidget):
             self._populate(self._data)
 
     def refresh(self) -> None:
-        self._data = self._svc.get_all_equipment()
+        self._all_data = self._svc.get_all_equipment()
+        self._apply_filter()
+
+    def _apply_filter(self) -> None:
+        code = self.combo_filter.currentData()
+        if code:
+            self._data = [x for x in self._all_data if x.get("holder_group_code") == code]
+        else:
+            self._data = list(self._all_data)
         self._populate(self._data)
 
     def _populate(self, items: list[dict]) -> None:
         self.table.setRowCount(len(items))
         for row, item in enumerate(items):
             self.table.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
+            self.table.setItem(row, 1, QTableWidgetItem(item.get("holder_group_name", "")))
             link_item = QTableWidgetItem(item.get("link", ""))
             link_item.setForeground(QColor(_ACCENT))
-            self.table.setItem(row, 1, link_item)
-            self.table.setItem(row, 2, QTableWidgetItem(item.get("holder_group_name", "")))
+            self.table.setItem(row, 2, link_item)
 
     def _get_selected_id(self) -> str | None:
         row = self.table.currentRow()
@@ -338,6 +360,7 @@ class ReagentTab(QWidget):
         self._svc = svc
         self._ds = ds
         self._data: list[dict] = []
+        self._all_data: list[dict] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -346,6 +369,19 @@ class ReagentTab(QWidget):
         root.setSpacing(8)
 
         header = QHBoxLayout()
+
+        self.combo_filter = QComboBox()
+        self.combo_filter.setFixedHeight(28)
+        self.combo_filter.setMinimumWidth(160)
+        self.combo_filter.addItem("すべての分析項目", "")
+        for hg in self._ds.get_holder_groups():
+            self.combo_filter.addItem(
+                hg.get("holder_group_name", ""),
+                hg.get("holder_group_code", ""),
+            )
+        self.combo_filter.currentIndexChanged.connect(self._apply_filter)
+        header.addWidget(self.combo_filter)
+
         header.addStretch()
 
         self.btn_log = QPushButton("変更履歴")
@@ -399,7 +435,15 @@ class ReagentTab(QWidget):
             self._populate(self._data)
 
     def refresh(self) -> None:
-        self._data = self._svc.get_all_reagents()
+        self._all_data = self._svc.get_all_reagents()
+        self._apply_filter()
+
+    def _apply_filter(self) -> None:
+        code = self.combo_filter.currentData()
+        if code:
+            self._data = [x for x in self._all_data if x.get("holder_group_code") == code]
+        else:
+            self._data = list(self._all_data)
         self._populate(self._data)
 
     def _populate(self, items: list[dict]) -> None:
