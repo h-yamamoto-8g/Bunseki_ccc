@@ -83,7 +83,7 @@ class JobPage(QWidget):
         self.table.setColumnWidth(5, 140)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.verticalHeader().setDefaultSectionSize(36)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         enable_row_numbers_and_sort(self.table, self._on_sort_column)
         self.table.setStyleSheet(
             f"QTableWidget {{ border:1px solid {_BORDER}; border-radius:6px;"
@@ -148,10 +148,10 @@ class JobPage(QWidget):
             hl.setSpacing(4)
 
             btn_edit = QPushButton("編集")
-            btn_edit.setFixedHeight(24)
+            btn_edit.setFixedHeight(22)
             btn_edit.setStyleSheet(
                 f"QPushButton {{ background:{_BG2}; color:{_TEXT2};"
-                f" border:1px solid {_BORDER}; padding:2px 10px;"
+                f" border:1px solid {_BORDER}; padding:1px 8px;"
                 f" border-radius:4px; font-size:11px; }}"
                 f"QPushButton:hover {{ background:#f1f5f9; }}"
             )
@@ -162,10 +162,10 @@ class JobPage(QWidget):
             hl.addWidget(btn_edit)
 
             btn_del = QPushButton("削除")
-            btn_del.setFixedHeight(24)
+            btn_del.setFixedHeight(22)
             btn_del.setStyleSheet(
                 f"QPushButton {{ background:#fef2f2; color:{_DANGER};"
-                f" border:1px solid #fecaca; padding:2px 10px;"
+                f" border:1px solid #fecaca; padding:1px 8px;"
                 f" border-radius:4px; font-size:11px; }}"
                 f"QPushButton:hover {{ background:#fee2e2; }}"
             )
