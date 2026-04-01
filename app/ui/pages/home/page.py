@@ -73,14 +73,6 @@ def _make_status_widget(state_id: str, label: str, color: str) -> QWidget:
     return w
 
 
-_STAT_DEFS = [
-    ("in_progress",  "進行中",   _ACCENT),
-    ("circulation",  "回覧中",   _WARN),
-    ("done_month",   "今月完了", _SUCCESS),
-    ("total",        "全件",     _TEXT2),
-]
-
-
 class HomePageUI(QWidget):
     """ホームページ (純粋レイアウト)。
 
@@ -95,7 +87,6 @@ class HomePageUI(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._stat_labels: dict[str, QLabel] = {}
         self._setup_ui()
 
     def _setup_ui(self):
@@ -198,10 +189,6 @@ class HomePageUI(QWidget):
         cal_header.addWidget(btn_expand)
         layout2.insertLayout(0, cal_header)
 
-        # ── 統計チップ行を content.layout() 先頭に挿入 ────────────────────
-        stats_row = self._build_stats_row()
-        content.layout().insertWidget(0, stats_row)
-
         # ── マイタスク : ニュース = 1:1 ────────────────────────────────────
         self._form.horizontalLayout.setStretch(0, 1)
         self._form.horizontalLayout.setStretch(1, 1)
@@ -213,6 +200,10 @@ class HomePageUI(QWidget):
         self._form.label_calendar.setStyleSheet(lbl_style)
         self._form.widget_top.setStyleSheet(f"background:{_BG};")
         self._form.widget_bottom.setStyleSheet(f"background:{_BG};")
+
+        # ── 上部(タスク+ニュース) : 下部(カレンダー) の比率調整 ──────────────
+        self._form.verticalLayout.setStretch(0, 1)
+        self._form.verticalLayout.setStretch(1, 3)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -334,57 +325,7 @@ class HomePageUI(QWidget):
 
         return card
 
-    def set_stats(self, stats: dict) -> None:
-        """統計チップの数値を更新する。
-
-        Args:
-            stats: {"in_progress", "circulation", "done_month", "total"}
-        """
-        for key, lbl in self._stat_labels.items():
-            lbl.setText(str(stats.get(key, 0)))
-
     # ── Helpers ───────────────────────────────────────────────────────────────
-
-    def _build_stats_row(self) -> QWidget:
-        """統計チップ4枚を横並びにした行ウィジェットを構築して返す。"""
-        row = QWidget()
-        row.setStyleSheet(f"background:{_BG};")
-        hl = QHBoxLayout(row)
-        hl.setContentsMargins(0, 0, 0, 0)
-        hl.setSpacing(12)
-
-        for key, label_text, color in _STAT_DEFS:
-            card = QFrame()
-            card.setObjectName(f"StatCard_{key}")
-            card.setStyleSheet(f"""
-                QFrame#StatCard_{key} {{
-                    background: {_BG2};
-                    border: 1px solid {_BORDER};
-                    border-radius: 8px;
-                }}
-            """)
-            card_l = QVBoxLayout(card)
-            card_l.setContentsMargins(16, 12, 16, 12)
-            card_l.setSpacing(2)
-
-            count_lbl = QLabel("0")
-            count_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            count_lbl.setStyleSheet(
-                f"font-size:28px; font-weight:700; color:{color};"
-                f" background:transparent; border:none;"
-            )
-            card_l.addWidget(count_lbl)
-
-            name_lbl = QLabel(label_text)
-            name_lbl.setStyleSheet(
-                f"font-size:11px; color:{_TEXT2}; background:transparent; border:none;"
-            )
-            card_l.addWidget(name_lbl)
-
-            hl.addWidget(card, 1)
-            self._stat_labels[key] = count_lbl
-
-        return row
 
     def _make_table(self, headers: list[str]) -> QTableWidget:
         t = QTableWidget(0, len(headers))
