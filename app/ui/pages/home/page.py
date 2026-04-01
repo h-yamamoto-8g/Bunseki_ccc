@@ -177,12 +177,11 @@ class HomePageUI(QWidget):
         cal_header.setContentsMargins(0, 0, 0, 0)
         cal_header.addWidget(self._form.label_calendar)
         cal_header.addStretch()
-        btn_open = QPushButton("🔗")
-        btn_open.setFixedSize(24, 24)
-        btn_open.setToolTip("ブラウザで開く")
+        btn_open = QPushButton("ブラウザで開く")
+        btn_open.setFixedHeight(24)
         btn_open.setStyleSheet(
             f"QPushButton {{ background:transparent; border:1px solid {_BORDER};"
-            f" border-radius:4px; font-size:13px; color:{_TEXT2}; }}"
+            f" border-radius:4px; font-size:11px; color:{_TEXT2}; padding:2px 8px; }}"
             f"QPushButton:hover {{ background:#f1f5f9; }}"
         )
         btn_open.clicked.connect(self._on_open_calendar_link)
