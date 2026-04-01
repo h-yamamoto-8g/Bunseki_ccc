@@ -11,57 +11,18 @@ from pathlib import Path
 
 import app.config as _cfg
 
-# ── 保存可能期間の種別 ────────────────────────────────────────────────────────
-SHELF_LIFE_TYPES = [
-    ("use_once", "使い切り"),
-    ("1w", "1週間"),
-    ("2w", "2週間"),
-    ("1m", "1ヶ月"),
-    ("3m", "3ヶ月"),
-    ("6m", "6ヶ月"),
-    ("1y", "1年"),
-]
-
-SHELF_LIFE_LABELS: dict[str, str] = {k: v for k, v in SHELF_LIFE_TYPES}
+# ── 保存可能期間 ─────────────────────────────────────────────────────────────
+# shelf_life は日数(int)で管理する。0 は使い切り。
 
 
-def calc_expiry(preparation_date: str, shelf_life: str) -> str:
-    """調整日と保存可能期間から使用期限を計算して YYYY-MM-DD で返す。"""
-    if shelf_life == "use_once":
-        return preparation_date
+def calc_expiry(preparation_date: str, shelf_life_days: int) -> str:
+    """調整日と保存可能日数から使用期限を計算して YYYY-MM-DD で返す。"""
     try:
         d = date.fromisoformat(preparation_date)
     except ValueError:
         return ""
-    if shelf_life == "1w":
-        d += timedelta(weeks=1)
-    elif shelf_life == "2w":
-        d += timedelta(weeks=2)
-    elif shelf_life == "1m":
-        d = _add_months(d, 1)
-    elif shelf_life == "3m":
-        d = _add_months(d, 3)
-    elif shelf_life == "6m":
-        d = _add_months(d, 6)
-    elif shelf_life == "1y":
-        d = _add_months(d, 12)
-    else:
-        return ""
+    d += timedelta(days=shelf_life_days)
     return d.isoformat()
-
-
-def _add_months(d: date, months: int) -> date:
-    month = d.month - 1 + months
-    year = d.year + month // 12
-    month = month % 12 + 1
-    day = min(d.day, _days_in_month(year, month))
-    return date(year, month, day)
-
-
-def _days_in_month(year: int, month: int) -> int:
-    if month == 12:
-        return 31
-    return (date(year, month + 1, 1) - date(year, month, 1)).days
 
 
 # ── マスタ ────────────────────────────────────────────────────────────────────
@@ -100,7 +61,7 @@ def get(item_id: str) -> dict | None:
 
 def create(
     name: str,
-    shelf_life: str,
+    shelf_life_days: int,
     holder_group_code: str,
     holder_group_name: str,
     created_by: str,
@@ -109,7 +70,7 @@ def create(
     item = {
         "id": now.strftime("%Y%m%d%H%M%S%f"),
         "name": name,
-        "shelf_life": shelf_life,
+        "shelf_life_days": shelf_life_days,
         "holder_group_code": holder_group_code,
         "holder_group_name": holder_group_name,
         "created_by": created_by,
@@ -177,11 +138,11 @@ def get_all_history() -> list[dict]:
 def create_history(
     reagent_id: str,
     preparation_date: str,
-    shelf_life: str,
+    shelf_life_days: int,
     prepared_by: str,
 ) -> dict:
     now = datetime.now()
-    expiry = calc_expiry(preparation_date, shelf_life)
+    expiry = calc_expiry(preparation_date, shelf_life_days)
     item = {
         "id": now.strftime("%Y%m%d%H%M%S%f"),
         "reagent_id": reagent_id,
@@ -197,12 +158,12 @@ def create_history(
     return item
 
 
-def update_history(history_id: str, preparation_date: str, shelf_life: str) -> dict | None:
+def update_history(history_id: str, preparation_date: str, shelf_life_days: int) -> dict | None:
     items = _load_history()
     for item in items:
         if item.get("id") == history_id:
             item["preparation_date"] = preparation_date
-            item["expiry_date"] = calc_expiry(preparation_date, shelf_life)
+            item["expiry_date"] = calc_expiry(preparation_date, shelf_life_days)
             item["updated_at"] = datetime.now().isoformat(timespec="seconds")
             _save_history(items)
             return item

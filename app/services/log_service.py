@@ -48,13 +48,13 @@ class LogService:
     def create_reagent(
         self,
         name: str,
-        shelf_life: str,
+        shelf_life_days: int,
         holder_group_code: str,
         holder_group_name: str,
         created_by: str,
     ) -> dict:
         return reagent_store.create(
-            name, shelf_life, holder_group_code, holder_group_name, created_by,
+            name, shelf_life_days, holder_group_code, holder_group_name, created_by,
         )
 
     def update_reagent(self, item_id: str, **fields) -> dict | None:
@@ -75,17 +75,17 @@ class LogService:
         self,
         reagent_id: str,
         preparation_date: str,
-        shelf_life: str,
+        shelf_life_days: int,
         prepared_by: str,
     ) -> dict:
         return reagent_store.create_history(
-            reagent_id, preparation_date, shelf_life, prepared_by,
+            reagent_id, preparation_date, shelf_life_days, prepared_by,
         )
 
     def update_reagent_history(
-        self, history_id: str, preparation_date: str, shelf_life: str,
+        self, history_id: str, preparation_date: str, shelf_life_days: int,
     ) -> dict | None:
-        return reagent_store.update_history(history_id, preparation_date, shelf_life)
+        return reagent_store.update_history(history_id, preparation_date, shelf_life_days)
 
     def delete_reagent_history(self, history_id: str) -> bool:
         return reagent_store.delete_history(history_id)
