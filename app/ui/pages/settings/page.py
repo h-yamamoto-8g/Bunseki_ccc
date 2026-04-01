@@ -24,6 +24,7 @@ from app.services.user_service import UserService
 from app.ui.dialogs.setup_root_dialog import SetupRootDialog
 from app.ui.generated.ui_settingpage import Ui_SettingPage
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
+from app.ui.pages.settings.home_tab import HomeTab
 from app.ui.pages.settings.users_tab import UsersTab
 
 
@@ -125,8 +126,9 @@ class SettingsPage(QWidget):
         self.users_tab = UsersTab(self.user_service)
         self._embed(self.ui.tab_users, self.users_tab)
 
-        # 他のタブは今後実装予定
-        self._embed(self.ui.tab_home, _placeholder("ホーム設定（実装予定）"))
+        # tab_home: ホーム設定
+        self.home_tab = HomeTab()
+        self._embed(self.ui.tab_home, self.home_tab)
         self._embed(self.ui.tab_tasks, _placeholder("タスク設定（実装予定）"))
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
         self._embed(self.ui.tab_data, _placeholder("データ設定（実装予定）"))

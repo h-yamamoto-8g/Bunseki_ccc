@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
     QAbstractItemView,
 )
-from PySide6.QtCore import Signal, Qt, QSize
+from PySide6.QtCore import Signal, Qt, QSize, QUrl
 from PySide6.QtGui import QColor, QFont, QIcon
 
 from app.ui.generated.ui_homepage import Ui_HomePage
@@ -164,24 +164,20 @@ class HomePageUI(QWidget):
         self._news_layout.setSpacing(0)
         layout4.addWidget(self.news_container)
 
-        # ── カレンダー: webEngineView → 空プレースホルダ ────────────────────
-        layout2 = self._form.verticalLayout_2
-        layout2.removeWidget(self._form.webEngineView)
-        self._form.webEngineView.setParent(None)
-        self._form.webEngineView.deleteLater()
-
-        cal_placeholder = QFrame()
-        cal_placeholder.setObjectName("CalPlaceholder")
-        cal_placeholder.setStyleSheet(
-            f"QFrame#CalPlaceholder {{ background:{_BG2}; border:1px solid {_BORDER}; border-radius:8px; }}"
-        )
-        cp_layout = QVBoxLayout(cal_placeholder)
-        cp_layout.setContentsMargins(0, 0, 0, 0)
-        cp_lbl = QLabel("カレンダー機能は準備中です")
-        cp_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cp_lbl.setStyleSheet(f"color:{_TEXT3}; font-size:12px; border:none;")
-        cp_layout.addWidget(cp_lbl)
-        layout2.addWidget(cal_placeholder)
+        # ── カレンダー: WebEngineView に設定URLを読み込む ──────────────────
+        from app.core import home_settings_store
+        self._calendar_view = self._form.webEngineView
+        cal_url = home_settings_store.get_calendar_url()
+        if cal_url:
+            self._calendar_view.setUrl(QUrl(cal_url))
+        else:
+            self._calendar_view.setHtml(
+                '<html><body style="display:flex;align-items:center;'
+                'justify-content:center;height:100%;margin:0;'
+                f'font-family:sans-serif;color:{_TEXT3};font-size:13px;">'
+                '設定からカレンダーURLを登録してください'
+                '</body></html>'
+            )
 
         # ── 統計チップ行を content.layout() 先頭に挿入 ────────────────────
         stats_row = self._build_stats_row()
@@ -200,6 +196,21 @@ class HomePageUI(QWidget):
         self._form.widget_bottom.setStyleSheet(f"background:{_BG};")
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def reload_calendar(self) -> None:
+        """設定変更後にカレンダーURLを再読み込みする。"""
+        from app.core import home_settings_store
+        cal_url = home_settings_store.get_calendar_url()
+        if cal_url:
+            self._calendar_view.setUrl(QUrl(cal_url))
+        else:
+            self._calendar_view.setHtml(
+                '<html><body style="display:flex;align-items:center;'
+                'justify-content:center;height:100%;margin:0;'
+                f'font-family:sans-serif;color:{_TEXT3};font-size:13px;">'
+                '設定からカレンダーURLを登録してください'
+                '</body></html>'
+            )
 
     def set_my_tasks(self, tasks: list[dict]) -> None:
         self._fill_table(tasks)
