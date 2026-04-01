@@ -1,0 +1,218 @@
+"""調整試薬マスタ + 履歴の永続化ストア。
+
+マスタ: app_data/bunseki/logs/reagents.json
+履歴:   app_data/bunseki/logs/reagent_history.json
+"""
+from __future__ import annotations
+
+import json
+from datetime import datetime, date, timedelta
+from pathlib import Path
+
+import app.config as _cfg
+
+# ── 保存可能期間の種別 ────────────────────────────────────────────────────────
+SHELF_LIFE_TYPES = [
+    ("use_once", "使い切り"),
+    ("1w", "1週間"),
+    ("2w", "2週間"),
+    ("1m", "1ヶ月"),
+    ("3m", "3ヶ月"),
+    ("6m", "6ヶ月"),
+    ("1y", "1年"),
+]
+
+SHELF_LIFE_LABELS: dict[str, str] = {k: v for k, v in SHELF_LIFE_TYPES}
+
+
+def calc_expiry(preparation_date: str, shelf_life: str) -> str:
+    """調整日と保存可能期間から使用期限を計算して YYYY-MM-DD で返す。"""
+    if shelf_life == "use_once":
+        return preparation_date
+    try:
+        d = date.fromisoformat(preparation_date)
+    except ValueError:
+        return ""
+    if shelf_life == "1w":
+        d += timedelta(weeks=1)
+    elif shelf_life == "2w":
+        d += timedelta(weeks=2)
+    elif shelf_life == "1m":
+        d = _add_months(d, 1)
+    elif shelf_life == "3m":
+        d = _add_months(d, 3)
+    elif shelf_life == "6m":
+        d = _add_months(d, 6)
+    elif shelf_life == "1y":
+        d = _add_months(d, 12)
+    else:
+        return ""
+    return d.isoformat()
+
+
+def _add_months(d: date, months: int) -> date:
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, _days_in_month(year, month))
+    return date(year, month, day)
+
+
+def _days_in_month(year: int, month: int) -> int:
+    if month == 12:
+        return 31
+    return (date(year, month + 1, 1) - date(year, month, 1)).days
+
+
+# ── マスタ ────────────────────────────────────────────────────────────────────
+
+def _master_path() -> Path:
+    return _cfg.DATA_PATH / "bunseki" / "logs" / "reagents.json"
+
+
+def _load_master() -> list[dict]:
+    if not _master_path().exists():
+        return []
+    try:
+        return json.loads(_master_path().read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_master(items: list[dict]) -> None:
+    _master_path().parent.mkdir(parents=True, exist_ok=True)
+    _master_path().write_text(
+        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def get_all() -> list[dict]:
+    items = _load_master()
+    return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+
+def get(item_id: str) -> dict | None:
+    for item in _load_master():
+        if item.get("id") == item_id:
+            return item
+    return None
+
+
+def create(
+    name: str,
+    shelf_life: str,
+    holder_group_code: str,
+    holder_group_name: str,
+    created_by: str,
+) -> dict:
+    now = datetime.now()
+    item = {
+        "id": now.strftime("%Y%m%d%H%M%S%f"),
+        "name": name,
+        "shelf_life": shelf_life,
+        "holder_group_code": holder_group_code,
+        "holder_group_name": holder_group_name,
+        "created_by": created_by,
+        "created_at": now.isoformat(timespec="seconds"),
+        "updated_at": now.isoformat(timespec="seconds"),
+    }
+    items = _load_master()
+    items.append(item)
+    _save_master(items)
+    return item
+
+
+def update(item_id: str, **fields) -> dict | None:
+    items = _load_master()
+    for item in items:
+        if item.get("id") == item_id:
+            item.update(fields)
+            item["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            _save_master(items)
+            return item
+    return None
+
+
+def delete(item_id: str) -> bool:
+    items = _load_master()
+    new_items = [x for x in items if x.get("id") != item_id]
+    if len(new_items) == len(items):
+        return False
+    _save_master(new_items)
+    return True
+
+
+# ── 履歴 ─────────────────────────────────────────────────────────────────────
+
+def _history_path() -> Path:
+    return _cfg.DATA_PATH / "bunseki" / "logs" / "reagent_history.json"
+
+
+def _load_history() -> list[dict]:
+    if not _history_path().exists():
+        return []
+    try:
+        return json.loads(_history_path().read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_history(items: list[dict]) -> None:
+    _history_path().parent.mkdir(parents=True, exist_ok=True)
+    _history_path().write_text(
+        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def get_history(reagent_id: str) -> list[dict]:
+    items = [h for h in _load_history() if h.get("reagent_id") == reagent_id]
+    return sorted(items, key=lambda x: x.get("preparation_date", ""), reverse=True)
+
+
+def get_all_history() -> list[dict]:
+    items = _load_history()
+    return sorted(items, key=lambda x: x.get("preparation_date", ""), reverse=True)
+
+
+def create_history(
+    reagent_id: str,
+    preparation_date: str,
+    shelf_life: str,
+    prepared_by: str,
+) -> dict:
+    now = datetime.now()
+    expiry = calc_expiry(preparation_date, shelf_life)
+    item = {
+        "id": now.strftime("%Y%m%d%H%M%S%f"),
+        "reagent_id": reagent_id,
+        "preparation_date": preparation_date,
+        "expiry_date": expiry,
+        "prepared_by": prepared_by,
+        "created_at": now.isoformat(timespec="seconds"),
+        "updated_at": now.isoformat(timespec="seconds"),
+    }
+    items = _load_history()
+    items.append(item)
+    _save_history(items)
+    return item
+
+
+def update_history(history_id: str, preparation_date: str, shelf_life: str) -> dict | None:
+    items = _load_history()
+    for item in items:
+        if item.get("id") == history_id:
+            item["preparation_date"] = preparation_date
+            item["expiry_date"] = calc_expiry(preparation_date, shelf_life)
+            item["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            _save_history(items)
+            return item
+    return None
+
+
+def delete_history(history_id: str) -> bool:
+    items = _load_history()
+    new_items = [x for x in items if x.get("id") != history_id]
+    if len(new_items) == len(items):
+        return False
+    _save_history(new_items)
+    return True

@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from app.services.data_update_service import run_all as _run_data_update
     from app.services.hg_config_service import HgConfigService
     from app.services.job_service import JobService
+    from app.services.log_service import LogService
     from app.services.task_service import TaskService
     from app.services.user_service import UserService
     from app.ui.dialogs.loading_dialog import LoadingOverlay
@@ -153,6 +154,7 @@ def _load_app_modules(qapp: QApplication) -> None:
     from app.services.data_update_service import run_all as _run_data_update
     from app.services.hg_config_service import HgConfigService
     from app.services.job_service import JobService
+    from app.services.log_service import LogService
     from app.services.user_service import UserService
     qapp.processEvents()
 
@@ -239,6 +241,7 @@ class MainWindow(QMainWindow):
         self.user_service = UserService()
         self.hg_config_service = HgConfigService()
         self.job_service = JobService()
+        self.log_service = LogService()
         self._in_task_mode = False
         self._setup_ui()
         self._connect_signals()
@@ -352,7 +355,7 @@ class MainWindow(QMainWindow):
         self.data_page = DataPage(self.data_service)
         self.news_page = NewsPage(self.data_service)
         self.library_page = LibraryPage(self.task_service)
-        self.log_page = LogPage()
+        self.log_page = LogPage(self.log_service, self.data_service)
         self.job_page = JobPage(self.job_service)
         self.settings_page = SettingsPage(
             self.user_service,
@@ -463,6 +466,8 @@ class MainWindow(QMainWindow):
             self.data_page.refresh()
         elif page_id == "news":
             self.news_page.refresh()
+        elif page_id == "log":
+            self.log_page.refresh()
         elif page_id == "job":
             self.job_page._load_jobs()
 
