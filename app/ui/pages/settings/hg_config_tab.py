@@ -123,8 +123,8 @@ class _ChecklistEditor(QWidget):
         for i, text in enumerate(self._items):
             row = QWidget()
             hl = QHBoxLayout(row)
-            hl.setContentsMargins(0, 0, 12, 0)
-            hl.setSpacing(8)
+            hl.setContentsMargins(8, 4, 16, 4)
+            hl.setSpacing(12)
 
             cb = QCheckBox(text)
             cb.setChecked(False)
