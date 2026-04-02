@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QCheckBox, QDialog, QApplication,
-    QSplitter,
+    QSplitter, QFrame,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor, QFont
@@ -18,6 +18,20 @@ from app.ui.widgets.table_utils import enable_row_numbers_and_sort
 
 from app.ui.generated.ui_stateresultverification import Ui_StateResultVerification
 from app.services.hg_config_service import DEFAULT_VERIFY_CHECKLIST
+
+_FRAME_STYLE = (
+    "QFrame#verify_section { background: #ffffff; border: 1px solid #e5e7eb; "
+    "border-radius: 8px; }"
+    "QFrame#verify_section QWidget { background: #ffffff; }"
+)
+_TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
+
+
+def _make_separator() -> QWidget:
+    sep = QWidget()
+    sep.setFixedHeight(1)
+    sep.setStyleSheet("background: #e5e7eb;")
+    return sep
 
 
 class ResultVerificationUI(QWidget):
@@ -47,7 +61,28 @@ class ResultVerificationUI(QWidget):
         # エイリアス
         self.tab_widget = self._form.tabWidget_data
         self.next_btn   = self._form.btn_next
-        self._check_layout = self._form.horizontalLayout
+
+        # 旧QGroupBoxを非表示にして、カスタムチェックリストセクションを挿入
+        self._form.groupBox_check_list.setVisible(False)
+
+        self._check_section = QFrame()
+        self._check_section.setObjectName("verify_section")
+        self._check_section.setStyleSheet(_FRAME_STYLE)
+        cs_layout = QVBoxLayout(self._check_section)
+        cs_layout.setContentsMargins(16, 12, 16, 12)
+        cs_layout.setSpacing(0)
+
+        cs_title = QLabel("確認項目")
+        cs_title.setStyleSheet(_TITLE_STYLE)
+        cs_layout.addWidget(cs_title)
+        cs_layout.addWidget(_make_separator())
+
+        self._check_layout = QVBoxLayout()
+        self._check_layout.setSpacing(0)
+        cs_layout.addLayout(self._check_layout)
+
+        # widget_check_list の verticalLayout_3 に挿入
+        self._form.verticalLayout_3.addWidget(self._check_section)
 
         # デフォルトチェックリストで初期化
         self._build_checks(list(DEFAULT_VERIFY_CHECKLIST))
@@ -68,21 +103,38 @@ class ResultVerificationUI(QWidget):
         for cb in self._checks:
             cb.deleteLater()
         self._checks.clear()
-        # stretch も除去
         while self._check_layout.count():
             item = self._check_layout.takeAt(0)
             w = item.widget()
             if w:
                 w.deleteLater()
 
-        for text in items:
+        for i, text in enumerate(items):
             cb = QCheckBox(text)
-            cb.setStyleSheet("font-size:12px; color:#334155;")
+            is_last = (i == len(items) - 1)
+            if is_last:
+                cb.setStyleSheet("color: #334155; border-bottom: none;")
+            else:
+                cb.setStyleSheet("color: #334155;")
             cb.stateChanged.connect(self._update_next_btn)
+            cb.stateChanged.connect(
+                lambda _, c=cb, last=is_last: self._apply_strikethrough(c, last)
+            )
             self._check_layout.addWidget(cb)
             self._checks.append(cb)
-        self._check_layout.addStretch()
         self._update_next_btn()
+
+    @staticmethod
+    def _apply_strikethrough(cb: QCheckBox, is_last: bool = False) -> None:
+        """チェック状態に応じて取り消し線を切り替える。"""
+        font = cb.font()
+        font.setStrikeOut(cb.isChecked())
+        cb.setFont(font)
+        border = "border-bottom: none;" if is_last else ""
+        if cb.isChecked():
+            cb.setStyleSheet(f"color: #9ca3af; {border}")
+        else:
+            cb.setStyleSheet(f"color: #334155; {border}")
 
     def build_tabs(
         self,
