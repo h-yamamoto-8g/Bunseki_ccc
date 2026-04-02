@@ -457,11 +457,11 @@ class LibraryPage(QWidget):
                 file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 file_btn.setFlat(True)
                 file_btn.setStyleSheet(
-                    f"QPushButton {{ font-size:13px; color:{_ACCENT};"
-                    " text-decoration:underline; border:none;"
+                    f"QPushButton {{ font-size:13px; color:{_TEXT};"
+                    " text-decoration:none; border:none;"
                     " background:transparent; text-align:left; padding:4px 8px;"
                     " min-height:0; }}"
-                    "QPushButton:hover { color:#1d4ed8; }"
+                    f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
                 )
                 file_btn.clicked.connect(
                     lambda _=False, p=path: self._open_file(p)
