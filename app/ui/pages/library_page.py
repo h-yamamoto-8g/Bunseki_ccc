@@ -438,9 +438,11 @@ class LibraryPage(QWidget):
             parts.append(f"({len(group['files'])} ファイル)")
             header_text = "    ".join(parts)
 
+            # 奇数グループは薄いグレー寄り、偶数は薄い青
+            header_bg = "#e8edf4" if gi % 2 == 1 else _GROUP_BG
             for ci in range(3):
                 item = QTableWidgetItem(header_text if ci == 0 else "")
-                item.setBackground(QColor(_GROUP_BG))
+                item.setBackground(QColor(header_bg))
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 if ci == 0:
                     item.setForeground(QColor(_GROUP_COLOR))
