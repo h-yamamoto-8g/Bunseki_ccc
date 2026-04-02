@@ -424,6 +424,7 @@ class LibraryPage(QWidget):
         self._table.setRowCount(total_rows)
 
         row_idx = 0
+        file_counter = 0
         for group in groups:
             # ── グループヘッダー行 ────────────────────────────────
             # 各列にヘッダーウィジェットを配置（スパンなし）
@@ -453,9 +454,10 @@ class LibraryPage(QWidget):
             row_idx += 1
 
             # ── ファイル行 ────────────────────────────────────────
-            for fi, file_info in enumerate(group["files"]):
+            for file_info in group["files"]:
                 path = file_info["path"]
-                row_bg = "#f9fafb" if fi % 2 == 1 else "#ffffff"
+                row_bg = "#f9fafb" if file_counter % 2 == 1 else "#ffffff"
+                file_counter += 1
 
                 # 列0: 開くアイコンボタン
                 btn = QPushButton()
