@@ -260,6 +260,14 @@ class MainWindow(QMainWindow):
 
         # ① サイドバー ─────────────────────────────────────────────────────
         self.sidebar = Sidebar()
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        from PySide6.QtGui import QColor as _QColor
+        shadow = QGraphicsDropShadowEffect(self.sidebar)
+        shadow.setBlurRadius(12)
+        shadow.setXOffset(2)
+        shadow.setYOffset(0)
+        shadow.setColor(_QColor(0, 0, 0, 25))
+        self.sidebar.setGraphicsEffect(shadow)
         root.addWidget(self.sidebar)
 
         # ② メインエリア ───────────────────────────────────────────────────
