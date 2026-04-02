@@ -453,8 +453,9 @@ class LibraryPage(QWidget):
             row_idx += 1
 
             # ── ファイル行 ────────────────────────────────────────
-            for file_info in group["files"]:
+            for fi, file_info in enumerate(group["files"]):
                 path = file_info["path"]
+                row_bg = "#f9fafb" if fi % 2 == 1 else "#ffffff"
 
                 # 列0: 開くアイコンボタン
                 btn = QPushButton()
@@ -472,7 +473,7 @@ class LibraryPage(QWidget):
                     lambda _=False, p=path: self._open_file(p)
                 )
                 cell_w = QWidget()
-                cell_w.setStyleSheet("background:transparent;")
+                cell_w.setStyleSheet(f"background:{row_bg};")
                 cell_l = QHBoxLayout(cell_w)
                 cell_l.setContentsMargins(8, 4, 4, 4)
                 cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -485,9 +486,9 @@ class LibraryPage(QWidget):
                 file_btn.setFlat(True)
                 file_btn.setStyleSheet(
                     f"QPushButton {{ font-size:13px; color:{_TEXT};"
-                    " text-decoration:none; border:none;"
-                    " background:transparent; text-align:left; padding:4px 8px;"
-                    " min-height:0; }}"
+                    f" text-decoration:none; border:none;"
+                    f" background:{row_bg}; text-align:left; padding:4px 8px;"
+                    f" min-height:0; }}"
                     f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
                 )
                 file_btn.clicked.connect(
@@ -498,6 +499,7 @@ class LibraryPage(QWidget):
 
                 # 列2: 添付者
                 user_item = QTableWidgetItem(file_info["added_by"])
+                user_item.setBackground(QColor(row_bg))
                 user_item.setTextAlignment(
                     Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
                 )
