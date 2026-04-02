@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.data_config_service import DataConfigService
 from app.services.data_service import DataService
 from app.ui.states.result_verification.state import TrendDialog
 from app.ui.widgets.date_edit import DateEdit
@@ -82,9 +83,20 @@ class DataPage(QWidget):
     def __init__(self, data_service: DataService, parent: QWidget | None = None):
         super().__init__(parent)
         self._ds = data_service
+        self._data_config = DataConfigService()
+        self._visible_columns: list[tuple[str, str]] = []  # (label, key)
         self._all_df: pd.DataFrame | None = None   # 検索結果全件（表示制限なし）
         self._display_limit: int = _PAGE_SIZE
+        self._load_column_config()
         self._build_ui()
+
+    def _load_column_config(self) -> None:
+        """設定から表示列を読み込む。"""
+        cols = self._data_config.get_columns()
+        self._visible_columns = [
+            (c["label"], c["key"])
+            for c in cols if c.get("visible", True)
+        ]
 
     # ── UI 構築 ───────────────────────────────────────────────────────────────
 
@@ -217,9 +229,16 @@ class DataPage(QWidget):
 
     def _build_table(self) -> QTableWidget:
         self.table = QTableWidget()
-        col_count = len(_COLUMNS) + 1  # +1 for graph button
+        self._apply_table_columns()
+        return self._style_table()
+
+    def _apply_table_columns(self) -> None:
+        """表示列設定をテーブルに反映する。"""
+        cols = self._visible_columns
+        col_count = len(cols) + 1  # +1 for graph button
         self.table.setColumnCount(col_count)
-        self.table.setHorizontalHeaderLabels([c[0] for c in _COLUMNS] + [""])
+        self.table.setHorizontalHeaderLabels([c[0] for c in cols] + [""])
+    def _style_table(self) -> QTableWidget:
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -228,17 +247,12 @@ class DataPage(QWidget):
 
         header = self.table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(9, 44)
+        n = len(self._visible_columns)
+        graph_col = n  # グラフボタン列
+        for i in range(n):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(graph_col, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(graph_col, 44)
 
         self.table.setStyleSheet(
             f"QTableWidget {{"
@@ -289,7 +303,9 @@ class DataPage(QWidget):
     # ── 公開API ───────────────────────────────────────────────────────────────
 
     def refresh(self) -> None:
-        """ページ表示時に呼ばれる。ドロップダウンの選択肢をロードする。"""
+        """ページ表示時に呼ばれる。列設定とドロップダウンをリロードする。"""
+        self._load_column_config()
+        self._apply_table_columns()
         self._load_dropdowns()
 
     # ── 内部処理 ──────────────────────────────────────────────────────────────
@@ -344,8 +360,8 @@ class DataPage(QWidget):
         self._refresh_table()
 
     def _on_sort_column(self, col: int, ascending: bool) -> None:
-        if self._all_df is not None and 0 <= col < len(_COLUMNS):
-            col_key = _COLUMNS[col][1]
+        if self._all_df is not None and 0 <= col < len(self._visible_columns):
+            col_key = self._visible_columns[col][1]
             self._all_df = self._all_df.sort_values(
                 col_key, ascending=ascending, na_position="last",
             )
@@ -381,7 +397,7 @@ class DataPage(QWidget):
         self.table.setRowCount(len(df))
         for row_idx in range(len(df)):
             row = df.iloc[row_idx]
-            for col_idx, (_, col_key) in enumerate(_COLUMNS):
+            for col_idx, (_, col_key) in enumerate(self._visible_columns):
                 val = row.get(col_key, "")
                 text = self._format_cell(col_key, val)
                 item = QTableWidgetItem(text)
@@ -397,7 +413,7 @@ class DataPage(QWidget):
 
                 self.table.setItem(row_idx, col_idx, item)
 
-            # グラフボタン (列 9)
+            # グラフボタン (最終列)
             hg   = str(row.get("holder_group_code", ""))
             vs   = str(row.get("valid_sample_set_code", ""))
             vt   = str(row.get("valid_test_set_code", ""))
@@ -424,7 +440,7 @@ class DataPage(QWidget):
             cell_l.setContentsMargins(4, 4, 4, 4)
             cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
             cell_l.addWidget(btn)
-            self.table.setCellWidget(row_idx, 9, cell_w)
+            self.table.setCellWidget(row_idx, len(self._visible_columns), cell_w)
 
     def _on_graph_row(
         self, hg_code: str, vsset: str, vtest: str, unit: str, test_name: str

@@ -18,11 +18,13 @@ from PySide6.QtCore import Qt
 
 import app.config as _cfg
 from app.config import save_data_path, reload_paths
+from app.services.data_config_service import DataConfigService
 from app.services.data_service import DataService
 from app.services.hg_config_service import HgConfigService
 from app.services.user_service import UserService
 from app.ui.dialogs.setup_root_dialog import SetupRootDialog
 from app.ui.generated.ui_settingpage import Ui_SettingPage
+from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
 from app.ui.pages.settings.home_tab import HomeTab
 from app.ui.pages.settings.users_tab import UsersTab
@@ -135,7 +137,10 @@ class SettingsPage(QWidget):
         self._embed(self.ui.tab_tasks, self.hg_config_tab)
 
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
-        self._embed(self.ui.tab_data, _placeholder("データ設定（実装予定）"))
+        # tab_data: データ設定
+        self.data_config_service = DataConfigService()
+        self.data_tab = DataTab(self.data_config_service)
+        self._embed(self.ui.tab_data, self.data_tab)
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
         self._embed(self.ui.tab_logs, _placeholder("ログ設定（実装予定）"))
         self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
