@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -55,7 +56,7 @@ class _ChecklistEditor(QWidget):
 
         # 項目リスト領域
         self._list_layout = QVBoxLayout()
-        self._list_layout.setSpacing(4)
+        self._list_layout.setSpacing(0)
         layout.addLayout(self._list_layout)
 
         # 追加行
@@ -95,11 +96,12 @@ class _ChecklistEditor(QWidget):
             row = QWidget()
             hl = QHBoxLayout(row)
             hl.setContentsMargins(0, 0, 0, 0)
-            hl.setSpacing(6)
+            hl.setSpacing(0)
 
-            lbl = QLabel(f"  {i + 1}. {text}")
-            lbl.setStyleSheet("font-size: 13px; color: #334155;")
-            hl.addWidget(lbl, 1)
+            cb = QCheckBox(text)
+            cb.setChecked(True)
+            cb.setEnabled(False)
+            hl.addWidget(cb, 1)
 
             btn_del = QPushButton("×")
             btn_del.setFixedSize(24, 24)
