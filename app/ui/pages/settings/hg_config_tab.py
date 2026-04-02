@@ -111,6 +111,8 @@ class _ChecklistEditor(QWidget):
             cb = QCheckBox(text)
             cb.setChecked(False)
             cb.setEnabled(False)
+            if i == len(self._items) - 1:
+                cb.setStyleSheet("border-bottom: none;")
             hl.addWidget(cb, 1)
 
             btn_del = QPushButton("×")

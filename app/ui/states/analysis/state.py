@@ -260,27 +260,32 @@ class AnalysisUI(QWidget):
         vl.addWidget(btn_all)
         self._check_all_btns.append(btn_all)
 
-        for text in items:
+        for i, text in enumerate(items):
             label = text if isinstance(text, str) else text.get("label", str(text))
             cb = QCheckBox(label)
-            cb.setStyleSheet("color: #334155;")
+            if i == len(items) - 1:
+                cb.setStyleSheet("color: #334155; border-bottom: none;")
+            else:
+                cb.setStyleSheet("color: #334155;")
             cb.stateChanged.connect(self._update_finish_btn)
-            cb.stateChanged.connect(lambda _, c=cb: self._apply_strikethrough(c))
+            is_last = (i == len(items) - 1)
+            cb.stateChanged.connect(lambda _, c=cb, last=is_last: self._apply_strikethrough(c, last))
             vl.addWidget(cb)
             checks.append(cb)
 
         return group, checks
 
     @staticmethod
-    def _apply_strikethrough(cb: QCheckBox) -> None:
+    def _apply_strikethrough(cb: QCheckBox, is_last: bool = False) -> None:
         """チェック状態に応じて取り消し線を切り替える。"""
         font = cb.font()
         font.setStrikeOut(cb.isChecked())
         cb.setFont(font)
+        border = "border-bottom: none;" if is_last else ""
         if cb.isChecked():
-            cb.setStyleSheet("color: #9ca3af;")
+            cb.setStyleSheet(f"color: #9ca3af; {border}")
         else:
-            cb.setStyleSheet("color: #334155;")
+            cb.setStyleSheet(f"color: #334155; {border}")
 
     def _check_all(self, checkboxes: list[QCheckBox]) -> None:
         for cb in checkboxes:
