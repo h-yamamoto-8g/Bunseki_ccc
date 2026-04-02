@@ -458,6 +458,7 @@ class MainWindow(QMainWindow):
         self.btn_active_page.setIcon(get_icon(svg_path, "#333333", size=24) if svg_path else self.btn_active_page.icon())
         self.label_active_tasks_name.clear()
         self.step_nav.clear()
+        self.step_nav.setVisible(False)
 
         if page_id == "home":
             self.home_page.refresh()
