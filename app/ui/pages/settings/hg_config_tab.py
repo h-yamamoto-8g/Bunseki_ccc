@@ -105,8 +105,8 @@ class _ChecklistEditor(QWidget):
         for i, text in enumerate(self._items):
             row = QWidget()
             hl = QHBoxLayout(row)
-            hl.setContentsMargins(0, 0, 0, 0)
-            hl.setSpacing(0)
+            hl.setContentsMargins(0, 0, 12, 0)
+            hl.setSpacing(8)
 
             cb = QCheckBox(text)
             cb.setChecked(False)
@@ -122,7 +122,7 @@ class _ChecklistEditor(QWidget):
                 "QPushButton { background: #ef4444; color: #ffffff; "
                 "border: none; border-radius: 16px; "
                 "font-size: 18px; font-weight: bold; "
-                "min-height: 0; min-width: 0; padding: 0; margin: 0 8px; }"
+                "min-height: 0; min-width: 0; padding: 0; }"
                 "QPushButton:hover { background: #dc2626; }"
             )
             idx = i
