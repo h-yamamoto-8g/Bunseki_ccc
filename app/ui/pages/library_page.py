@@ -420,14 +420,13 @@ class LibraryPage(QWidget):
         self._table.setRowCount(0)
         self._row_path_map.clear()
 
-        total_rows = sum(1 + len(g["files"]) for g in groups)
+        # ヘッダー行 + 区切り行 + ファイル行
+        total_rows = sum(2 + len(g["files"]) for g in groups)
         self._table.setRowCount(total_rows)
 
         row_idx = 0
-        for gi, group in enumerate(groups):
-            group_bg = "#f9fafb" if gi % 2 == 1 else "#ffffff"
+        for group in groups:
             # ── グループヘッダー行 ────────────────────────────────
-            # 各列にヘッダーウィジェットを配置（スパンなし）
             parts = [group["task_name"]]
             parts.append(f"[{group['status']}]")
             if group["holder_group_name"]:
@@ -438,11 +437,9 @@ class LibraryPage(QWidget):
             parts.append(f"({len(group['files'])} ファイル)")
             header_text = "    ".join(parts)
 
-            # 奇数グループは薄いグレー寄り、偶数は薄い青
-            header_bg = "#e8edf4" if gi % 2 == 1 else _GROUP_BG
             for ci in range(3):
                 item = QTableWidgetItem(header_text if ci == 0 else "")
-                item.setBackground(QColor(header_bg))
+                item.setBackground(QColor(_GROUP_BG))
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 if ci == 0:
                     item.setForeground(QColor(_GROUP_COLOR))
@@ -455,10 +452,23 @@ class LibraryPage(QWidget):
             self._table.setRowHeight(row_idx, 44)
             row_idx += 1
 
+            # ── 区切り線行 ────────────────────────────────────────
+            sep_w = QWidget()
+            sep_w.setStyleSheet("background: transparent;")
+            sep_vl = QVBoxLayout(sep_w)
+            sep_vl.setContentsMargins(16, 0, 16, 0)
+            sep_line = QWidget()
+            sep_line.setFixedHeight(1)
+            sep_line.setStyleSheet(f"background: {_BORDER};")
+            sep_vl.addWidget(sep_line)
+            self._table.setSpan(row_idx, 0, 1, 3)
+            self._table.setCellWidget(row_idx, 0, sep_w)
+            self._table.setRowHeight(row_idx, 5)
+            row_idx += 1
+
             # ── ファイル行 ────────────────────────────────────────
             for file_info in group["files"]:
                 path = file_info["path"]
-                row_bg = group_bg
 
                 # 列0: 開くアイコンボタン
                 btn = QPushButton()
@@ -476,7 +486,7 @@ class LibraryPage(QWidget):
                     lambda _=False, p=path: self._open_file(p)
                 )
                 cell_w = QWidget()
-                cell_w.setStyleSheet(f"background:{row_bg};")
+                cell_w.setStyleSheet("background:transparent;")
                 cell_l = QHBoxLayout(cell_w)
                 cell_l.setContentsMargins(8, 4, 4, 4)
                 cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -489,9 +499,9 @@ class LibraryPage(QWidget):
                 file_btn.setFlat(True)
                 file_btn.setStyleSheet(
                     f"QPushButton {{ font-size:13px; color:{_TEXT};"
-                    f" text-decoration:none; border:none;"
-                    f" background:{row_bg}; text-align:left; padding:4px 8px;"
-                    f" min-height:0; }}"
+                    " text-decoration:none; border:none;"
+                    " background:transparent; text-align:left; padding:4px 8px;"
+                    " min-height:0; }}"
                     f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
                 )
                 file_btn.clicked.connect(
@@ -502,7 +512,6 @@ class LibraryPage(QWidget):
 
                 # 列2: 添付者
                 user_item = QTableWidgetItem(file_info["added_by"])
-                user_item.setBackground(QColor(row_bg))
                 user_item.setTextAlignment(
                     Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
                 )

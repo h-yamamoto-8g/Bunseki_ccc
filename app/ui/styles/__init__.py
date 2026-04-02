@@ -20,6 +20,12 @@ QWidget#frame_sidebar {
     background: #ffffff;
     border-right: 1px solid #e5e7eb;
 }
+QWidget#frame_sidebar QWidget {
+    background: #ffffff;
+}
+QWidget#frame_sidebar QToolButton {
+    background: transparent;
+}
 
 /* ── メインエリア ── */
 QWidget#widget_main {
