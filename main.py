@@ -355,7 +355,7 @@ class MainWindow(QMainWindow):
         self.tasks_page = TasksPage(self.task_service, self.data_service, self.job_service)
         self.data_page = DataPage(self.data_service)
         self.news_page = NewsPage(self.data_service)
-        self.library_page = LibraryPage(self.task_service)
+        self.library_page = LibraryPage(self.task_service, self.data_service)
         self.log_page = LogPage(self.log_service, self.data_service)
         self.job_page = JobPage(self.job_service)
         self.settings_page = SettingsPage(

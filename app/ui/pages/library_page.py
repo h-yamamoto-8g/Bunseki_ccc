@@ -4,11 +4,13 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -22,7 +24,9 @@ from PySide6.QtWidgets import (
 )
 
 import app.config as _cfg
+from app.services.data_service import DataService
 from app.services.task_service import TaskService
+from app.ui.widgets.date_edit import DateEdit
 from app.ui.widgets.icon_utils import get_icon
 
 # ── デザイントークン ──────────────────────────────────────────────────────────
@@ -30,7 +34,6 @@ _BG2 = "#ffffff"
 _BG3 = "#f9fafb"
 _TEXT = "#333333"
 _TEXT2 = "#6b7280"
-_TEXT3 = "#9ca3af"
 _ACCENT = "#3b82f6"
 _BORDER = "#e5e7eb"
 _GROUP_BG = "#f0f5ff"
@@ -43,7 +46,7 @@ _FRAME_STYLE = (
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
-_PAGE_SIZE = 50  # タスク単位のページネーション
+_PAGE_SIZE = 50
 
 
 def _make_separator() -> QWidget:
@@ -59,13 +62,16 @@ class LibraryPage(QWidget):
     def __init__(
         self,
         task_service: TaskService | None = None,
+        data_service: DataService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._ts = task_service
-        self._all_groups: list[dict] = []  # タスク単位のグループ
+        self._ds = data_service
+        self._all_groups: list[dict] = []
         self._filtered_groups: list[dict] = []
         self._display_limit: int = _PAGE_SIZE
+        self._row_path_map: dict[int, str] = {}
         self._build_ui()
 
     # ── UI 構築 ───────────────────────────────────────────────────────────────
@@ -93,29 +99,16 @@ class LibraryPage(QWidget):
         vl.addWidget(title)
         vl.addWidget(_make_separator())
 
-        row = QHBoxLayout()
-        row.setSpacing(12)
+        # ── Row 1: シンプルな検索 ─────────────────────────────────
+        row1 = QHBoxLayout()
+        row1.setSpacing(8)
 
-        lbl_task = QLabel("タスク名")
-        lbl_task.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
-        row.addWidget(lbl_task)
-        self._edit_task = QLineEdit()
-        self._edit_task.setPlaceholderText("部分一致")
-        row.addWidget(self._edit_task, 1)
-
-        lbl_file = QLabel("ファイル名")
-        lbl_file.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
-        row.addWidget(lbl_file)
-        self._edit_file = QLineEdit()
-        self._edit_file.setPlaceholderText("部分一致")
-        row.addWidget(self._edit_file, 1)
-
-        lbl_user = QLabel("添付者")
-        lbl_user.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
-        row.addWidget(lbl_user)
-        self._edit_user = QLineEdit()
-        self._edit_user.setPlaceholderText("部分一致")
-        row.addWidget(self._edit_user, 1)
+        lbl_simple = QLabel("キーワード")
+        lbl_simple.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row1.addWidget(lbl_simple)
+        self._edit_simple = QLineEdit()
+        self._edit_simple.setPlaceholderText("タスク名・ファイル名・添付者を横断検索")
+        row1.addWidget(self._edit_simple, 1)
 
         btn_search = QPushButton("検索")
         btn_search.setStyleSheet(
@@ -123,20 +116,82 @@ class LibraryPage(QWidget):
             "border-radius: 6px; padding: 8px 20px; font-weight: 600;"
         )
         btn_search.clicked.connect(self._on_search)
-        row.addWidget(btn_search)
+        row1.addWidget(btn_search)
 
         btn_clear = QPushButton("クリア")
         btn_clear.clicked.connect(self._on_clear)
-        row.addWidget(btn_clear)
+        row1.addWidget(btn_clear)
 
-        vl.addLayout(row)
+        vl.addLayout(row1)
+
+        # ── Row 2: 期間, 分析項目, ユーザー ──────────────────────
+        row2 = QHBoxLayout()
+        row2.setSpacing(8)
+
+        lbl_date = QLabel("期間")
+        lbl_date.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row2.addWidget(lbl_date)
+        self._date_from = DateEdit()
+        self._date_from.setFixedWidth(150)
+        row2.addWidget(self._date_from)
+        lbl_tilde = QLabel("〜")
+        lbl_tilde.setStyleSheet(f"color: {_TEXT2};")
+        row2.addWidget(lbl_tilde)
+        self._date_to = DateEdit()
+        self._date_to.setFixedWidth(150)
+        row2.addWidget(self._date_to)
+
+        row2.addSpacing(16)
+
+        lbl_hg = QLabel("分析項目")
+        lbl_hg.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row2.addWidget(lbl_hg)
+        self._combo_hg = QComboBox()
+        self._combo_hg.setMinimumWidth(180)
+        row2.addWidget(self._combo_hg)
+
+        row2.addSpacing(16)
+
+        lbl_user = QLabel("ユーザー")
+        lbl_user.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row2.addWidget(lbl_user)
+        self._combo_user = QComboBox()
+        self._combo_user.setMinimumWidth(150)
+        row2.addWidget(self._combo_user)
+
+        row2.addStretch()
+        vl.addLayout(row2)
+
+        # ── Row 3: ファイル名, 拡張子 ────────────────────────────
+        row3 = QHBoxLayout()
+        row3.setSpacing(8)
+
+        lbl_file = QLabel("ファイル名")
+        lbl_file.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row3.addWidget(lbl_file)
+        self._edit_file = QLineEdit()
+        self._edit_file.setPlaceholderText("部分一致")
+        row3.addWidget(self._edit_file, 1)
+
+        row3.addSpacing(16)
+
+        lbl_ext = QLabel("拡張子")
+        lbl_ext.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
+        row3.addWidget(lbl_ext)
+        self._edit_ext = QLineEdit()
+        self._edit_ext.setPlaceholderText("例: xlsx, pdf")
+        self._edit_ext.setFixedWidth(150)
+        row3.addWidget(self._edit_ext)
+
+        row3.addStretch()
+        vl.addLayout(row3)
+
         return frame
 
     def _build_action_bar(self) -> QWidget:
         bar = QWidget()
         hl = QHBoxLayout(bar)
         hl.setContentsMargins(0, 0, 0, 0)
-
         self._label_count = QLabel("検索ボタンを押してデータを表示")
         self._label_count.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
         hl.addWidget(self._label_count)
@@ -179,9 +234,7 @@ class LibraryPage(QWidget):
             f"}}"
         )
 
-        # ダブルクリックでファイルを開く
         self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
-
         return self._table
 
     def _build_pager_bar(self) -> QWidget:
@@ -189,30 +242,60 @@ class LibraryPage(QWidget):
         hl = QHBoxLayout(bar)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.addStretch()
-
         self._btn_load_more = QPushButton(f"さらに {_PAGE_SIZE} 件読み込む")
         self._btn_load_more.setVisible(False)
         self._btn_load_more.clicked.connect(self._on_load_more)
         hl.addWidget(self._btn_load_more)
-
         self._btn_load_all = QPushButton("全件読み込む")
         self._btn_load_all.setVisible(False)
         self._btn_load_all.clicked.connect(self._on_load_all)
         hl.addWidget(self._btn_load_all)
-
         hl.addStretch()
         return bar
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def refresh(self) -> None:
+        self._load_dropdowns()
         self._collect_all()
         self._apply_filter()
 
-    # ── 内部処理 ──────────────────────────────────────────────────────────────
+    # ── ドロップダウン ────────────────────────────────────────────────────────
+
+    def _load_dropdowns(self) -> None:
+        # 分析項目
+        self._combo_hg.blockSignals(True)
+        self._combo_hg.clear()
+        self._combo_hg.addItem("すべて", "")
+        if self._ds:
+            try:
+                for hg in self._ds.get_holder_groups():
+                    self._combo_hg.addItem(
+                        hg.get("holder_group_name", ""),
+                        hg.get("holder_group_code", ""),
+                    )
+            except Exception:
+                pass
+        self._combo_hg.blockSignals(False)
+
+        # ユーザー
+        self._combo_user.blockSignals(True)
+        self._combo_user.clear()
+        self._combo_user.addItem("すべて", "")
+        if self._ds:
+            try:
+                users = self._ds.get_users()
+                for u in users:
+                    name = u.get("name", "")
+                    if name:
+                        self._combo_user.addItem(name, name)
+            except Exception:
+                pass
+        self._combo_user.blockSignals(False)
+
+    # ── データ収集 ────────────────────────────────────────────────────────────
 
     def _collect_all(self) -> None:
-        """全タスクから添付資料をタスク単位で収集する。"""
         self._all_groups.clear()
         if not self._ts:
             return
@@ -232,36 +315,73 @@ class LibraryPage(QWidget):
                 else:
                     path = str(att)
                     added_by = ""
+                filename = Path(path).name if path else ""
+                ext = Path(filename).suffix.lstrip(".").lower() if filename else ""
                 files.append({
-                    "filename": Path(path).name if path else "",
+                    "filename": filename,
                     "added_by": added_by,
                     "path": path,
+                    "ext": ext,
                 })
 
             self._all_groups.append({
                 "task_name": task.get("task_name", ""),
                 "status": task.get("status", ""),
                 "created_by": task.get("created_by", ""),
+                "created_at": task.get("created_at", ""),
+                "holder_group_code": task.get("holder_group_code", ""),
+                "holder_group_name": task.get("holder_group_name", ""),
                 "flow": flow_str,
                 "files": files,
             })
 
+    # ── フィルタ ──────────────────────────────────────────────────────────────
+
     def _apply_filter(self) -> None:
-        task_q = self._edit_task.text().strip().lower()
+        simple_q = self._edit_simple.text().strip().lower()
+        date_from = self._date_from.text().strip()
+        date_to = self._date_to.text().strip()
+        hg_code = self._combo_hg.currentData() or ""
+        user_name = self._combo_user.currentData() or ""
         file_q = self._edit_file.text().strip().lower()
-        user_q = self._edit_user.text().strip().lower()
+        ext_q = self._edit_ext.text().strip().lower().lstrip(".")
 
         filtered: list[dict] = []
         for group in self._all_groups:
-            if task_q and task_q not in group["task_name"].lower():
+            # 期間フィルタ（タスク作成日）
+            if date_from or date_to:
+                created = group.get("created_at", "")[:10]  # YYYY-MM-DD
+                if date_from and created < date_from:
+                    continue
+                if date_to and created > date_to:
+                    continue
+
+            # 分析項目フィルタ
+            if hg_code and group.get("holder_group_code", "") != hg_code:
                 continue
 
-            if file_q or user_q:
+            # ユーザーフィルタ（起票者）
+            if user_name and group.get("created_by", "") != user_name:
+                continue
+
+            # シンプル検索（タスク名・ファイル名・添付者を横断）
+            if simple_q:
+                task_match = simple_q in group["task_name"].lower()
+                file_match = any(
+                    simple_q in f["filename"].lower()
+                    or simple_q in f["added_by"].lower()
+                    for f in group["files"]
+                )
+                if not task_match and not file_match:
+                    continue
+
+            # ファイル名・拡張子フィルタ（ファイル単位で絞り込み）
+            if file_q or ext_q:
                 matched_files = []
                 for f in group["files"]:
                     if file_q and file_q not in f["filename"].lower():
                         continue
-                    if user_q and user_q not in f["added_by"].lower():
+                    if ext_q and f["ext"] != ext_q:
                         continue
                     matched_files.append(f)
                 if not matched_files:
@@ -273,6 +393,8 @@ class LibraryPage(QWidget):
         self._filtered_groups = filtered
         self._display_limit = _PAGE_SIZE
         self._refresh_table()
+
+    # ── テーブル更新 ──────────────────────────────────────────────────────────
 
     def _refresh_table(self) -> None:
         total_groups = len(self._filtered_groups)
@@ -286,7 +408,6 @@ class LibraryPage(QWidget):
             f"{shown_groups} タスク ({shown_files} ファイル) / "
             f"全 {total_groups} タスク ({total_files} ファイル)"
         )
-
         self._populate_table(groups_to_show)
 
         has_more = shown_groups < total_groups
@@ -295,7 +416,7 @@ class LibraryPage(QWidget):
 
     def _populate_table(self, groups: list[dict]) -> None:
         self._table.setRowCount(0)
-        self._row_path_map: dict[int, str] = {}  # row_idx → file path
+        self._row_path_map.clear()
 
         total_rows = sum(1 + len(g["files"]) for g in groups)
         self._table.setRowCount(total_rows)
@@ -305,12 +426,12 @@ class LibraryPage(QWidget):
             # ── グループヘッダー行 ────────────────────────────────
             header_text = (
                 f"  ■  {group['task_name']}    [{group['status']}]"
+                f"    {group['holder_group_name']}"
                 f"    起票: {group['created_by']}"
             )
             if group["flow"]:
                 header_text += f"    回覧: {group['flow']}"
 
-            # 全4列をスパンしたヘッダー行
             self._table.setSpan(row_idx, 0, 1, 4)
             header_item = QTableWidgetItem(header_text)
             header_item.setBackground(QColor(_GROUP_BG))
@@ -319,21 +440,18 @@ class LibraryPage(QWidget):
             font.setBold(True)
             font.setPointSize(10)
             header_item.setFont(font)
-            header_item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled  # 選択不可
-            )
+            header_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             self._table.setItem(row_idx, 0, header_item)
             self._table.setRowHeight(row_idx, 40)
             row_idx += 1
 
             # ── ファイル行 ────────────────────────────────────────
             for file_info in group["files"]:
-                # 列0: インデント用空白
                 indent = QTableWidgetItem("")
                 indent.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 self._table.setItem(row_idx, 0, indent)
 
-                # 列1: ファイル名（リンク風ボタン）
+                # ファイル名（リンク風ボタン）
                 path = file_info["path"]
                 file_btn = QPushButton(file_info["filename"])
                 file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -351,12 +469,11 @@ class LibraryPage(QWidget):
                 self._table.setCellWidget(row_idx, 1, file_btn)
                 self._row_path_map[row_idx] = path
 
-                # 列2: 添付者
                 self._table.setItem(
                     row_idx, 2, QTableWidgetItem(file_info["added_by"])
                 )
 
-                # 列3: 開くボタン
+                # 開くボタン
                 btn = QPushButton()
                 btn.setIcon(get_icon(":/icons/link.svg", _ACCENT, 14))
                 btn.setIconSize(QSize(14, 14))
@@ -384,7 +501,6 @@ class LibraryPage(QWidget):
     # ── イベント ──────────────────────────────────────────────────────────────
 
     def _on_cell_double_clicked(self, row: int, _col: int) -> None:
-        """ファイル行をダブルクリックで開く。"""
         path = self._row_path_map.get(row)
         if path:
             self._open_file(path)
@@ -396,12 +512,17 @@ class LibraryPage(QWidget):
             self._label_count.setText("添付資料が登録されたタスクはありません")
 
     def _on_clear(self) -> None:
-        self._edit_task.clear()
+        self._edit_simple.clear()
+        self._date_from.clear()
+        self._date_to.clear()
+        self._combo_hg.setCurrentIndex(0)
+        self._combo_user.setCurrentIndex(0)
         self._edit_file.clear()
-        self._edit_user.clear()
+        self._edit_ext.clear()
         self._table.setRowCount(0)
         self._all_groups.clear()
         self._filtered_groups.clear()
+        self._row_path_map.clear()
         self._label_count.setText("検索ボタンを押してデータを表示")
         self._btn_load_more.setVisible(False)
         self._btn_load_all.setVisible(False)
@@ -416,7 +537,6 @@ class LibraryPage(QWidget):
 
     @staticmethod
     def _open_file(rel_path: str) -> None:
-        """添付ファイルをOSのデフォルトアプリで開く。"""
         p = Path(rel_path)
         if not p.is_absolute():
             p = _cfg.DATA_PATH / p
