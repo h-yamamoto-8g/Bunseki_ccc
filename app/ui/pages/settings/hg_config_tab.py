@@ -144,8 +144,16 @@ _INPUT_STYLE = (
 )
 
 
+def _classify_location(value: str) -> str:
+    """入力値がリンクかパスかを判定する。"""
+    v = value.strip()
+    if v.startswith(("http://", "https://", "//")):
+        return "link"
+    return "path"
+
+
 class _DocumentsEditor(QWidget):
-    """ドキュメント（リンク＋フォルダパス）を複数登録できるウィジェット。"""
+    """ドキュメント（リンクまたはパス）を複数登録できるウィジェット。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -185,31 +193,20 @@ class _DocumentsEditor(QWidget):
         row_name.addWidget(self._input_name, 1)
         fl.addLayout(row_name)
 
-        # リンク
-        row_link = QHBoxLayout()
-        row_link.setSpacing(6)
-        lbl_link = QLabel("リンク")
-        lbl_link.setFixedWidth(70)
-        lbl_link.setStyleSheet("font-size: 12px; color: #6b7280;")
-        row_link.addWidget(lbl_link)
-        self._input_link = QLineEdit()
-        self._input_link.setPlaceholderText("https://...")
-        self._input_link.setStyleSheet(_INPUT_STYLE)
-        row_link.addWidget(self._input_link, 1)
-        fl.addLayout(row_link)
-
-        # フォルダパス
-        row_folder = QHBoxLayout()
-        row_folder.setSpacing(6)
-        lbl_folder = QLabel("フォルダ")
-        lbl_folder.setFixedWidth(70)
-        lbl_folder.setStyleSheet("font-size: 12px; color: #6b7280;")
-        row_folder.addWidget(lbl_folder)
-        self._input_folder = QLineEdit()
-        self._input_folder.setPlaceholderText("フォルダパス")
-        self._input_folder.setStyleSheet(_INPUT_STYLE)
-        row_folder.addWidget(self._input_folder, 1)
-        fl.addLayout(row_folder)
+        # 場所（リンクまたはパス — 自動判定）
+        row_loc = QHBoxLayout()
+        row_loc.setSpacing(6)
+        lbl_loc = QLabel("場所")
+        lbl_loc.setFixedWidth(70)
+        lbl_loc.setStyleSheet("font-size: 12px; color: #6b7280;")
+        row_loc.addWidget(lbl_loc)
+        self._input_location = QLineEdit()
+        self._input_location.setPlaceholderText(
+            "URL または ファイル/フォルダパス"
+        )
+        self._input_location.setStyleSheet(_INPUT_STYLE)
+        row_loc.addWidget(self._input_location, 1)
+        fl.addLayout(row_loc)
 
         # 追加ボタン
         btn_row = QHBoxLayout()
@@ -256,27 +253,23 @@ class _DocumentsEditor(QWidget):
             )
             info_layout.addWidget(name_lbl)
 
-            link = doc.get("link", "")
-            if link:
-                link_lbl = QLabel(f"リンク: {link}")
-                link_lbl.setStyleSheet(
-                    "font-size: 12px; color: #3b82f6; border: none;"
+            location = doc.get("location", "")
+            loc_type = doc.get("type", "")
+            if location:
+                if loc_type == "link":
+                    prefix = "リンク"
+                    color = "#3b82f6"
+                else:
+                    prefix = "パス"
+                    color = "#6b7280"
+                loc_lbl = QLabel(f"{prefix}: {location}")
+                loc_lbl.setStyleSheet(
+                    f"font-size: 12px; color: {color}; border: none;"
                 )
-                link_lbl.setTextInteractionFlags(
+                loc_lbl.setTextInteractionFlags(
                     Qt.TextInteractionFlag.TextSelectableByMouse
                 )
-                info_layout.addWidget(link_lbl)
-
-            folder = doc.get("folder_path", "")
-            if folder:
-                folder_lbl = QLabel(f"フォルダ: {folder}")
-                folder_lbl.setStyleSheet(
-                    "font-size: 12px; color: #6b7280; border: none;"
-                )
-                folder_lbl.setTextInteractionFlags(
-                    Qt.TextInteractionFlag.TextSelectableByMouse
-                )
-                info_layout.addWidget(folder_lbl)
+                info_layout.addWidget(loc_lbl)
 
             hl.addLayout(info_layout, 1)
 
@@ -299,17 +292,17 @@ class _DocumentsEditor(QWidget):
 
     def _on_add(self) -> None:
         name = self._input_name.text().strip()
+        location = self._input_location.text().strip()
         if not name:
             return
-        doc = {
+        doc: dict[str, str] = {
             "name": name,
-            "link": self._input_link.text().strip(),
-            "folder_path": self._input_folder.text().strip(),
+            "location": location,
+            "type": _classify_location(location) if location else "",
         }
         self._docs.append(doc)
         self._input_name.clear()
-        self._input_link.clear()
-        self._input_folder.clear()
+        self._input_location.clear()
         self._rebuild()
 
     def _on_remove(self, idx: int) -> None:
