@@ -104,6 +104,7 @@ class LibraryPage(QWidget):
         row1.setSpacing(8)
 
         lbl_simple = QLabel("キーワード")
+        lbl_simple.setFixedWidth(70)
         lbl_simple.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
         row1.addWidget(lbl_simple)
         self._edit_simple = QLineEdit()
@@ -129,6 +130,7 @@ class LibraryPage(QWidget):
         row2.setSpacing(8)
 
         lbl_date = QLabel("期間")
+        lbl_date.setFixedWidth(70)
         lbl_date.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
         row2.addWidget(lbl_date)
         self._date_from = DateEdit()
@@ -167,6 +169,7 @@ class LibraryPage(QWidget):
         row3.setSpacing(8)
 
         lbl_file = QLabel("ファイル名")
+        lbl_file.setFixedWidth(70)
         lbl_file.setStyleSheet(f"font-size: 12px; color: {_TEXT2};")
         row3.addWidget(lbl_file)
         self._edit_file = QLineEdit()
