@@ -263,7 +263,7 @@ class AnalysisUI(QWidget):
         for text in items:
             label = text if isinstance(text, str) else text.get("label", str(text))
             cb = QCheckBox(label)
-            cb.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 0;")
+            cb.setStyleSheet("color: #334155;")
             cb.stateChanged.connect(self._update_finish_btn)
             cb.stateChanged.connect(lambda _, c=cb: self._apply_strikethrough(c))
             vl.addWidget(cb)
@@ -278,9 +278,9 @@ class AnalysisUI(QWidget):
         font.setStrikeOut(cb.isChecked())
         cb.setFont(font)
         if cb.isChecked():
-            cb.setStyleSheet("font-size: 13px; color: #9ca3af; padding: 2px 0;")
+            cb.setStyleSheet("color: #9ca3af;")
         else:
-            cb.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 0;")
+            cb.setStyleSheet("color: #334155;")
 
     def _check_all(self, checkboxes: list[QCheckBox]) -> None:
         for cb in checkboxes:
