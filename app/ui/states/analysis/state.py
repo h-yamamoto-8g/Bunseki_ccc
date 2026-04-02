@@ -21,9 +21,9 @@ from PySide6.QtGui import QDesktopServices
 
 _GROUP_STYLE = (
     "QGroupBox { background: #ffffff; border: 1px solid #e5e7eb; "
-    "border-radius: 8px; margin-top: 8px; padding: 16px 16px 12px 16px; }"
+    "border-radius: 8px; margin-top: 14px; padding: 20px 16px 12px 16px; }"
     "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; "
-    "padding: 0 8px; font-weight: 700; font-size: 14px; color: #1f2937; }"
+    "padding: 2px 8px; background: #ffffff; font-weight: 700; font-size: 14px; color: #1f2937; }"
 )
 
 
