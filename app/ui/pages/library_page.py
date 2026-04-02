@@ -36,6 +36,7 @@ _BORDER = "#e5e7eb"
 _FRAME_STYLE = (
     "QFrame#lib_section { background: #ffffff; border: 1px solid #e5e7eb; "
     "border-radius: 8px; }"
+    "QFrame#lib_section QWidget { background: #ffffff; }"
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
@@ -270,6 +271,8 @@ class LibraryPage(QWidget):
     def _on_search(self) -> None:
         self._collect_all()
         self._apply_filter()
+        if not self._all_items:
+            self._label_count.setText("添付資料が登録されたタスクはありません")
 
     def _on_clear(self) -> None:
         self._edit_task.clear()
