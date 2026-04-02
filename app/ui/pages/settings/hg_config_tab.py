@@ -54,21 +54,24 @@ class _ChecklistEditor(QWidget):
         lbl.setStyleSheet("font-weight: 600; font-size: 13px; color: #374151;")
         layout.addWidget(lbl)
 
-        # 項目リスト領域
+        # 項目リスト領域（子ブロック）
+        self._list_block = QFrame()
+        self._list_block.setObjectName("list_block")
+        self._list_block.setStyleSheet(
+            "QFrame#list_block { background: #ffffff; border: 1px solid #e5e7eb; "
+            "border-radius: 6px; }"
+            "QFrame#list_block QWidget { background: #ffffff; }"
+        )
+        list_bl = QVBoxLayout(self._list_block)
+        list_bl.setContentsMargins(12, 4, 12, 4)
+        list_bl.setSpacing(0)
         self._list_layout = QVBoxLayout()
         self._list_layout.setSpacing(0)
-        layout.addLayout(self._list_layout)
+        list_bl.addLayout(self._list_layout)
+        self._list_block.setVisible(False)
+        layout.addWidget(self._list_block)
 
-        # 追加行（影付きブロック）
-        add_block = QFrame()
-        add_block.setObjectName("add_block")
-        add_block.setStyleSheet(
-            "QFrame#add_block { background: #ffffff; border: 1px solid #e5e7eb; "
-            "border-radius: 6px; }"
-        )
-        add_bl = QVBoxLayout(add_block)
-        add_bl.setContentsMargins(12, 10, 12, 10)
-        add_bl.setSpacing(6)
+        # 追加行
         add_row = QHBoxLayout()
         add_row.setSpacing(6)
         self._input = QLineEdit()
@@ -84,8 +87,7 @@ class _ChecklistEditor(QWidget):
         )
         btn_add.clicked.connect(self._on_add)
         add_row.addWidget(btn_add)
-        add_bl.addLayout(add_row)
-        layout.addWidget(add_block)
+        layout.addLayout(add_row)
 
     def set_items(self, items: list[str]) -> None:
         self._items = list(items)
@@ -98,6 +100,7 @@ class _ChecklistEditor(QWidget):
         for row in self._rows:
             row.deleteLater()
         self._rows.clear()
+        self._list_block.setVisible(bool(self._items))
 
         for i, text in enumerate(self._items):
             row = QWidget()
@@ -176,20 +179,27 @@ class _DocumentsEditor(QWidget):
         lbl.setStyleSheet("font-weight: 600; font-size: 13px; color: #374151;")
         layout.addWidget(lbl)
 
-        # 登録済みドキュメント一覧
+        # 登録済みドキュメント一覧（子ブロック）
+        self._list_block = QFrame()
+        self._list_block.setObjectName("doc_list_block")
+        self._list_block.setStyleSheet(
+            "QFrame#doc_list_block { background: #ffffff; border: 1px solid #e5e7eb; "
+            "border-radius: 6px; }"
+            "QFrame#doc_list_block QWidget { background: #ffffff; }"
+        )
+        list_bl = QVBoxLayout(self._list_block)
+        list_bl.setContentsMargins(12, 8, 12, 8)
+        list_bl.setSpacing(6)
         self._list_layout = QVBoxLayout()
         self._list_layout.setSpacing(6)
-        layout.addLayout(self._list_layout)
+        list_bl.addLayout(self._list_layout)
+        self._list_block.setVisible(False)
+        layout.addWidget(self._list_block)
 
-        # 追加フォーム（影付きブロック）
-        form = QFrame()
-        form.setObjectName("doc_add_form")
-        form.setStyleSheet(
-            "QFrame#doc_add_form { background: #ffffff; border: 1px solid #e5e7eb; "
-            "border-radius: 6px; }"
-        )
+        # 追加フォーム
+        form = QWidget()
         fl = QVBoxLayout(form)
-        fl.setContentsMargins(12, 10, 12, 10)
+        fl.setContentsMargins(0, 4, 0, 0)
         fl.setSpacing(8)
 
         # 名前
@@ -244,11 +254,10 @@ class _DocumentsEditor(QWidget):
         for row in self._rows:
             row.deleteLater()
         self._rows.clear()
+        self._list_block.setVisible(bool(self._docs))
 
         for i, doc in enumerate(self._docs):
             row = QWidget()
-            row.setObjectName("doc_row")
-            row.setStyleSheet(_DOC_ROW_STYLE)
             hl = QHBoxLayout(row)
             hl.setContentsMargins(10, 8, 10, 8)
             hl.setSpacing(8)
