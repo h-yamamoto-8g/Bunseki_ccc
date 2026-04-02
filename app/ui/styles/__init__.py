@@ -156,12 +156,21 @@ QPlainTextEdit {
 QPlainTextEdit:focus { border-color: #3b82f6; }
 
 /* ── チェックボックス ── */
-QCheckBox { color: #333333; spacing: 8px; }
+QCheckBox {
+    color: #333333;
+    spacing: 10px;
+    padding: 6px 4px;
+    border-bottom: 1px solid #f0f0f0;
+}
+QCheckBox:last-child { border-bottom: none; }
 QCheckBox::indicator {
-    width: 16px; height: 16px;
-    border: 1px solid #d1d5db;
-    border-radius: 3px;
+    width: 20px; height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 4px;
     background: #ffffff;
+}
+QCheckBox::indicator:hover {
+    border-color: #3b82f6;
 }
 QCheckBox::indicator:checked {
     background: #3b82f6;

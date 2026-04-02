@@ -315,6 +315,7 @@ class _DocumentsEditor(QWidget):
 _FRAME_STYLE = (
     "QFrame#status_block { background: #ffffff; border: 1px solid #e5e7eb; "
     "border-radius: 8px; }"
+    "QFrame#status_block QWidget { background: #ffffff; }"
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
