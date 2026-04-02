@@ -11,7 +11,6 @@ QWidget {
     font-family: "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
     font-size: 13px;
     color: #333333;
-    background-color: #f5f7fa;
 }
 QMainWindow { background: #f5f7fa; }
 
@@ -23,6 +22,9 @@ QWidget#frame_sidebar {
 
 /* ── メインエリア ── */
 QWidget#widget_main {
+    background: #f5f7fa;
+}
+QStackedWidget#stack_pages {
     background: #f5f7fa;
 }
 
@@ -69,9 +71,6 @@ QWidget#widget_step {
 }
 
 /* ── ページスタック ── */
-QStackedWidget#stack_pages {
-    padding-top: 0px;
-}
 
 /* ── テーブル ── */
 QTableWidget, QTableView {
