@@ -12,17 +12,11 @@ from app.services.hg_config_service import (
 )
 
 _DEFAULT_ANALYSIS_CONFIG = {
-    "analysis_links": [
-        {"label": "分析作業基準書", "url": "https://example.com/manual"},
-        {"label": "関連マニュアル", "url": "https://example.com/manual-a"},
-    ],
-    "tool_links": [
-        {"label": "業務ツール Lab-Aid", "url": ""},
-    ],
+    "pre_documents": [],
+    "post_documents": [],
     "pre_checklist": list(DEFAULT_PRE_CHECKLIST),
     "post_checklist": list(DEFAULT_POST_CHECKLIST),
     "verify_checklist": list(DEFAULT_VERIFY_CHECKLIST),
-    "labaid_link": "",
 }
 
 

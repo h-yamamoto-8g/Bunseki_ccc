@@ -1,23 +1,51 @@
-"""AnalysisUI — 分析準備チェックリストの純粋レイアウト（generated UI 使用）。
+"""AnalysisUI — 分析ステートの純粋レイアウト。
 
+分析前/後のドキュメント＋チェックリストを縦並びで表示する。
 ビジネスロジック・task_store・DataLoader の import 禁止。
 """
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QCheckBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QCheckBox, QGroupBox, QScrollArea, QFrame, QSpacerItem, QSizePolicy,
 )
-from PySide6.QtCore import Signal, QUrl
+from PySide6.QtCore import Signal, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 
-from app.ui.generated.ui_stateanalysis import Ui_PageStateAnalysis
+
+# ── スタイル定数 ──────────────────────────────────────────────────────────────
+
+_GROUP_STYLE = (
+    "QGroupBox { background: #ffffff; border: 1px solid #e5e7eb; "
+    "border-radius: 8px; margin-top: 8px; padding: 16px 16px 12px 16px; }"
+    "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; "
+    "padding: 0 8px; font-weight: 700; font-size: 14px; color: #1f2937; }"
+)
+
+
+def _open_location(location: str, loc_type: str) -> None:
+    """リンクまたはパスを開く。"""
+    if loc_type == "link":
+        QDesktopServices.openUrl(QUrl(location))
+    else:
+        path = os.path.normpath(location)
+        if sys.platform == "win32":
+            os.startfile(path)  # noqa: S606
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])  # noqa: S603,S607
+        else:
+            subprocess.Popen(["xdg-open", path])  # noqa: S603,S607
 
 
 class AnalysisUI(QWidget):
-    """分析準備チェックリスト (純粋レイアウト)。
+    """分析ステート (純粋レイアウト)。
 
     Signals:
-        finish_requested(pre_checks, post_checks): 分析終了ボタン押下
+        finish_requested(pre_checks, post_checks): 完了ボタン押下
         back_requested(): 戻る
     """
 
@@ -28,53 +56,83 @@ class AnalysisUI(QWidget):
         super().__init__(parent)
         self._pre_checks: list[QCheckBox] = []
         self._post_checks: list[QCheckBox] = []
+        self._build_ui()
 
-        self._form = Ui_PageStateAnalysis()
-        self._form.setupUi(self)
+    def _build_ui(self) -> None:
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(8)
 
-        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
-        self._form.verticalLayout_6.setSpacing(8)
-        self._form.verticalLayout_6.setContentsMargins(8, 8, 8, 8)
+        # ── スクロール領域 ────────────────────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        # 生成UIのバグ修正: after チェックリストのタイトルが "分析前確認リスト" になっている
-        self._form.groupBox_after_check_list.setTitle("分析後確認リスト")
+        content = QWidget()
+        self._content_layout = QVBoxLayout(content)
+        self._content_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.setSpacing(12)
 
-        # btn_next は全チェック完了まで無効
-        self._form.btn_next.setEnabled(False)
+        # 動的コンテンツ用プレースホルダー（set_config で置換）
+        self._content_layout.addStretch()
+        scroll.setWidget(content)
+        outer.addWidget(scroll, 1)
 
-        # 一括チェックボタン接続
-        self._form.btn_before_all_checked.clicked.connect(
-            lambda: self._check_all(self._pre_checks)
-        )
-        self._form.btn_after_all_checked.clicked.connect(
-            lambda: self._check_all(self._post_checks)
-        )
+        # ── ナビゲーションボタン ──────────────────────────────────────────
+        action_bar = QWidget()
+        hl = QHBoxLayout(action_bar)
+        hl.addStretch()
 
-        # ナビゲーション接続
-        self._form.btn_back.setVisible(False)
-        self._form.btn_next.setText("完了")
-        self._form.btn_next.clicked.connect(self._on_finish)
+        self.back_btn = QPushButton("戻る")
+        self.back_btn.setMinimumSize(100, 50)
+        self.back_btn.setMaximumSize(100, 50)
+        self.back_btn.setVisible(False)
+        self.back_btn.clicked.connect(self.back_requested)
+        hl.addWidget(self.back_btn)
 
-        # エイリアス (restore_checks でVisible制御に使用)
-        self.finish_btn = self._form.btn_next
-        self.back_btn   = self._form.btn_back
+        self.finish_btn = QPushButton("完了")
+        self.finish_btn.setMinimumSize(100, 50)
+        self.finish_btn.setMaximumSize(100, 50)
+        self.finish_btn.setEnabled(False)
+        self.finish_btn.clicked.connect(self._on_finish)
+        hl.addWidget(self.finish_btn)
 
-        # リンクセクション用コンテナ (VBox) を groupBox_links の horizontalLayout に追加
-        self._links_container = QWidget()
-        self._links_vbox = QVBoxLayout(self._links_container)
-        self._links_vbox.setContentsMargins(0, 0, 0, 0)
-        self._links_vbox.setSpacing(8)
-        self._form.horizontalLayout.addWidget(self._links_container)
-        self._form.horizontalLayout.addStretch()
+        hl.addStretch()
+        outer.addWidget(action_bar)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def set_config(self, cfg: dict) -> None:
-        """設定を元にリンク・チェックリストを構築する。"""
+        """設定を元にドキュメント・チェックリストを構築する。"""
         self._clear_content()
-        self._build_links_section(cfg)
-        self._build_pre_checklist(cfg)
-        self._build_post_checklist(cfg)
+
+        # 分析前ドキュメント
+        pre_docs = cfg.get("pre_documents", [])
+        self._content_layout.addWidget(
+            self._make_docs_group("分析前ドキュメント", pre_docs)
+        )
+
+        # 分析前チェックリスト
+        pre_items = cfg.get("pre_checklist", [])
+        pre_group, self._pre_checks = self._make_checklist_group(
+            "分析前チェックリスト", pre_items
+        )
+        self._content_layout.addWidget(pre_group)
+
+        # 分析後ドキュメント
+        post_docs = cfg.get("post_documents", [])
+        self._content_layout.addWidget(
+            self._make_docs_group("分析後ドキュメント", post_docs)
+        )
+
+        # 分析後チェックリスト
+        post_items = cfg.get("post_checklist", [])
+        post_group, self._post_checks = self._make_checklist_group(
+            "分析後チェックリスト", post_items
+        )
+        self._content_layout.addWidget(post_group)
+
+        self._content_layout.addStretch()
         self._update_finish_btn()
 
     def restore_checks(
@@ -86,86 +144,108 @@ class AnalysisUI(QWidget):
         for cb, val in zip(self._post_checks, post_saved):
             cb.setChecked(bool(val))
             cb.setEnabled(not readonly)
-        self._form.btn_next.setVisible(not readonly)
-        self._form.btn_before_all_checked.setVisible(not readonly)
-        self._form.btn_after_all_checked.setVisible(not readonly)
+        self.finish_btn.setVisible(not readonly)
+        # 一括チェックボタンも非表示に
+        for btn in self._check_all_btns:
+            btn.setVisible(not readonly)
         self._update_finish_btn()
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _clear_content(self) -> None:
-        # リンクコンテナをクリア
-        while self._links_vbox.count():
-            item = self._links_vbox.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # 分析前チェックリストをクリア
-        layout = self._form.verticalLayout_7
-        while layout.count():
-            item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # 分析後チェックリストをクリア
-        layout = self._form.verticalLayout_8
-        while layout.count():
-            item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
         self._pre_checks = []
         self._post_checks = []
+        self._check_all_btns: list[QPushButton] = []
+        while self._content_layout.count():
+            item = self._content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-    def _build_links_section(self, cfg: dict) -> None:
-        analysis_links = cfg.get("analysis_links", [])
-        manual_links   = cfg.get("manual_links", [])
-        tool_links     = cfg.get("tool_links", [])
-        labaid         = cfg.get("labaid_link", "")
-        all_links = analysis_links + manual_links + tool_links
-        if labaid:
-            all_links.append({"label": "Lab-Aid 起動", "url": labaid})
+    def _make_docs_group(
+        self, title: str, docs: list[dict]
+    ) -> QGroupBox:
+        """ドキュメント一覧のグループボックスを生成する。"""
+        group = QGroupBox(title)
+        group.setStyleSheet(_GROUP_STYLE)
+        vl = QVBoxLayout(group)
+        vl.setContentsMargins(12, 20, 12, 12)
+        vl.setSpacing(6)
 
-        self._form.groupBox_links.setVisible(bool(all_links))
-        if not all_links:
-            return
+        if not docs:
+            lbl = QLabel("ドキュメントなし")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet("color: #9ca3af; font-size: 13px; padding: 8px;")
+            vl.addWidget(lbl)
+            return group
 
-        for link in all_links:
+        for doc in docs:
             row = QWidget()
             rl = QHBoxLayout(row)
             rl.setContentsMargins(0, 0, 0, 0)
-            lbl = QLabel(f"• {link.get('label', '')}")
-            lbl.setStyleSheet("color:#475569; font-size:13px;")
-            rl.addWidget(lbl)
-            btn = QPushButton("開く")
-            btn.setFixedWidth(60)
-            url = link.get("url", "")
-            btn.clicked.connect(lambda _=False, u=url: QDesktopServices.openUrl(QUrl(u)))
-            rl.addWidget(btn)
-            rl.addStretch()
-            self._links_vbox.addWidget(row)
+            rl.setSpacing(8)
 
-    def _build_pre_checklist(self, cfg: dict) -> None:
-        items = cfg.get("pre_checklist", [])
-        self._form.groupBox_before_check_list.setVisible(bool(items))
-        layout = self._form.verticalLayout_7
-        for item in items:
-            cb = QCheckBox(item if isinstance(item, str) else item.get("label", str(item)))
-            cb.setStyleSheet("font-size:13px; color:#334155; padding:2px 0;")
-            cb.stateChanged.connect(self._update_finish_btn)
-            layout.addWidget(cb)
-            self._pre_checks.append(cb)
+            name = doc.get("name", "")
+            location = doc.get("location", "")
+            loc_type = doc.get("type", "path")
 
-    def _build_post_checklist(self, cfg: dict) -> None:
-        items = cfg.get("post_checklist", [])
-        self._form.groupBox_after_check_list.setVisible(bool(items))
-        layout = self._form.verticalLayout_8
-        for item in items:
-            cb = QCheckBox(item if isinstance(item, str) else item.get("label", str(item)))
-            cb.setStyleSheet("font-size:13px; color:#334155; padding:2px 0;")
+            icon = "🔗" if loc_type == "link" else "📁"
+            lbl = QLabel(f"{icon}  {name}")
+            lbl.setStyleSheet("font-size: 13px; color: #334155;")
+            rl.addWidget(lbl, 1)
+
+            if location:
+                btn = QPushButton("開く")
+                btn.setFixedWidth(60)
+                btn.setStyleSheet(
+                    "QPushButton { background: #3b82f6; color: white; border: none; "
+                    "border-radius: 4px; padding: 4px 8px; font-weight: 600; }"
+                    "QPushButton:hover { background: #2563eb; }"
+                )
+                btn.clicked.connect(
+                    lambda _=False, loc=location, t=loc_type: _open_location(loc, t)
+                )
+                rl.addWidget(btn)
+
+            vl.addWidget(row)
+
+        return group
+
+    def _make_checklist_group(
+        self, title: str, items: list[str]
+    ) -> tuple[QGroupBox, list[QCheckBox]]:
+        """チェックリストのグループボックスを生成する。"""
+        group = QGroupBox(title)
+        group.setStyleSheet(_GROUP_STYLE)
+        vl = QVBoxLayout(group)
+        vl.setContentsMargins(12, 20, 12, 12)
+        vl.setSpacing(6)
+
+        checks: list[QCheckBox] = []
+
+        if not items:
+            lbl = QLabel("チェック項目なし")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet("color: #9ca3af; font-size: 13px; padding: 8px;")
+            vl.addWidget(lbl)
+            return group, checks
+
+        # 一括チェックボタン
+        btn_all = QPushButton("一括チェック")
+        btn_all.setMinimumSize(100, 35)
+        btn_all.setMaximumSize(100, 50)
+        btn_all.clicked.connect(lambda: self._check_all(checks))
+        vl.addWidget(btn_all)
+        self._check_all_btns.append(btn_all)
+
+        for text in items:
+            label = text if isinstance(text, str) else text.get("label", str(text))
+            cb = QCheckBox(label)
+            cb.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 0;")
             cb.stateChanged.connect(self._update_finish_btn)
-            layout.addWidget(cb)
-            self._post_checks.append(cb)
+            vl.addWidget(cb)
+            checks.append(cb)
+
+        return group, checks
 
     def _check_all(self, checkboxes: list[QCheckBox]) -> None:
         for cb in checkboxes:
@@ -173,10 +253,12 @@ class AnalysisUI(QWidget):
                 cb.setChecked(True)
 
     def _update_finish_btn(self) -> None:
-        all_checked = all(cb.isChecked() for cb in self._pre_checks + self._post_checks)
-        self._form.btn_next.setEnabled(all_checked)
+        all_checked = all(
+            cb.isChecked() for cb in self._pre_checks + self._post_checks
+        )
+        self.finish_btn.setEnabled(all_checked)
 
     def _on_finish(self) -> None:
-        pre  = [cb.isChecked() for cb in self._pre_checks]
+        pre = [cb.isChecked() for cb in self._pre_checks]
         post = [cb.isChecked() for cb in self._post_checks]
         self.finish_requested.emit(pre, post)
