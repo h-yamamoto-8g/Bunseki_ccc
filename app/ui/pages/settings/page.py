@@ -137,9 +137,13 @@ class SettingsPage(QWidget):
         self._embed(self.ui.tab_tasks, self.hg_config_tab)
 
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
-        # tab_data: データ設定
+        # tab_data: データ設定（実CSVヘッダーを渡す）
         self.data_config_service = DataConfigService()
-        self.data_tab = DataTab(self.data_config_service)
+        try:
+            csv_columns = self.data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        self.data_tab = DataTab(self.data_config_service, csv_columns=csv_columns)
         self._embed(self.ui.tab_data, self.data_tab)
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
         self._embed(self.ui.tab_logs, _placeholder("ログ設定（実装予定）"))

@@ -92,7 +92,11 @@ class DataPage(QWidget):
 
     def _load_column_config(self) -> None:
         """設定から表示列を読み込む。"""
-        cols = self._data_config.get_columns()
+        try:
+            csv_columns = self._ds.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        cols = self._data_config.get_columns(csv_columns=csv_columns)
         self._visible_columns = [
             (c["label"], c["key"])
             for c in cols if c.get("visible", True)

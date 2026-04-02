@@ -57,6 +57,10 @@ class DataService:
     def get_valid_samples(self) -> list[dict]:
         return self._loader.get_valid_samples()
 
+    def get_csv_columns(self) -> list[str]:
+        """bunseki.csv の全列名を返す。"""
+        return list(self._loader.df.columns)
+
     # ── Analysis ─────────────────────────────────────────────────────────────
 
     def get_analysis_targets(

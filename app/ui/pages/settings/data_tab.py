@@ -39,10 +39,12 @@ class DataTab(QWidget):
     def __init__(
         self,
         data_config_service: DataConfigService,
+        csv_columns: list[str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._service = data_config_service
+        self._csv_columns = csv_columns
         self._rows: list[dict] = []
         self._build_ui()
         self._load()
@@ -104,7 +106,7 @@ class DataTab(QWidget):
         outer.addWidget(scroll, 1)
 
     def _load(self) -> None:
-        columns = self._service.get_columns()
+        columns = self._service.get_columns(csv_columns=self._csv_columns)
         self._rebuild(columns)
 
     def _rebuild(self, columns: list[dict]) -> None:
