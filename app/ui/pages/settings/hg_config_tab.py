@@ -116,17 +116,19 @@ class _ChecklistEditor(QWidget):
             hl.addWidget(cb, 1)
 
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(24, 24)
+            btn_del.setFixedSize(28, 28)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
                 "QPushButton { background: transparent; color: #9ca3af; "
-                "border: 1px solid #e5e7eb; border-radius: 4px; font-weight: bold; }"
+                "border: 1px solid #e5e7eb; border-radius: 6px; "
+                "font-size: 16px; font-weight: bold; "
+                "min-height: 0; min-width: 0; padding: 0; }"
                 "QPushButton:hover { background: #fee2e2; color: #ef4444; "
                 "border-color: #fca5a5; }"
             )
             idx = i
             btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
-            hl.addWidget(btn_del)
+            hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self._list_layout.addWidget(row)
             self._rows.append(row)
@@ -296,17 +298,19 @@ class _DocumentsEditor(QWidget):
 
             # 削除ボタン
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(24, 24)
+            btn_del.setFixedSize(28, 28)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
                 "QPushButton { background: transparent; color: #9ca3af; "
-                "border: 1px solid #e5e7eb; border-radius: 4px; font-weight: bold; }"
+                "border: 1px solid #e5e7eb; border-radius: 6px; "
+                "font-size: 16px; font-weight: bold; "
+                "min-height: 0; min-width: 0; padding: 0; }"
                 "QPushButton:hover { background: #fee2e2; color: #ef4444; "
                 "border-color: #fca5a5; }"
             )
             idx = i
             btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
-            hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignTop)
+            hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self._list_layout.addWidget(row)
             self._rows.append(row)
