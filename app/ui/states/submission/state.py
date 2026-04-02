@@ -254,7 +254,7 @@ class SubmissionUI(QWidget):
             f"QPushButton:hover {{ background:#2563eb; }}"
         )
         self._btn_comment_add.clicked.connect(self._on_add_comment)
-        input_row.addWidget(self._btn_comment_add, alignment=Qt.AlignmentFlag.AlignTop)
+        input_row.addWidget(self._btn_comment_add, alignment=Qt.AlignmentFlag.AlignVCenter)
         vl.addLayout(input_row)
 
         return frame
