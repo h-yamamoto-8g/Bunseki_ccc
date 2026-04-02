@@ -200,13 +200,13 @@ class LibraryPage(QWidget):
 
     def _build_table(self) -> QTableWidget:
         self._table = QTableWidget()
-        headers = ["", "ファイル名", "添付者", ""]
+        headers = ["", "ファイル名", "添付者"]
         self._table.setColumnCount(len(headers))
         self._table.setHorizontalHeaderLabels(headers)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
-        self._table.verticalHeader().setDefaultSectionSize(36)
+        self._table.verticalHeader().setDefaultSectionSize(40)
         self._table.setShowGrid(False)
 
         header = self._table.horizontalHeader()
@@ -215,10 +215,9 @@ class LibraryPage(QWidget):
         )
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self._table.setColumnWidth(0, 32)
-        self._table.setColumnWidth(3, 44)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(0, 44)
+        self._table.setColumnWidth(2, 120)
 
         self._table.setStyleSheet(
             f"QTableWidget {{"
@@ -424,56 +423,71 @@ class LibraryPage(QWidget):
         row_idx = 0
         for group in groups:
             # ── グループヘッダー行 ────────────────────────────────
-            header_text = (
-                f"  ■  {group['task_name']}    [{group['status']}]"
-                f"    {group['holder_group_name']}"
-                f"    起票: {group['created_by']}"
-            )
-            if group["flow"]:
-                header_text += f"    回覧: {group['flow']}"
+            self._table.setSpan(row_idx, 0, 1, 3)
 
-            self._table.setSpan(row_idx, 0, 1, 4)
-            header_item = QTableWidgetItem(header_text)
-            header_item.setBackground(QColor(_GROUP_BG))
-            header_item.setForeground(QColor(_GROUP_COLOR))
-            font = QFont()
-            font.setBold(True)
-            font.setPointSize(10)
-            header_item.setFont(font)
-            header_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-            self._table.setItem(row_idx, 0, header_item)
-            self._table.setRowHeight(row_idx, 40)
+            header_w = QWidget()
+            header_w.setStyleSheet(f"background:{_GROUP_BG};")
+            hl = QHBoxLayout(header_w)
+            hl.setContentsMargins(12, 6, 12, 6)
+            hl.setSpacing(12)
+
+            # タスク名
+            lbl_name = QLabel(group["task_name"])
+            lbl_name.setStyleSheet(
+                f"font-size:13px; font-weight:700; color:{_GROUP_COLOR};"
+                f" background:transparent;"
+            )
+            hl.addWidget(lbl_name)
+
+            # ステータスバッジ
+            lbl_status = QLabel(group["status"])
+            lbl_status.setStyleSheet(
+                "font-size:11px; color:#1e40af; background:#dbeafe;"
+                " border-radius:4px; padding:2px 8px; font-weight:600;"
+            )
+            hl.addWidget(lbl_status)
+
+            # 分析項目
+            if group["holder_group_name"]:
+                lbl_hg = QLabel(group["holder_group_name"])
+                lbl_hg.setStyleSheet(
+                    f"font-size:11px; color:{_TEXT2}; background:transparent;"
+                )
+                hl.addWidget(lbl_hg)
+
+            # 起票者
+            lbl_creator = QLabel(f"起票: {group['created_by']}")
+            lbl_creator.setStyleSheet(
+                f"font-size:11px; color:{_TEXT2}; background:transparent;"
+            )
+            hl.addWidget(lbl_creator)
+
+            # 回覧先
+            if group["flow"]:
+                lbl_flow = QLabel(f"回覧: {group['flow']}")
+                lbl_flow.setStyleSheet(
+                    f"font-size:11px; color:{_TEXT2}; background:transparent;"
+                )
+                hl.addWidget(lbl_flow)
+
+            hl.addStretch()
+
+            # ファイル数
+            lbl_count = QLabel(f"{len(group['files'])} ファイル")
+            lbl_count.setStyleSheet(
+                f"font-size:11px; color:{_TEXT3}; background:transparent;"
+            )
+            hl.addWidget(lbl_count)
+
+            self._table.setCellWidget(row_idx, 0, header_w)
+            self._table.setRowHeight(row_idx, 44)
             row_idx += 1
 
             # ── ファイル行 ────────────────────────────────────────
             for file_info in group["files"]:
-                indent = QTableWidgetItem("")
-                indent.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                self._table.setItem(row_idx, 0, indent)
-
-                # ファイル名（リンク風ボタン）
                 path = file_info["path"]
-                file_btn = QPushButton(file_info["filename"])
-                file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                file_btn.setFlat(True)
-                file_btn.setStyleSheet(
-                    f"QPushButton {{ font-size:13px; color:{_TEXT};"
-                    " text-decoration:none; border:none;"
-                    " background:transparent; text-align:left; padding:4px 8px;"
-                    " min-height:0; }}"
-                    f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
-                )
-                file_btn.clicked.connect(
-                    lambda _=False, p=path: self._open_file(p)
-                )
-                self._table.setCellWidget(row_idx, 1, file_btn)
-                self._row_path_map[row_idx] = path
 
-                self._table.setItem(
-                    row_idx, 2, QTableWidgetItem(file_info["added_by"])
-                )
-
-                # 開くボタン
+                # 列0: 開くアイコンボタン
                 btn = QPushButton()
                 btn.setIcon(get_icon(":/icons/link.svg", _ACCENT, 14))
                 btn.setIconSize(QSize(14, 14))
@@ -491,10 +505,34 @@ class LibraryPage(QWidget):
                 cell_w = QWidget()
                 cell_w.setStyleSheet("background:transparent;")
                 cell_l = QHBoxLayout(cell_w)
-                cell_l.setContentsMargins(4, 4, 4, 4)
+                cell_l.setContentsMargins(8, 4, 4, 4)
                 cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 cell_l.addWidget(btn)
-                self._table.setCellWidget(row_idx, 3, cell_w)
+                self._table.setCellWidget(row_idx, 0, cell_w)
+
+                # 列1: ファイル名（ホバーでリンク風）
+                file_btn = QPushButton(file_info["filename"])
+                file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                file_btn.setFlat(True)
+                file_btn.setStyleSheet(
+                    f"QPushButton {{ font-size:13px; color:{_TEXT};"
+                    " text-decoration:none; border:none;"
+                    " background:transparent; text-align:left; padding:4px 8px;"
+                    " min-height:0; }}"
+                    f"QPushButton:hover {{ color:{_ACCENT}; text-decoration:underline; }}"
+                )
+                file_btn.clicked.connect(
+                    lambda _=False, p=path: self._open_file(p)
+                )
+                self._table.setCellWidget(row_idx, 1, file_btn)
+                self._row_path_map[row_idx] = path
+
+                # 列2: 添付者
+                user_item = QTableWidgetItem(file_info["added_by"])
+                user_item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
+                )
+                self._table.setItem(row_idx, 2, user_item)
 
                 row_idx += 1
 
