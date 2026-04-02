@@ -24,7 +24,14 @@ _FRAME_STYLE = (
     "border-radius: 8px; }"
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
-_SEP_STYLE = "background: #e5e7eb; border: none;"
+
+
+def _make_separator() -> QWidget:
+    """細い水平区切り線を生成する。"""
+    sep = QWidget()
+    sep.setFixedHeight(1)
+    sep.setStyleSheet("background: #e5e7eb;")
+    return sep
 
 
 def _open_location(location: str, loc_type: str) -> None:
@@ -176,11 +183,7 @@ class AnalysisUI(QWidget):
         lbl_title.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl_title)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet(_SEP_STYLE)
-        vl.addWidget(sep)
+        vl.addWidget(_make_separator())
 
         if not docs:
             lbl = QLabel("ドキュメントなし")
@@ -236,11 +239,7 @@ class AnalysisUI(QWidget):
         lbl_title.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl_title)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet(_SEP_STYLE)
-        vl.addWidget(sep)
+        vl.addWidget(_make_separator())
 
         checks: list[QCheckBox] = []
 

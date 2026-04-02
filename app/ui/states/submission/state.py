@@ -36,7 +36,14 @@ _DANGER = "#ef4444"
 _SUCCESS = "#10b981"
 _BORDER = "#e5e7eb"
 _TITLE_STYLE = f"font-size:14px; font-weight:700; color:#1f2937; border:none;"
-_SEP_STYLE = f"background:{_BORDER}; border:none;"
+
+
+def _make_separator():
+    """細い水平区切り線を生成する。"""
+    sep = QWidget()
+    sep.setFixedHeight(1)
+    sep.setStyleSheet(f"background:{_BORDER};")
+    return sep
 
 
 class _RemoveButton(QPushButton):
@@ -144,9 +151,7 @@ class SubmissionUI(QWidget):
         lbl = QLabel("回覧フロー")
         lbl.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl)
-        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
-        sep.setStyleSheet(_SEP_STYLE)
-        vl.addWidget(sep)
+        vl.addWidget(_make_separator())
 
         # 確認者追加行（フロー図の上）
         self._add_row = QWidget()
@@ -217,9 +222,7 @@ class SubmissionUI(QWidget):
         lbl = QLabel("コメント")
         lbl.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl)
-        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
-        sep.setStyleSheet(_SEP_STYLE)
-        vl.addWidget(sep)
+        vl.addWidget(_make_separator())
 
         self._comment_container = QWidget()
         self._comment_container.setStyleSheet("border:none;")
@@ -270,9 +273,7 @@ class SubmissionUI(QWidget):
         lbl = QLabel("添付資料")
         lbl.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl)
-        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
-        sep.setStyleSheet(_SEP_STYLE)
-        vl.addWidget(sep)
+        vl.addWidget(_make_separator())
 
         header = QHBoxLayout()
         header.setSpacing(8)

@@ -11,6 +11,7 @@ QWidget {
     font-family: "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
     font-size: 13px;
     color: #333333;
+    background-color: #f5f7fa;
 }
 QMainWindow { background: #f5f7fa; }
 
