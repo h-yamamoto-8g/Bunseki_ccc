@@ -99,7 +99,7 @@ class _ChecklistEditor(QWidget):
             hl.setSpacing(0)
 
             cb = QCheckBox(text)
-            cb.setChecked(True)
+            cb.setChecked(False)
             cb.setEnabled(False)
             hl.addWidget(cb, 1)
 
