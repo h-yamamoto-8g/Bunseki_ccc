@@ -468,6 +468,8 @@ class MainWindow(QMainWindow):
             self.data_page.refresh()
         elif page_id == "news":
             self.news_page.refresh()
+        elif page_id == "library":
+            self.library_page.refresh()
         elif page_id == "log":
             self.log_page.refresh()
         elif page_id == "job":
