@@ -116,13 +116,13 @@ class _ChecklistEditor(QWidget):
             hl.addWidget(cb, 1)
 
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(24, 24)
+            btn_del.setFixedSize(32, 32)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
                 "QPushButton { background: #ef4444; color: #ffffff; "
-                "border: none; border-radius: 12px; "
-                "font-size: 14px; font-weight: bold; "
-                "min-height: 0; min-width: 0; padding: 0; }"
+                "border: none; border-radius: 16px; "
+                "font-size: 18px; font-weight: bold; "
+                "min-height: 0; min-width: 0; padding: 0; margin: 0 8px; }"
                 "QPushButton:hover { background: #dc2626; }"
             )
             idx = i
@@ -297,13 +297,13 @@ class _DocumentsEditor(QWidget):
 
             # 削除ボタン
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(24, 24)
+            btn_del.setFixedSize(32, 32)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
                 "QPushButton { background: #ef4444; color: #ffffff; "
-                "border: none; border-radius: 12px; "
-                "font-size: 14px; font-weight: bold; "
-                "min-height: 0; min-width: 0; padding: 0; }"
+                "border: none; border-radius: 16px; "
+                "font-size: 18px; font-weight: bold; "
+                "min-height: 0; min-width: 0; padding: 0; margin: 0 8px; }"
                 "QPushButton:hover { background: #dc2626; }"
             )
             idx = i
