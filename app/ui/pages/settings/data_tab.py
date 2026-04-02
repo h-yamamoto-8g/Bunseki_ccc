@@ -122,6 +122,7 @@ class DataTab(QWidget):
 
     def _make_row(self, col: dict, is_last: bool) -> dict:
         row = QWidget()
+        row.setObjectName("col_row")
         hl = QHBoxLayout(row)
         hl.setContentsMargins(8, 4, 16, 4)
         hl.setSpacing(12)
@@ -148,7 +149,7 @@ class DataTab(QWidget):
         hl.addWidget(edit, 1)
 
         if not is_last:
-            row.setStyleSheet("border-bottom: 1px solid #e5e7eb;")
+            row.setStyleSheet("QWidget#col_row { border-bottom: 1px solid #e5e7eb; }")
 
         return {"widget": row, "key": col["key"], "cb": cb, "edit": edit}
 
