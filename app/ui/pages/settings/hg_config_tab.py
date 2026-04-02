@@ -59,14 +59,20 @@ class _ChecklistEditor(QWidget):
         self._list_layout.setSpacing(0)
         layout.addLayout(self._list_layout)
 
-        # 追加行
+        # 追加行（影付きブロック）
+        add_block = QFrame()
+        add_block.setObjectName("add_block")
+        add_block.setStyleSheet(
+            "QFrame#add_block { background: #ffffff; border: 1px solid #e5e7eb; "
+            "border-radius: 6px; }"
+        )
+        add_bl = QVBoxLayout(add_block)
+        add_bl.setContentsMargins(12, 10, 12, 10)
+        add_bl.setSpacing(6)
         add_row = QHBoxLayout()
         add_row.setSpacing(6)
         self._input = QLineEdit()
         self._input.setPlaceholderText("項目を入力")
-        self._input.setStyleSheet(
-            "border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px;"
-        )
         self._input.returnPressed.connect(self._on_add)
         add_row.addWidget(self._input, 1)
 
@@ -78,7 +84,8 @@ class _ChecklistEditor(QWidget):
         )
         btn_add.clicked.connect(self._on_add)
         add_row.addWidget(btn_add)
-        layout.addLayout(add_row)
+        add_bl.addLayout(add_row)
+        layout.addWidget(add_block)
 
     def set_items(self, items: list[str]) -> None:
         self._items = list(items)
@@ -174,12 +181,16 @@ class _DocumentsEditor(QWidget):
         self._list_layout.setSpacing(6)
         layout.addLayout(self._list_layout)
 
-        # 追加フォーム
-        form = QWidget()
+        # 追加フォーム（影付きブロック）
+        form = QFrame()
         form.setObjectName("doc_add_form")
+        form.setStyleSheet(
+            "QFrame#doc_add_form { background: #ffffff; border: 1px solid #e5e7eb; "
+            "border-radius: 6px; }"
+        )
         fl = QVBoxLayout(form)
-        fl.setContentsMargins(0, 8, 0, 0)
-        fl.setSpacing(6)
+        fl.setContentsMargins(12, 10, 12, 10)
+        fl.setSpacing(8)
 
         # 名前
         row_name = QHBoxLayout()
@@ -190,7 +201,6 @@ class _DocumentsEditor(QWidget):
         row_name.addWidget(lbl_name)
         self._input_name = QLineEdit()
         self._input_name.setPlaceholderText("ドキュメント名")
-        self._input_name.setStyleSheet(_INPUT_STYLE)
         row_name.addWidget(self._input_name, 1)
         fl.addLayout(row_name)
 
@@ -205,7 +215,6 @@ class _DocumentsEditor(QWidget):
         self._input_location.setPlaceholderText(
             "URL または ファイル/フォルダパス"
         )
-        self._input_location.setStyleSheet(_INPUT_STYLE)
         row_loc.addWidget(self._input_location, 1)
         fl.addLayout(row_loc)
 
