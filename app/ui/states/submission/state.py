@@ -35,6 +35,8 @@ _ACCENT = "#3b82f6"
 _DANGER = "#ef4444"
 _SUCCESS = "#10b981"
 _BORDER = "#e5e7eb"
+_TITLE_STYLE = f"font-size:14px; font-weight:700; color:#1f2937; border:none;"
+_SEP_STYLE = f"background:{_BORDER}; border:none;"
 
 
 class _RemoveButton(QPushButton):
@@ -140,8 +142,11 @@ class SubmissionUI(QWidget):
         vl.setSpacing(16)
 
         lbl = QLabel("回覧フロー")
-        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
+        lbl.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl)
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
+        sep.setStyleSheet(_SEP_STYLE)
+        vl.addWidget(sep)
 
         # 確認者追加行（フロー図の上）
         self._add_row = QWidget()
@@ -210,9 +215,11 @@ class SubmissionUI(QWidget):
         vl.setSpacing(6)
 
         lbl = QLabel("コメント")
-        lbl.setFixedHeight(20)
-        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
+        lbl.setStyleSheet(_TITLE_STYLE)
         vl.addWidget(lbl)
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
+        sep.setStyleSheet(_SEP_STYLE)
+        vl.addWidget(sep)
 
         self._comment_container = QWidget()
         self._comment_container.setStyleSheet("border:none;")
@@ -260,11 +267,15 @@ class SubmissionUI(QWidget):
         vl.setContentsMargins(16, 14, 16, 14)
         vl.setSpacing(8)
 
+        lbl = QLabel("添付資料")
+        lbl.setStyleSheet(_TITLE_STYLE)
+        vl.addWidget(lbl)
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFixedHeight(1)
+        sep.setStyleSheet(_SEP_STYLE)
+        vl.addWidget(sep)
+
         header = QHBoxLayout()
         header.setSpacing(8)
-        lbl = QLabel("添付資料")
-        lbl.setStyleSheet(f"font-size:13px; font-weight:600; color:{_TEXT2}; border:none;")
-        header.addWidget(lbl)
         header.addStretch()
         self._btn_attach = QPushButton("ファイルを追加")
         self._btn_attach.setFixedHeight(28)
