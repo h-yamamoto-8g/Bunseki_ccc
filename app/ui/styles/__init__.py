@@ -158,13 +158,15 @@ QPlainTextEdit:focus { border-color: #3b82f6; }
 /* ── チェックボックス ── */
 QCheckBox {
     color: #333333;
-    spacing: 10px;
-    padding: 6px 4px;
+    spacing: 14px;
+    padding: 14px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 14px;
 }
 QCheckBox::indicator {
-    width: 20px; height: 20px;
+    width: 24px; height: 24px;
     border: 2px solid #d1d5db;
-    border-radius: 4px;
+    border-radius: 6px;
     background: #ffffff;
 }
 QCheckBox::indicator:hover {
