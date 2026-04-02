@@ -116,15 +116,14 @@ class _ChecklistEditor(QWidget):
             hl.addWidget(cb, 1)
 
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(28, 28)
+            btn_del.setFixedSize(24, 24)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
-                "QPushButton { background: transparent; color: #9ca3af; "
-                "border: 1px solid #e5e7eb; border-radius: 6px; "
-                "font-size: 16px; font-weight: bold; "
+                "QPushButton { background: #ef4444; color: #ffffff; "
+                "border: none; border-radius: 12px; "
+                "font-size: 14px; font-weight: bold; "
                 "min-height: 0; min-width: 0; padding: 0; }"
-                "QPushButton:hover { background: #fee2e2; color: #ef4444; "
-                "border-color: #fca5a5; }"
+                "QPushButton:hover { background: #dc2626; }"
             )
             idx = i
             btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
@@ -298,15 +297,14 @@ class _DocumentsEditor(QWidget):
 
             # 削除ボタン
             btn_del = QPushButton("×")
-            btn_del.setFixedSize(28, 28)
+            btn_del.setFixedSize(24, 24)
             btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_del.setStyleSheet(
-                "QPushButton { background: transparent; color: #9ca3af; "
-                "border: 1px solid #e5e7eb; border-radius: 6px; "
-                "font-size: 16px; font-weight: bold; "
+                "QPushButton { background: #ef4444; color: #ffffff; "
+                "border: none; border-radius: 12px; "
+                "font-size: 14px; font-weight: bold; "
                 "min-height: 0; min-width: 0; padding: 0; }"
-                "QPushButton:hover { background: #fee2e2; color: #ef4444; "
-                "border-color: #fca5a5; }"
+                "QPushButton:hover { background: #dc2626; }"
             )
             idx = i
             btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
