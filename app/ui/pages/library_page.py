@@ -178,6 +178,10 @@ class LibraryPage(QWidget):
             f"  padding:8px 12px; border:none; border-bottom:1px solid {_BORDER};"
             f"}}"
         )
+
+        # ダブルクリックでファイルを開く
+        self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
+
         return self._table
 
     def _build_pager_bar(self) -> QWidget:
@@ -291,6 +295,7 @@ class LibraryPage(QWidget):
 
     def _populate_table(self, groups: list[dict]) -> None:
         self._table.setRowCount(0)
+        self._row_path_map: dict[int, str] = {}  # row_idx → file path
 
         total_rows = sum(1 + len(g["files"]) for g in groups)
         self._table.setRowCount(total_rows)
@@ -328,10 +333,24 @@ class LibraryPage(QWidget):
                 indent.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 self._table.setItem(row_idx, 0, indent)
 
-                # 列1: ファイル名
-                self._table.setItem(
-                    row_idx, 1, QTableWidgetItem(file_info["filename"])
+                # 列1: ファイル名（リンク風ボタン）
+                path = file_info["path"]
+                file_btn = QPushButton(file_info["filename"])
+                file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                file_btn.setFlat(True)
+                file_btn.setStyleSheet(
+                    f"QPushButton {{ font-size:13px; color:{_ACCENT};"
+                    " text-decoration:underline; border:none;"
+                    " background:transparent; text-align:left; padding:4px 8px;"
+                    " min-height:0; }}"
+                    "QPushButton:hover { color:#1d4ed8; }"
                 )
+                file_btn.clicked.connect(
+                    lambda _=False, p=path: self._open_file(p)
+                )
+                self._table.setCellWidget(row_idx, 1, file_btn)
+                self._row_path_map[row_idx] = path
+
                 # 列2: 添付者
                 self._table.setItem(
                     row_idx, 2, QTableWidgetItem(file_info["added_by"])
@@ -349,7 +368,6 @@ class LibraryPage(QWidget):
                     " border-radius:4px; padding:0; min-height:0; min-width:0; }"
                     "QPushButton:hover { background:#dbeafe; border-color:#4a8cff; }"
                 )
-                path = file_info["path"]
                 btn.clicked.connect(
                     lambda _=False, p=path: self._open_file(p)
                 )
@@ -364,6 +382,12 @@ class LibraryPage(QWidget):
                 row_idx += 1
 
     # ── イベント ──────────────────────────────────────────────────────────────
+
+    def _on_cell_double_clicked(self, row: int, _col: int) -> None:
+        """ファイル行をダブルクリックで開く。"""
+        path = self._row_path_map.get(row)
+        if path:
+            self._open_file(path)
 
     def _on_search(self) -> None:
         self._collect_all()
