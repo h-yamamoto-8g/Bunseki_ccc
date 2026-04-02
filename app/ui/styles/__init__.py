@@ -160,9 +160,7 @@ QCheckBox {
     color: #333333;
     spacing: 10px;
     padding: 6px 4px;
-    border-bottom: 1px solid #f0f0f0;
 }
-QCheckBox:last-child { border-bottom: none; }
 QCheckBox::indicator {
     width: 20px; height: 20px;
     border: 2px solid #d1d5db;
