@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +21,24 @@ from PySide6.QtWidgets import (
 )
 
 from app.services.hg_config_service import HgConfigService
+from app.ui.widgets.icon_utils import get_icon
+
+
+def _make_delete_button() -> QPushButton:
+    """共通の削除ボタンを生成する。"""
+    btn = QPushButton()
+    btn.setIcon(get_icon(":/icons/cancel.svg", "#ef4444", 14))
+    btn.setIconSize(QSize(14, 14))
+    btn.setFixedSize(28, 28)
+    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn.setToolTip("削除")
+    btn.setStyleSheet(
+        "QPushButton { background:transparent; border:1px solid #e5e7eb;"
+        " border-radius:4px; padding:0; min-height:0; min-width:0; }"
+        "QPushButton:hover { background:rgba(239,68,68,0.10);"
+        " border-color:#ef4444; }"
+    )
+    return btn
 
 
 # ── ステータス定義 ────────────────────────────────────────────────────────────
@@ -115,16 +133,7 @@ class _ChecklistEditor(QWidget):
                 cb.setStyleSheet("border-bottom: none;")
             hl.addWidget(cb, 1)
 
-            btn_del = QPushButton("×")
-            btn_del.setFixedSize(32, 32)
-            btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_del.setStyleSheet(
-                "QPushButton { background: #ef4444; color: #ffffff; "
-                "border: none; border-radius: 16px; "
-                "font-size: 18px; font-weight: bold; "
-                "min-height: 0; min-width: 0; padding: 0; }"
-                "QPushButton:hover { background: #dc2626; }"
-            )
+            btn_del = _make_delete_button()
             idx = i
             btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
             hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignVCenter)
