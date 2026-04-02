@@ -98,7 +98,6 @@ class _ChecklistEditor(QWidget):
         add_row.addWidget(self._input, 1)
 
         btn_add = QPushButton("追加")
-        btn_add.setFixedHeight(28)
         btn_add.setStyleSheet(
             "background: #3b82f6; color: white; border: none; "
             "border-radius: 4px; padding: 4px 12px; font-weight: 600;"
@@ -244,7 +243,6 @@ class _DocumentsEditor(QWidget):
         btn_row = QHBoxLayout()
         btn_row.addStretch()
         btn_add = QPushButton("追加")
-        btn_add.setFixedHeight(28)
         btn_add.setStyleSheet(
             "background: #3b82f6; color: white; border: none; "
             "border-radius: 4px; padding: 4px 16px; font-weight: 600;"
