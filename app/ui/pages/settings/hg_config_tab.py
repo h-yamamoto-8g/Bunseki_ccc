@@ -9,7 +9,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -313,21 +312,32 @@ class _DocumentsEditor(QWidget):
 
 # ── ステータスブロック ────────────────────────────────────────────────────────
 
-_BLOCK_STYLE = (
-    "QGroupBox { background: #ffffff; border: 1px solid #e5e7eb; "
-    "border-radius: 8px; margin-top: 14px; padding: 20px 16px 12px 16px; }"
-    "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; "
-    "padding: 2px 8px; background: #ffffff; font-weight: 700; font-size: 14px; color: #1f2937; }"
+_FRAME_STYLE = (
+    "QFrame#status_block { background: #ffffff; border: 1px solid #e5e7eb; "
+    "border-radius: 8px; }"
 )
+_TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
+_SEP_STYLE = "background: #e5e7eb; border: none;"
 
 
-def _make_status_block(title: str, widgets: list[QWidget]) -> QGroupBox:
+def _make_status_block(title: str, widgets: list[QWidget]) -> QFrame:
     """ステータス名付きブロックを生成する。"""
-    group = QGroupBox(title)
-    group.setStyleSheet(_BLOCK_STYLE)
+    group = QFrame()
+    group.setObjectName("status_block")
+    group.setStyleSheet(_FRAME_STYLE)
     vl = QVBoxLayout(group)
-    vl.setContentsMargins(12, 20, 12, 12)
-    vl.setSpacing(16)
+    vl.setContentsMargins(16, 12, 16, 12)
+    vl.setSpacing(12)
+
+    lbl_title = QLabel(title)
+    lbl_title.setStyleSheet(_TITLE_STYLE)
+    vl.addWidget(lbl_title)
+
+    sep = QFrame()
+    sep.setFrameShape(QFrame.Shape.HLine)
+    sep.setFixedHeight(1)
+    sep.setStyleSheet(_SEP_STYLE)
+    vl.addWidget(sep)
 
     if not widgets:
         lbl = QLabel("設定項目なし")

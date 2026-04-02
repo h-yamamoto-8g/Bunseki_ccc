@@ -11,7 +11,7 @@ import sys
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QGroupBox, QScrollArea, QFrame, QSpacerItem, QSizePolicy,
+    QCheckBox, QScrollArea, QFrame, QSpacerItem, QSizePolicy,
 )
 from PySide6.QtCore import Signal, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -19,12 +19,12 @@ from PySide6.QtGui import QDesktopServices
 
 # ── スタイル定数 ──────────────────────────────────────────────────────────────
 
-_GROUP_STYLE = (
-    "QGroupBox { background: #ffffff; border: 1px solid #e5e7eb; "
-    "border-radius: 8px; margin-top: 14px; padding: 20px 16px 12px 16px; }"
-    "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; "
-    "padding: 2px 8px; background: #ffffff; font-weight: 700; font-size: 14px; color: #1f2937; }"
+_FRAME_STYLE = (
+    "QFrame#section_frame { background: #ffffff; border: 1px solid #e5e7eb; "
+    "border-radius: 8px; }"
 )
+_TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
+_SEP_STYLE = "background: #e5e7eb; border: none;"
 
 
 def _open_location(location: str, loc_type: str) -> None:
@@ -163,13 +163,24 @@ class AnalysisUI(QWidget):
 
     def _make_docs_group(
         self, title: str, docs: list[dict]
-    ) -> QGroupBox:
-        """ドキュメント一覧のグループボックスを生成する。"""
-        group = QGroupBox(title)
-        group.setStyleSheet(_GROUP_STYLE)
+    ) -> QFrame:
+        """ドキュメント一覧のセクションを生成する。"""
+        group = QFrame()
+        group.setObjectName("section_frame")
+        group.setStyleSheet(_FRAME_STYLE)
         vl = QVBoxLayout(group)
-        vl.setContentsMargins(12, 20, 12, 12)
-        vl.setSpacing(6)
+        vl.setContentsMargins(16, 12, 16, 12)
+        vl.setSpacing(8)
+
+        lbl_title = QLabel(title)
+        lbl_title.setStyleSheet(_TITLE_STYLE)
+        vl.addWidget(lbl_title)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(_SEP_STYLE)
+        vl.addWidget(sep)
 
         if not docs:
             lbl = QLabel("ドキュメントなし")
@@ -212,13 +223,24 @@ class AnalysisUI(QWidget):
 
     def _make_checklist_group(
         self, title: str, items: list[str]
-    ) -> tuple[QGroupBox, list[QCheckBox]]:
-        """チェックリストのグループボックスを生成する。"""
-        group = QGroupBox(title)
-        group.setStyleSheet(_GROUP_STYLE)
+    ) -> tuple[QFrame, list[QCheckBox]]:
+        """チェックリストのセクションを生成する。"""
+        group = QFrame()
+        group.setObjectName("section_frame")
+        group.setStyleSheet(_FRAME_STYLE)
         vl = QVBoxLayout(group)
-        vl.setContentsMargins(12, 20, 12, 12)
+        vl.setContentsMargins(16, 12, 16, 12)
         vl.setSpacing(6)
+
+        lbl_title = QLabel(title)
+        lbl_title.setStyleSheet(_TITLE_STYLE)
+        vl.addWidget(lbl_title)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(_SEP_STYLE)
+        vl.addWidget(sep)
 
         checks: list[QCheckBox] = []
 
