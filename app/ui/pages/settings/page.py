@@ -129,19 +129,16 @@ class SettingsPage(QWidget):
         # tab_home: ホーム設定
         self.home_tab = HomeTab()
         self._embed(self.ui.tab_home, self.home_tab)
-        self._embed(self.ui.tab_tasks, _placeholder("タスク設定（実装予定）"))
+        # tab_tasks: タスク設定（分析項目別設定）
+        holder_groups = self.data_service.get_holder_groups()
+        self.hg_config_tab = HgConfigTab(self.hg_config_service, holder_groups)
+        self._embed(self.ui.tab_tasks, self.hg_config_tab)
+
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
         self._embed(self.ui.tab_data, _placeholder("データ設定（実装予定）"))
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
         self._embed(self.ui.tab_logs, _placeholder("ログ設定（実装予定）"))
         self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
-
-        # tab_hg_config: ホルダグループ別設定
-        holder_groups = self.data_service.get_holder_groups()
-        self.hg_config_tab = HgConfigTab(self.hg_config_service, holder_groups)
-        tab_hg_config = QWidget()
-        self.ui.tabs.addTab(tab_hg_config, "分析項目別設定")
-        self._embed(tab_hg_config, self.hg_config_tab)
 
     @staticmethod
     def _embed(tab: QWidget, child: QWidget) -> None:
