@@ -426,63 +426,29 @@ class LibraryPage(QWidget):
         row_idx = 0
         for group in groups:
             # ── グループヘッダー行 ────────────────────────────────
-            self._table.setSpan(row_idx, 0, 1, 3)
-
-            header_w = QWidget()
-            header_w.setStyleSheet(f"background:{_GROUP_BG};")
-            hl = QHBoxLayout(header_w)
-            hl.setContentsMargins(12, 6, 12, 6)
-            hl.setSpacing(12)
-
-            # タスク名
-            lbl_name = QLabel(group["task_name"])
-            lbl_name.setStyleSheet(
-                f"font-size:13px; font-weight:700; color:{_GROUP_COLOR};"
-                f" background:transparent;"
-            )
-            hl.addWidget(lbl_name)
-
-            # ステータスバッジ
-            lbl_status = QLabel(group["status"])
-            lbl_status.setStyleSheet(
-                "font-size:11px; color:#1e40af; background:#dbeafe;"
-                " border-radius:4px; padding:2px 8px; font-weight:600;"
-            )
-            hl.addWidget(lbl_status)
-
-            # 分析項目
+            # 各列にヘッダーウィジェットを配置（スパンなし）
+            parts = [group["task_name"]]
+            parts.append(f"[{group['status']}]")
             if group["holder_group_name"]:
-                lbl_hg = QLabel(group["holder_group_name"])
-                lbl_hg.setStyleSheet(
-                    f"font-size:11px; color:{_TEXT2}; background:transparent;"
-                )
-                hl.addWidget(lbl_hg)
-
-            # 起票者
-            lbl_creator = QLabel(f"起票: {group['created_by']}")
-            lbl_creator.setStyleSheet(
-                f"font-size:11px; color:{_TEXT2}; background:transparent;"
-            )
-            hl.addWidget(lbl_creator)
-
-            # 回覧先
+                parts.append(group["holder_group_name"])
+            parts.append(f"起票: {group['created_by']}")
             if group["flow"]:
-                lbl_flow = QLabel(f"回覧: {group['flow']}")
-                lbl_flow.setStyleSheet(
-                    f"font-size:11px; color:{_TEXT2}; background:transparent;"
-                )
-                hl.addWidget(lbl_flow)
+                parts.append(f"回覧: {group['flow']}")
+            parts.append(f"({len(group['files'])} ファイル)")
+            header_text = "    ".join(parts)
 
-            hl.addStretch()
+            for ci in range(3):
+                item = QTableWidgetItem(header_text if ci == 0 else "")
+                item.setBackground(QColor(_GROUP_BG))
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                if ci == 0:
+                    item.setForeground(QColor(_GROUP_COLOR))
+                    font = QFont()
+                    font.setBold(True)
+                    item.setFont(font)
+                self._table.setItem(row_idx, ci, item)
 
-            # ファイル数
-            lbl_count = QLabel(f"{len(group['files'])} ファイル")
-            lbl_count.setStyleSheet(
-                f"font-size:11px; color:{_TEXT3}; background:transparent;"
-            )
-            hl.addWidget(lbl_count)
-
-            self._table.setCellWidget(row_idx, 0, header_w)
+            self._table.setSpan(row_idx, 0, 1, 3)
             self._table.setRowHeight(row_idx, 44)
             row_idx += 1
 
