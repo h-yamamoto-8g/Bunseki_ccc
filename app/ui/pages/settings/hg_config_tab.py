@@ -155,7 +155,7 @@ def _classify_location(value: str) -> str:
 class _DocumentsEditor(QWidget):
     """ドキュメント（リンクまたはパス）を複数登録できるウィジェット。"""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, title: str = "ドキュメント", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._docs: list[dict[str, str]] = []
         self._rows: list[QWidget] = []
@@ -164,7 +164,7 @@ class _DocumentsEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        lbl = QLabel("ドキュメント")
+        lbl = QLabel(title)
         lbl.setStyleSheet("font-weight: 600; font-size: 13px; color: #374151;")
         layout.addWidget(lbl)
 
@@ -401,14 +401,18 @@ class HgConfigTab(QWidget):
         self._content_layout.setSpacing(12)
 
         # ── ステータスごとのブロックを構築 ────────────────────────────────
-        self._docs_editor = _DocumentsEditor()
+        self._pre_docs_editor = _DocumentsEditor("分析前ドキュメント")
         self._pre_editor = _ChecklistEditor("分析前チェックリスト")
+        self._post_docs_editor = _DocumentsEditor("分析後ドキュメント")
         self._post_editor = _ChecklistEditor("分析後チェックリスト")
 
         self._verify_editor = _ChecklistEditor("データ確認チェックリスト")
 
         status_widgets: dict[str, list[QWidget]] = {
-            "analysis": [self._docs_editor, self._pre_editor, self._post_editor],
+            "analysis": [
+                self._pre_docs_editor, self._pre_editor,
+                self._post_docs_editor, self._post_editor,
+            ],
             "result_verification": [self._verify_editor],
         }
 
@@ -433,10 +437,11 @@ class HgConfigTab(QWidget):
         if not hg_code:
             return
         cfg = self._service.get_config(hg_code)
+        self._pre_docs_editor.set_documents(cfg.get("pre_documents", []))
         self._pre_editor.set_items(cfg.get("pre_checklist", []))
+        self._post_docs_editor.set_documents(cfg.get("post_documents", []))
         self._post_editor.set_items(cfg.get("post_checklist", []))
         self._verify_editor.set_items(cfg.get("verify_checklist", []))
-        self._docs_editor.set_documents(cfg.get("documents", []))
 
     # ── 保存 ──────────────────────────────────────────────────────────────
 
@@ -452,7 +457,8 @@ class HgConfigTab(QWidget):
         )
         self._service.save_documents(
             hg_code,
-            documents=self._docs_editor.get_documents(),
+            pre_documents=self._pre_docs_editor.get_documents(),
+            post_documents=self._post_docs_editor.get_documents(),
         )
         hg_name = self._combo.currentText()
         QMessageBox.information(
