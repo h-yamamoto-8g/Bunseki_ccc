@@ -437,18 +437,13 @@ class LibraryPage(QWidget):
             parts.append(f"({len(group['files'])} ファイル)")
             header_text = "    ".join(parts)
 
-            for ci in range(3):
-                item = QTableWidgetItem(header_text if ci == 0 else "")
-                item.setBackground(QColor(_GROUP_BG))
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                if ci == 0:
-                    item.setForeground(QColor(_GROUP_COLOR))
-                    font = QFont()
-                    font.setBold(True)
-                    item.setFont(font)
-                self._table.setItem(row_idx, ci, item)
-
+            header_lbl = QLabel(header_text)
+            header_lbl.setStyleSheet(
+                f"font-weight:700; color:{_GROUP_COLOR}; background:{_GROUP_BG};"
+                " padding: 0 16px;"
+            )
             self._table.setSpan(row_idx, 0, 1, 3)
+            self._table.setCellWidget(row_idx, 0, header_lbl)
             self._table.setRowHeight(row_idx, 44)
             row_idx += 1
 

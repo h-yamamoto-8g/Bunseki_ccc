@@ -151,6 +151,7 @@ class Sidebar(QWidget):
         super().__init__(parent)
         self.setFixedWidth(75)
         self.setObjectName("frame_sidebar")
+        self.setAutoFillBackground(True)
         self._buttons: dict[str, _NavButton] = {}
         self._setup_ui()
 
