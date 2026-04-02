@@ -265,10 +265,22 @@ class AnalysisUI(QWidget):
             cb = QCheckBox(label)
             cb.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 0;")
             cb.stateChanged.connect(self._update_finish_btn)
+            cb.stateChanged.connect(lambda _, c=cb: self._apply_strikethrough(c))
             vl.addWidget(cb)
             checks.append(cb)
 
         return group, checks
+
+    @staticmethod
+    def _apply_strikethrough(cb: QCheckBox) -> None:
+        """チェック状態に応じて取り消し線を切り替える。"""
+        font = cb.font()
+        font.setStrikeOut(cb.isChecked())
+        cb.setFont(font)
+        if cb.isChecked():
+            cb.setStyleSheet("font-size: 13px; color: #9ca3af; padding: 2px 0;")
+        else:
+            cb.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 0;")
 
     def _check_all(self, checkboxes: list[QCheckBox]) -> None:
         for cb in checkboxes:
