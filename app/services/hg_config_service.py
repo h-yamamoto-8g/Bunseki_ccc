@@ -37,6 +37,7 @@ class HgConfigService:
             "pre_checklist": cfg.get("pre_checklist", list(DEFAULT_PRE_CHECKLIST)),
             "post_checklist": cfg.get("post_checklist", list(DEFAULT_POST_CHECKLIST)),
             "verify_checklist": cfg.get("verify_checklist", list(DEFAULT_VERIFY_CHECKLIST)),
+            "documents": cfg.get("documents", []),
             "has_manual": hg_config_store.has_manual(hg_code),
         }
 
@@ -52,6 +53,16 @@ class HgConfigService:
         cfg["pre_checklist"] = pre_checklist
         cfg["post_checklist"] = post_checklist
         cfg["verify_checklist"] = verify_checklist
+        hg_config_store.set_config(hg_code, cfg)
+
+    def save_documents(
+        self,
+        hg_code: str,
+        documents: list[dict[str, str]],
+    ) -> None:
+        """ドキュメント一覧を保存する。"""
+        cfg = hg_config_store.get_config(hg_code)
+        cfg["documents"] = documents
         hg_config_store.set_config(hg_code, cfg)
 
     def get_manual_html(self, hg_code: str) -> str | None:

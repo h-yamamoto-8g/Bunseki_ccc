@@ -1,7 +1,6 @@
 """ホルダグループ別設定の永続化層。
 
-hg_config.json にチェックリスト等の設定を保存し、
-hg_manuals/ にホルダグループ別HTMLマニュアルを保存する。
+hg_config.json にチェックリスト・ドキュメント等の設定を保存する。
 """
 from __future__ import annotations
 

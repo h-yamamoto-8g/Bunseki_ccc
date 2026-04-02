@@ -5,13 +5,9 @@
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
-    QFileDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -20,7 +16,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -137,60 +132,190 @@ class _ChecklistEditor(QWidget):
             self._rebuild()
 
 
-# ── マニュアルセクション ──────────────────────────────────────────────────────
+# ── ドキュメントエディタ ──────────────────────────────────────────────────────
 
-class _ManualSection(QWidget):
-    """マニュアルのアップロード・プレビュー・削除ウィジェット。"""
+_DOC_ROW_STYLE = (
+    "QWidget#doc_row { background: #f9fafb; border: 1px solid #e5e7eb; "
+    "border-radius: 6px; }"
+)
+
+_INPUT_STYLE = (
+    "border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px;"
+)
+
+
+class _DocumentsEditor(QWidget):
+    """ドキュメント（リンク＋フォルダパス）を複数登録できるウィジェット。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._docs: list[dict[str, str]] = []
+        self._rows: list[QWidget] = []
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        lbl = QLabel("マニュアル")
+        lbl = QLabel("ドキュメント")
         lbl.setStyleSheet("font-weight: 600; font-size: 13px; color: #374151;")
         layout.addWidget(lbl)
 
-        row = QHBoxLayout()
-        row.setSpacing(8)
+        # 登録済みドキュメント一覧
+        self._list_layout = QVBoxLayout()
+        self._list_layout.setSpacing(6)
+        layout.addLayout(self._list_layout)
 
-        self.lbl_status = QLabel("未登録")
-        self.lbl_status.setStyleSheet("color: #9ca3af; font-size: 13px;")
-        row.addWidget(self.lbl_status)
-        row.addStretch()
+        # 追加フォーム
+        form = QWidget()
+        form.setObjectName("doc_add_form")
+        fl = QVBoxLayout(form)
+        fl.setContentsMargins(0, 8, 0, 0)
+        fl.setSpacing(6)
 
-        self.btn_upload = QPushButton("アップロード")
-        self.btn_upload.setStyleSheet(
+        # 名前
+        row_name = QHBoxLayout()
+        row_name.setSpacing(6)
+        lbl_name = QLabel("名前")
+        lbl_name.setFixedWidth(70)
+        lbl_name.setStyleSheet("font-size: 12px; color: #6b7280;")
+        row_name.addWidget(lbl_name)
+        self._input_name = QLineEdit()
+        self._input_name.setPlaceholderText("ドキュメント名")
+        self._input_name.setStyleSheet(_INPUT_STYLE)
+        row_name.addWidget(self._input_name, 1)
+        fl.addLayout(row_name)
+
+        # リンク
+        row_link = QHBoxLayout()
+        row_link.setSpacing(6)
+        lbl_link = QLabel("リンク")
+        lbl_link.setFixedWidth(70)
+        lbl_link.setStyleSheet("font-size: 12px; color: #6b7280;")
+        row_link.addWidget(lbl_link)
+        self._input_link = QLineEdit()
+        self._input_link.setPlaceholderText("https://...")
+        self._input_link.setStyleSheet(_INPUT_STYLE)
+        row_link.addWidget(self._input_link, 1)
+        fl.addLayout(row_link)
+
+        # フォルダパス
+        row_folder = QHBoxLayout()
+        row_folder.setSpacing(6)
+        lbl_folder = QLabel("フォルダ")
+        lbl_folder.setFixedWidth(70)
+        lbl_folder.setStyleSheet("font-size: 12px; color: #6b7280;")
+        row_folder.addWidget(lbl_folder)
+        self._input_folder = QLineEdit()
+        self._input_folder.setPlaceholderText("フォルダパス")
+        self._input_folder.setStyleSheet(_INPUT_STYLE)
+        row_folder.addWidget(self._input_folder, 1)
+        fl.addLayout(row_folder)
+
+        # 追加ボタン
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_add = QPushButton("追加")
+        btn_add.setFixedHeight(28)
+        btn_add.setStyleSheet(
             "background: #3b82f6; color: white; border: none; "
-            "border-radius: 4px; padding: 6px 16px; font-weight: 600;"
+            "border-radius: 4px; padding: 4px 16px; font-weight: 600;"
         )
-        row.addWidget(self.btn_upload)
+        btn_add.clicked.connect(self._on_add)
+        btn_row.addWidget(btn_add)
+        fl.addLayout(btn_row)
 
-        self.btn_preview = QPushButton("プレビュー")
-        self.btn_preview.setStyleSheet(
-            "background: #10b981; color: white; border: none; "
-            "border-radius: 4px; padding: 6px 16px; font-weight: 600;"
-        )
-        row.addWidget(self.btn_preview)
+        layout.addWidget(form)
 
-        self.btn_delete = QPushButton("削除")
-        self.btn_delete.setStyleSheet(
-            "background: #ef4444; color: white; border: none; "
-            "border-radius: 4px; padding: 6px 16px; font-weight: 600;"
-        )
-        row.addWidget(self.btn_delete)
-        layout.addLayout(row)
+    def set_documents(self, docs: list[dict[str, str]]) -> None:
+        self._docs = [dict(d) for d in docs]
+        self._rebuild()
 
-    def update_status(self, registered: bool) -> None:
-        if registered:
-            self.lbl_status.setText("登録済み")
-            self.lbl_status.setStyleSheet(
-                "color: #059669; font-size: 13px; font-weight: 600;"
+    def get_documents(self) -> list[dict[str, str]]:
+        return [dict(d) for d in self._docs]
+
+    def _rebuild(self) -> None:
+        for row in self._rows:
+            row.deleteLater()
+        self._rows.clear()
+
+        for i, doc in enumerate(self._docs):
+            row = QWidget()
+            row.setObjectName("doc_row")
+            row.setStyleSheet(_DOC_ROW_STYLE)
+            hl = QHBoxLayout(row)
+            hl.setContentsMargins(10, 8, 10, 8)
+            hl.setSpacing(8)
+
+            # 情報表示
+            info_layout = QVBoxLayout()
+            info_layout.setSpacing(2)
+
+            name_lbl = QLabel(doc.get("name", "（名前なし）"))
+            name_lbl.setStyleSheet(
+                "font-size: 13px; font-weight: 600; color: #1f2937; border: none;"
             )
-        else:
-            self.lbl_status.setText("未登録")
-            self.lbl_status.setStyleSheet("color: #9ca3af; font-size: 13px;")
+            info_layout.addWidget(name_lbl)
+
+            link = doc.get("link", "")
+            if link:
+                link_lbl = QLabel(f"リンク: {link}")
+                link_lbl.setStyleSheet(
+                    "font-size: 12px; color: #3b82f6; border: none;"
+                )
+                link_lbl.setTextInteractionFlags(
+                    Qt.TextInteractionFlag.TextSelectableByMouse
+                )
+                info_layout.addWidget(link_lbl)
+
+            folder = doc.get("folder_path", "")
+            if folder:
+                folder_lbl = QLabel(f"フォルダ: {folder}")
+                folder_lbl.setStyleSheet(
+                    "font-size: 12px; color: #6b7280; border: none;"
+                )
+                folder_lbl.setTextInteractionFlags(
+                    Qt.TextInteractionFlag.TextSelectableByMouse
+                )
+                info_layout.addWidget(folder_lbl)
+
+            hl.addLayout(info_layout, 1)
+
+            # 削除ボタン
+            btn_del = QPushButton("×")
+            btn_del.setFixedSize(24, 24)
+            btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_del.setStyleSheet(
+                "QPushButton { background: transparent; color: #9ca3af; "
+                "border: 1px solid #e5e7eb; border-radius: 4px; font-weight: bold; }"
+                "QPushButton:hover { background: #fee2e2; color: #ef4444; "
+                "border-color: #fca5a5; }"
+            )
+            idx = i
+            btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
+            hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignTop)
+
+            self._list_layout.addWidget(row)
+            self._rows.append(row)
+
+    def _on_add(self) -> None:
+        name = self._input_name.text().strip()
+        if not name:
+            return
+        doc = {
+            "name": name,
+            "link": self._input_link.text().strip(),
+            "folder_path": self._input_folder.text().strip(),
+        }
+        self._docs.append(doc)
+        self._input_name.clear()
+        self._input_link.clear()
+        self._input_folder.clear()
+        self._rebuild()
+
+    def _on_remove(self, idx: int) -> None:
+        if 0 <= idx < len(self._docs):
+            self._docs.pop(idx)
+            self._rebuild()
 
 
 # ── ステータスブロック ────────────────────────────────────────────────────────
@@ -283,17 +408,14 @@ class HgConfigTab(QWidget):
         self._content_layout.setSpacing(12)
 
         # ── ステータスごとのブロックを構築 ────────────────────────────────
-        # 分析ステータスに設定項目を配置
-        self._manual_section = _ManualSection()
+        self._docs_editor = _DocumentsEditor()
         self._pre_editor = _ChecklistEditor("分析前チェックリスト")
         self._post_editor = _ChecklistEditor("分析後チェックリスト")
 
-        # チェックステータスに設定項目を配置
         self._verify_editor = _ChecklistEditor("データ確認チェックリスト")
 
-        # 各ステータスに対応するウィジェットのマッピング
         status_widgets: dict[str, list[QWidget]] = {
-            "analysis": [self._manual_section, self._pre_editor, self._post_editor],
+            "analysis": [self._docs_editor, self._pre_editor, self._post_editor],
             "result_verification": [self._verify_editor],
         }
 
@@ -309,9 +431,6 @@ class HgConfigTab(QWidget):
     def _connect_signals(self) -> None:
         self._combo.currentIndexChanged.connect(self._on_hg_changed)
         self._btn_save.clicked.connect(self._on_save)
-        self._manual_section.btn_upload.clicked.connect(self._on_upload)
-        self._manual_section.btn_preview.clicked.connect(self._on_preview)
-        self._manual_section.btn_delete.clicked.connect(self._on_delete_manual)
 
     # ── HG 切替 ───────────────────────────────────────────────────────────
 
@@ -324,7 +443,7 @@ class HgConfigTab(QWidget):
         self._pre_editor.set_items(cfg.get("pre_checklist", []))
         self._post_editor.set_items(cfg.get("post_checklist", []))
         self._verify_editor.set_items(cfg.get("verify_checklist", []))
-        self._manual_section.update_status(cfg.get("has_manual", False))
+        self._docs_editor.set_documents(cfg.get("documents", []))
 
     # ── 保存 ──────────────────────────────────────────────────────────────
 
@@ -338,67 +457,11 @@ class HgConfigTab(QWidget):
             post_checklist=self._post_editor.get_items(),
             verify_checklist=self._verify_editor.get_items(),
         )
+        self._service.save_documents(
+            hg_code,
+            documents=self._docs_editor.get_documents(),
+        )
         hg_name = self._combo.currentText()
         QMessageBox.information(
             self, "保存完了", f"「{hg_name}」の設定を保存しました。"
         )
-
-    # ── マニュアル操作 ────────────────────────────────────────────────────
-
-    def _on_upload(self) -> None:
-        hg_code = self._current_hg_code
-        if not hg_code:
-            return
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            f"HTMLマニュアルを選択 — {self._combo.currentText()}",
-            "",
-            "HTML Files (*.html *.htm);;All Files (*)",
-        )
-        if not path:
-            return
-        err = self._service.upload_manual(hg_code, Path(path))
-        if err:
-            QMessageBox.warning(self, "エラー", err)
-            return
-        self._manual_section.update_status(True)
-        QMessageBox.information(self, "完了", "マニュアルを登録しました。")
-
-    def _on_preview(self) -> None:
-        hg_code = self._current_hg_code
-        if not hg_code:
-            return
-        html = self._service.get_manual_html(hg_code)
-        if not html:
-            QMessageBox.information(self, "プレビュー", "マニュアルは未登録です。")
-            return
-        dlg = QDialog(self)
-        dlg.setWindowTitle(f"マニュアル — {self._combo.currentText()}")
-        dlg.resize(700, 500)
-        layout = QVBoxLayout(dlg)
-        browser = QTextBrowser()
-        browser.setHtml(html)
-        layout.addWidget(browser)
-        btn_close = QPushButton("閉じる")
-        btn_close.clicked.connect(dlg.accept)
-        layout.addWidget(btn_close, alignment=Qt.AlignmentFlag.AlignRight)
-        dlg.exec()
-
-    def _on_delete_manual(self) -> None:
-        hg_code = self._current_hg_code
-        if not hg_code:
-            return
-        if not self._service.get_manual_html(hg_code):
-            QMessageBox.information(self, "削除", "マニュアルは未登録です。")
-            return
-        ret = QMessageBox.question(
-            self,
-            "確認",
-            f"「{self._combo.currentText()}」のマニュアルを削除しますか？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if ret != QMessageBox.StandardButton.Yes:
-            return
-        self._service.delete_manual(hg_code)
-        self._manual_section.update_status(False)
