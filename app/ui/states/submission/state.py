@@ -676,19 +676,22 @@ class SubmissionUI(QWidget):
         )
         if can_delete:
             del_btn = QPushButton()
-            del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
+            del_btn.setIcon(get_icon(":/icons/cancel.svg", "#ef4444", 14))
             del_btn.setIconSize(QSize(14, 14))
-            del_btn.setFixedSize(22, 22)
+            del_btn.setFixedSize(28, 28)
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setToolTip("削除")
             del_btn.setStyleSheet(
-                "QPushButton { background:transparent; border:none; }"
-                "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
+                "QPushButton { background:transparent; border:1px solid #e5e7eb;"
+                " border-radius:4px; padding:0; min-height:0; min-width:0; }"
+                "QPushButton:hover { background:rgba(239,68,68,0.10);"
+                " border-color:#ef4444; }"
             )
             comment_id = str(comment.get("id", ""))
             del_btn.clicked.connect(
                 lambda _=False, cid=comment_id: self.comment_delete_requested.emit(cid)
             )
-            hl.addWidget(del_btn)
+            hl.addWidget(del_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         return card
 
@@ -779,17 +782,19 @@ class SubmissionUI(QWidget):
 
         if is_owner:
             del_btn = QPushButton()
-            del_btn.setIcon(get_icon(":/icons/cancel.svg", _TEXT3, 14))
+            del_btn.setIcon(get_icon(":/icons/cancel.svg", "#ef4444", 14))
             del_btn.setIconSize(QSize(14, 14))
-            del_btn.setFixedSize(22, 22)
+            del_btn.setFixedSize(28, 28)
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             del_btn.setToolTip("削除")
             del_btn.setStyleSheet(
-                "QPushButton { background:transparent; border:none; }"
-                "QPushButton:hover { background:#fee2e2; border-radius:4px; }"
+                "QPushButton { background:transparent; border:1px solid #e5e7eb;"
+                " border-radius:4px; padding:0; min-height:0; min-width:0; }"
+                "QPushButton:hover { background:rgba(239,68,68,0.10);"
+                " border-color:#ef4444; }"
             )
             del_btn.clicked.connect(lambda _=False, j=idx: self._remove_attachment(j))
-            hl.addWidget(del_btn)
+            hl.addWidget(del_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         return card
 
