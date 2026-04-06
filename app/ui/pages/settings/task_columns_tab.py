@@ -41,11 +41,13 @@ class _ColumnListEditor(QWidget):
         title: str,
         scope: str,
         service: DataConfigService,
+        csv_columns: list[str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._scope = scope
         self._service = service
+        self._csv_columns = csv_columns
         self._rows: list[dict] = []
         self._build_ui(title)
         self._load()
@@ -78,7 +80,9 @@ class _ColumnListEditor(QWidget):
         outer.addWidget(section)
 
     def _load(self) -> None:
-        columns = self._service.get_task_columns(self._scope)
+        columns = self._service.get_task_columns(
+            self._scope, csv_columns=self._csv_columns,
+        )
         self._rebuild(columns)
 
     def _rebuild(self, columns: list[dict]) -> None:
@@ -139,10 +143,12 @@ class TaskColumnsTab(QWidget):
     def __init__(
         self,
         data_config_service: DataConfigService,
+        csv_columns: list[str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._service = data_config_service
+        self._csv_columns = csv_columns
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -179,6 +185,7 @@ class TaskColumnsTab(QWidget):
             "分析対象（ターゲット）テーブル",
             "analysis_targets",
             self._service,
+            csv_columns=self._csv_columns,
         )
         cl.addWidget(self._targets_editor)
 
@@ -186,6 +193,7 @@ class TaskColumnsTab(QWidget):
             "データ確認（チェック）テーブル",
             "result_verification",
             self._service,
+            csv_columns=self._csv_columns,
         )
         cl.addWidget(self._verify_editor)
 

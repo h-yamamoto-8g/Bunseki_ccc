@@ -134,11 +134,19 @@ class SettingsPage(QWidget):
         self.home_tab = HomeTab()
         self._embed(self.ui.tab_home, self.home_tab)
 
+        # CSV列ヘッダーを取得（タスク列設定・データ設定の両方で使用）
+        self.data_config_service = DataConfigService()
+        try:
+            csv_columns = self.data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+
         # tab_tasks: タスク設定（分析項目別設定 + 表示列設定）
         holder_groups = self.data_service.get_holder_groups()
         self.hg_config_tab = HgConfigTab(self.hg_config_service, holder_groups)
-        self.data_config_service = DataConfigService()
-        self.task_columns_tab = TaskColumnsTab(self.data_config_service)
+        self.task_columns_tab = TaskColumnsTab(
+            self.data_config_service, csv_columns=csv_columns,
+        )
         task_container = self._build_task_settings(
             self.hg_config_tab, self.task_columns_tab
         )
@@ -146,11 +154,7 @@ class SettingsPage(QWidget):
 
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
 
-        # tab_data: データ設定（実CSVヘッダーを渡す）
-        try:
-            csv_columns = self.data_service.get_csv_columns()
-        except Exception:
-            csv_columns = None
+        # tab_data: データ設定
         self.data_tab = DataTab(self.data_config_service, csv_columns=csv_columns)
         self._embed(self.ui.tab_data, self.data_tab)
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))

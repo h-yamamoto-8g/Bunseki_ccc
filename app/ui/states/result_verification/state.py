@@ -103,8 +103,16 @@ class ResultVerificationUI(QWidget):
         """表示対象の列設定を返す。"""
         if self._column_config:
             return self._column_config
-        from app.services.data_config_service import RESULT_VERIFICATION_COLUMNS
-        return RESULT_VERIFICATION_COLUMNS
+        # フォールバック: 最低限の列
+        return [
+            {"key": "valid_sample_display_name", "label": "サンプル名", "visible": True},
+            {"key": "valid_test_display_name", "label": "試験項目名", "visible": True},
+            {"key": "test_raw_data", "label": "データ", "visible": True},
+            {"key": "test_unit_name", "label": "単位", "visible": True},
+            {"key": "upper_limit", "label": "最上限基準値", "visible": True},
+            {"key": "lower_limit", "label": "最下限基準値", "visible": True},
+            {"key": "anomaly_flag", "label": "異常フラグ", "visible": True},
+        ]
 
     def set_check_items(self, items: list[str]) -> None:
         """チェックリスト項目を動的に差し替える。"""
@@ -301,12 +309,8 @@ class ResultVerificationUI(QWidget):
 
         extras = self._compute_row_extras(row, hg_code)
 
-        # 列キー → 表示値のマッピング
-        cell_map: dict[str, str] = {
-            "valid_sample_display_name": str(row.get("valid_sample_display_name", "")),
-            "valid_test_display_name": str(row.get("valid_test_display_name", "")),
-            "test_raw_data": str(row.get("test_raw_data", "")),
-            "test_unit_name": str(row.get("test_unit_name", "")),
+        # 計算列のマッピング（CSV列は row から直接取得）
+        computed_map: dict[str, str] = {
             "upper_limit": extras["upper_limit"],
             "lower_limit": extras["lower_limit"],
             "anomaly_flag": extras["anomaly_flag"],
@@ -320,8 +324,13 @@ class ResultVerificationUI(QWidget):
 
         for col, c in enumerate(vis_cols):
             key = c["key"]
-            v = cell_map.get(key, "")
-            item = QTableWidgetItem(str(v) if v not in ("nan", "None") else "")
+            if key in computed_map:
+                v = computed_map[key]
+            else:
+                v = row.get(key, "")
+                if v is None or (isinstance(v, float) and str(v) == "nan"):
+                    v = ""
+            item = QTableWidgetItem(str(v) if str(v) not in ("nan", "None") else "")
 
             # 異常フラグの色付け
             if key == "anomaly_flag" and extras["is_anomaly"]:

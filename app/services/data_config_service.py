@@ -16,31 +16,43 @@ _DEFAULT_VISIBLE = {
     "test_grade_code",
 }
 
-# ── タスクステート列のデフォルト定義 ─────────────────────────────────────────
+# ── タスクステート列のデフォルト表示キー ──────────────────────────────────────
 
-ANALYSIS_TARGETS_COLUMNS: list[dict] = [
-    {"key": "sample_request_number",      "label": "依頼番号",   "visible": True},
-    {"key": "sample_job_number",          "label": "JOB番号",    "visible": True},
-    {"key": "sample_sampling_date",       "label": "採取日",     "visible": True},
-    {"key": "valid_sample_display_name",  "label": "サンプル名", "visible": True},
-    {"key": "median",                     "label": "中央値",     "visible": True},
-    {"key": "max",                        "label": "最大値",     "visible": True},
-    {"key": "min",                        "label": "最小値",     "visible": True},
+_ANALYSIS_TARGETS_DEFAULT_VISIBLE = {
+    "sample_request_number",
+    "sample_job_number",
+    "sample_sampling_date",
+    "valid_sample_display_name",
+}
+
+_RESULT_VERIFICATION_DEFAULT_VISIBLE = {
+    "valid_sample_display_name",
+    "valid_test_display_name",
+    "test_raw_data",
+    "test_unit_name",
+}
+
+# 計算列（CSVには存在しないがテーブルで使える特殊列）
+_ANALYSIS_TARGETS_EXTRA = [
+    {"key": "median", "label": "中央値", "visible": True},
+    {"key": "max",    "label": "最大値", "visible": True},
+    {"key": "min",    "label": "最小値", "visible": True},
 ]
 
-RESULT_VERIFICATION_COLUMNS: list[dict] = [
-    {"key": "valid_sample_display_name",  "label": "サンプル名",   "visible": True},
-    {"key": "valid_test_display_name",    "label": "試験項目名",   "visible": True},
-    {"key": "test_raw_data",              "label": "データ",       "visible": True},
-    {"key": "test_unit_name",             "label": "単位",         "visible": True},
-    {"key": "upper_limit",               "label": "最上限基準値", "visible": True},
-    {"key": "lower_limit",               "label": "最下限基準値", "visible": True},
-    {"key": "anomaly_flag",              "label": "異常フラグ",   "visible": True},
+_RESULT_VERIFICATION_EXTRA = [
+    {"key": "upper_limit",  "label": "最上限基準値", "visible": True},
+    {"key": "lower_limit",  "label": "最下限基準値", "visible": True},
+    {"key": "anomaly_flag", "label": "異常フラグ",   "visible": True},
 ]
 
-_TASK_COLUMN_DEFAULTS: dict[str, list[dict]] = {
-    "analysis_targets": ANALYSIS_TARGETS_COLUMNS,
-    "result_verification": RESULT_VERIFICATION_COLUMNS,
+_TASK_DEFAULT_VISIBLE: dict[str, set[str]] = {
+    "analysis_targets": _ANALYSIS_TARGETS_DEFAULT_VISIBLE,
+    "result_verification": _RESULT_VERIFICATION_DEFAULT_VISIBLE,
+}
+
+_TASK_EXTRA_COLUMNS: dict[str, list[dict]] = {
+    "analysis_targets": _ANALYSIS_TARGETS_EXTRA,
+    "result_verification": _RESULT_VERIFICATION_EXTRA,
 }
 
 
@@ -88,26 +100,68 @@ class DataConfigService:
 
     # ── タスクステート列設定 ──────────────────────────────────────────────────
 
-    def get_task_columns(self, scope: str) -> list[dict]:
+    def get_task_columns(
+        self, scope: str, csv_columns: list[str] | None = None,
+    ) -> list[dict]:
         """タスクステートの列設定を返す。
+
+        csv_columns が渡された場合、bunseki.csv の全列 + 計算列をマージする。
 
         Args:
             scope: "analysis_targets" または "result_verification"
+            csv_columns: bunseki.csv の実ヘッダー一覧
         """
         cfg = data_config_store.load()
         saved: list[dict] | None = cfg.get(f"{scope}_columns")
-        defaults = _TASK_COLUMN_DEFAULTS.get(scope, [])
+        default_visible = _TASK_DEFAULT_VISIBLE.get(scope, set())
+        extras = _TASK_EXTRA_COLUMNS.get(scope, [])
+
+        if csv_columns is not None:
+            return self._merge_task(saved or [], csv_columns, default_visible, extras)
 
         if saved:
-            # デフォルトに存在するがsavedにないキーを末尾に追加
+            # csv_columns なしでも計算列が漏れていたら末尾に追加
             saved_keys = {c["key"] for c in saved}
             merged = list(saved)
-            for d in defaults:
-                if d["key"] not in saved_keys:
-                    merged.append(dict(d))
+            for e in extras:
+                if e["key"] not in saved_keys:
+                    merged.append(dict(e))
             return merged
 
-        return [dict(c) for c in defaults]
+        # 初回: csv_columns もない場合は空
+        return []
+
+    def _merge_task(
+        self,
+        saved: list[dict],
+        csv_columns: list[str],
+        default_visible: set[str],
+        extras: list[dict],
+    ) -> list[dict]:
+        """保存済み設定と CSV 列 + 計算列をマージする。"""
+        saved_map = {c["key"]: c for c in saved}
+        extra_keys = {e["key"] for e in extras}
+        result: list[dict] = []
+
+        # CSV 列
+        for key in csv_columns:
+            if key in saved_map:
+                result.append(saved_map[key])
+            else:
+                result.append({
+                    "key": key,
+                    "label": key,
+                    "visible": key in default_visible,
+                })
+
+        # 計算列 (CSV にない特殊列)
+        for e in extras:
+            if e["key"] in saved_map:
+                result.append(saved_map[e["key"]])
+            else:
+                result.append(dict(e))
+
+        return result
 
     def save_task_columns(self, scope: str, columns: list[dict]) -> None:
         """タスクステートの列設定を保存する。"""

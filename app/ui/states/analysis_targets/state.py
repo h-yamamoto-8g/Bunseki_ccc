@@ -163,11 +163,19 @@ class AnalysisTargetsUI(QWidget):
     }
 
     def _visible_columns(self) -> list[dict]:
-        """表示対象の列設定を返す。未設定時はデフォルト全列。"""
+        """表示対象の列設定を返す。未設定時はフォールバック。"""
         if self._column_config:
             return self._column_config
-        from app.services.data_config_service import ANALYSIS_TARGETS_COLUMNS
-        return ANALYSIS_TARGETS_COLUMNS
+        # フォールバック: 最低限の列
+        return [
+            {"key": "sample_request_number", "label": "依頼番号", "visible": True},
+            {"key": "sample_job_number", "label": "JOB番号", "visible": True},
+            {"key": "sample_sampling_date", "label": "採取日", "visible": True},
+            {"key": "valid_sample_display_name", "label": "サンプル名", "visible": True},
+            {"key": "median", "label": "中央値", "visible": True},
+            {"key": "max", "label": "最大値", "visible": True},
+            {"key": "min", "label": "最小値", "visible": True},
+        ]
 
     def _rebuild_tabs(self) -> None:
         current_idx = self.tab_widget.currentIndex()
@@ -246,7 +254,11 @@ class AnalysisTargetsUI(QWidget):
         if key in ("median", "max", "min"):
             v = s.get(key)
             return f"{v:.3g}" if v is not None else "—"
-        return str(s.get(key, ""))
+        v = s.get(key, "")
+        if v is None:
+            return ""
+        s_val = str(v)
+        return "" if s_val in ("nan", "None") else s_val
 
     def _add_row(self, table: QTableWidget, s: dict, free: bool) -> None:
         vis_cols = self._visible_columns()

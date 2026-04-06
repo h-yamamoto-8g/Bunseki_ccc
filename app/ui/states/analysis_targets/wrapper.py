@@ -60,8 +60,14 @@ class AnalysisTargetsState(QWidget):
         self._edit_mode = False
         self._ui.edited_badge.setVisible(False)
 
-        # 列設定を読み込んで UI にセット
-        all_cols = self._data_config.get_task_columns("analysis_targets")
+        # 列設定を読み込んで UI にセット（CSV全列 + 計算列）
+        try:
+            csv_columns = self._data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        all_cols = self._data_config.get_task_columns(
+            "analysis_targets", csv_columns=csv_columns,
+        )
         visible_cols = [c for c in all_cols if c.get("visible", True)]
         self._ui.set_column_config(visible_cols)
 
