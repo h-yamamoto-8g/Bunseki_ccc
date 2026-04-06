@@ -81,6 +81,11 @@ class ResultVerificationState(QWidget):
             self._data_service.extract_numeric,
         )
 
+        # フローステートの添付資料を表示
+        submission_data = task.get("state_data", {}).get("submission", {})
+        attachments = submission_data.get("attachments", [])
+        self._ui.set_attachments(attachments)
+
         sd = task.get("state_data", {}).get("result_verification", {})
         saved = sd.get("checks", [False] * len(verify_items))
         self._ui.restore_checks(saved, readonly)

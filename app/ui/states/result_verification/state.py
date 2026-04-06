@@ -4,12 +4,17 @@
 """
 from __future__ import annotations
 
+import os
+import platform
+import subprocess
+from pathlib import Path
+
 import pandas as pd
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QCheckBox, QDialog, QApplication,
-    QSplitter, QFrame,
+    QSplitter, QFrame, QMessageBox,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor, QFont
@@ -82,7 +87,27 @@ class ResultVerificationUI(QWidget):
         self._check_layout.setSpacing(0)
         cs_layout.addLayout(self._check_layout)
 
+        # ── 添付資料セクション（テーブルと確認項目の間） ──
+        self._att_section = QFrame()
+        self._att_section.setObjectName("verify_section")
+        self._att_section.setStyleSheet(_FRAME_STYLE)
+        att_vl = QVBoxLayout(self._att_section)
+        att_vl.setContentsMargins(16, 12, 16, 12)
+        att_vl.setSpacing(6)
+
+        att_title = QLabel("添付資料")
+        att_title.setStyleSheet(_TITLE_STYLE)
+        att_vl.addWidget(att_title)
+        att_vl.addWidget(_make_separator())
+
+        self._att_layout = QVBoxLayout()
+        self._att_layout.setSpacing(4)
+        att_vl.addLayout(self._att_layout)
+
+        self._att_section.setVisible(False)  # 添付なし時は非表示
+
         # widget_check_list の verticalLayout_3 に挿入
+        self._form.verticalLayout_3.addWidget(self._att_section)
         self._form.verticalLayout_3.addWidget(self._check_section)
 
         # デフォルトチェックリストで初期化
@@ -113,6 +138,79 @@ class ResultVerificationUI(QWidget):
             {"key": "lower_limit", "label": "最下限基準値", "visible": True},
             {"key": "anomaly_flag", "label": "異常フラグ", "visible": True},
         ]
+
+    def set_attachments(self, attachments: list[dict]) -> None:
+        """添付資料を表示する。空なら非表示。"""
+        # 既存をクリア
+        while self._att_layout.count():
+            item = self._att_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        if not attachments:
+            self._att_section.setVisible(False)
+            return
+
+        self._att_section.setVisible(True)
+        for att in attachments:
+            self._att_layout.addWidget(self._make_att_card(att))
+
+    def _make_att_card(self, att: dict) -> QFrame:
+        """添付ファイルカードを生成する（読み取り専用）。"""
+        path = att.get("path", "") if isinstance(att, dict) else str(att)
+        added_by = att.get("added_by", "") if isinstance(att, dict) else ""
+
+        card = QFrame()
+        card.setStyleSheet(
+            "QFrame { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; }"
+        )
+        hl = QHBoxLayout(card)
+        hl.setContentsMargins(10, 6, 10, 6)
+        hl.setSpacing(8)
+
+        icon = QLabel()
+        icon.setPixmap(get_icon(":/icons/link.svg", "#3b82f6", 14).pixmap(14, 14))
+        icon.setFixedSize(14, 14)
+        icon.setStyleSheet("border:none;")
+        hl.addWidget(icon)
+
+        name_btn = QPushButton(Path(path).name)
+        name_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        name_btn.setFlat(True)
+        name_btn.setStyleSheet(
+            "QPushButton { font-size:12px; color:#333333; border:none;"
+            " background:transparent; text-align:left; padding:0; }"
+            "QPushButton:hover { color:#3b82f6; text-decoration:underline; }"
+        )
+        name_btn.clicked.connect(lambda _=False, p=path: self._open_attachment(p))
+        hl.addWidget(name_btn, 1)
+
+        if added_by:
+            by_lbl = QLabel(added_by)
+            by_lbl.setStyleSheet("font-size:11px; color:#9ca3af; border:none;")
+            hl.addWidget(by_lbl)
+
+        return card
+
+    def _open_attachment(self, path: str) -> None:
+        """添付ファイルをOSのデフォルトアプリで開く。"""
+        p = Path(path)
+        if not p.is_absolute():
+            import app.config as _cfg
+            p = _cfg.DATA_PATH / p
+        if not p.exists():
+            QMessageBox.warning(self, "ファイルが見つかりません", str(p))
+            return
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(["open", str(p)], check=False)
+            elif platform.system() == "Windows":
+                os.startfile(str(p))  # type: ignore[attr-defined]
+            else:
+                subprocess.run(["xdg-open", str(p)], check=False)
+        except Exception as e:
+            QMessageBox.warning(self, "ファイルを開けません", str(e))
 
     def set_check_items(self, items: list[str]) -> None:
         """チェックリスト項目を動的に差し替える。"""
