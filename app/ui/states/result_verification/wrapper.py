@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal
 
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.data_config_service import DataConfigService
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import ResultVerificationUI, TrendDialog
 
@@ -24,6 +25,7 @@ class ResultVerificationState(QWidget):
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._data_config = DataConfigService()
         self._task: dict = {}
 
         self._ui = ResultVerificationUI()
@@ -37,6 +39,12 @@ class ResultVerificationState(QWidget):
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
         self._task = task
+
+        # 列設定を読み込んで UI にセット
+        all_cols = self._data_config.get_task_columns("result_verification")
+        visible_cols = [c for c in all_cols if c.get("visible", True)]
+        self._ui.set_column_config(visible_cols)
+
         hg_code = task.get("holder_group_code", "")
         jobs = task.get("job_numbers", [])
         vsset_codes = (

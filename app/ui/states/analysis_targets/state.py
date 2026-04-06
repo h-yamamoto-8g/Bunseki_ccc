@@ -43,6 +43,7 @@ class AnalysisTargetsUI(QWidget):
         self._deleted_codes: set[str] = set()
         self._added_samples: list[str] = []
         self._edit_mode = False
+        self._column_config: list[dict] = []  # 表示列設定
 
         self._form = Ui_PageStateTarget()
         self._form.setupUi(self)
@@ -105,6 +106,10 @@ class AnalysisTargetsUI(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def set_column_config(self, columns: list[dict]) -> None:
+        """表示列設定をセットする。columns は visible=True のもののみ。"""
+        self._column_config = columns
+
     def set_samples(
         self,
         grouped_samples: dict[str, list[dict]],
@@ -148,12 +153,21 @@ class AnalysisTargetsUI(QWidget):
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
-    _HEADERS = ["依頼番号", "JOB番号", "採取日", "サンプル名", "中央値", "最大値", "最小値", ""]
+    # 列キー → Stretch にする列
+    _STRETCH_KEYS = {"valid_sample_display_name"}
 
-    _TARGET_SORT_KEYS = [
-        "sample_request_number", "sample_job_number", "sample_sampling_date",
-        "valid_sample_display_name",
-    ]
+    # ソート可能な列キー
+    _SORTABLE_KEYS = {
+        "sample_request_number", "sample_job_number",
+        "sample_sampling_date", "valid_sample_display_name",
+    }
+
+    def _visible_columns(self) -> list[dict]:
+        """表示対象の列設定を返す。未設定時はデフォルト全列。"""
+        if self._column_config:
+            return self._column_config
+        from app.services.data_config_service import ANALYSIS_TARGETS_COLUMNS
+        return ANALYSIS_TARGETS_COLUMNS
 
     def _rebuild_tabs(self) -> None:
         current_idx = self.tab_widget.currentIndex()
@@ -171,25 +185,24 @@ class AnalysisTargetsUI(QWidget):
             self.tab_widget.setCurrentIndex(current_idx)
 
     def _build_table(self, samples: list[dict]) -> QTableWidget:
-        table = QTableWidget(0, len(self._HEADERS))
-        table.setHorizontalHeaderLabels(self._HEADERS)
+        vis_cols = self._visible_columns()
+        headers = [c["label"] for c in vis_cols] + [""]
+        table = QTableWidget(0, len(headers))
+        table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setAlternatingRowColors(True)
         hh = table.horizontalHeader()
         hh.setMinimumSectionSize(60)
-        for i, mode in enumerate([
-            QHeaderView.ResizeMode.ResizeToContents,  # 依頼番号
-            QHeaderView.ResizeMode.ResizeToContents,  # JOB番号
-            QHeaderView.ResizeMode.ResizeToContents,  # 採取日
-            QHeaderView.ResizeMode.Stretch,           # サンプル名
-            QHeaderView.ResizeMode.ResizeToContents,  # 中央値
-            QHeaderView.ResizeMode.ResizeToContents,  # 最大値
-            QHeaderView.ResizeMode.ResizeToContents,  # 最小値
-            QHeaderView.ResizeMode.Fixed,             # 削除
-        ]):
-            hh.setSectionResizeMode(i, mode)
-        table.setColumnWidth(7, 44)
+        for i, c in enumerate(vis_cols):
+            if c["key"] in self._STRETCH_KEYS:
+                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+            else:
+                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
+        # 操作列 (末尾)
+        action_col = len(vis_cols)
+        hh.setSectionResizeMode(action_col, QHeaderView.ResizeMode.Fixed)
+        table.setColumnWidth(action_col, 44)
         vh = table.verticalHeader()
         vh.setDefaultSectionSize(36)
 
@@ -197,8 +210,8 @@ class AnalysisTargetsUI(QWidget):
         table._samples = samples  # type: ignore[attr-defined]
 
         def _on_sort(col: int, ascending: bool, tbl: QTableWidget = table) -> None:
-            if col < len(self._TARGET_SORT_KEYS):
-                key = self._TARGET_SORT_KEYS[col]
+            if col < len(vis_cols) and vis_cols[col]["key"] in self._SORTABLE_KEYS:
+                key = vis_cols[col]["key"]
                 tbl._samples.sort(  # type: ignore[attr-defined]
                     key=lambda s: str(s.get(key, "")), reverse=not ascending,
                 )
@@ -227,26 +240,28 @@ class AnalysisTargetsUI(QWidget):
                     "median": None, "max": None, "min": None,
                 }, free=True)
 
+    @staticmethod
+    def _extract_cell(s: dict, key: str) -> str:
+        """列キーからセル表示値を取得する。"""
+        if key in ("median", "max", "min"):
+            v = s.get(key)
+            return f"{v:.3g}" if v is not None else "—"
+        return str(s.get(key, ""))
+
     def _add_row(self, table: QTableWidget, s: dict, free: bool) -> None:
+        vis_cols = self._visible_columns()
         row = table.rowCount()
         table.insertRow(row)
-        median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
-        max_v  = f"{s['max']:.3g}"    if s.get("max")    is not None else "—"
-        min_v  = f"{s['min']:.3g}"    if s.get("min")    is not None else "—"
-        vals = [
-            s.get("sample_request_number", ""),
-            s.get("sample_job_number", ""),
-            s.get("sample_sampling_date", ""),
-            s.get("valid_sample_display_name", ""),
-            median, max_v, min_v,
-        ]
-        for col, v in enumerate(vals):
-            item = QTableWidgetItem(str(v))
+
+        for col, c in enumerate(vis_cols):
+            text = self._extract_cell(s, c["key"])
+            item = QTableWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, s["valid_sample_set_code"])
             if free:
                 item.setForeground(QColor("#7c3aed"))
             table.setItem(row, col, item)
 
+        action_col = len(vis_cols)
         if self._edit_mode:
             cell_w = QWidget()
             cell_w.setStyleSheet("background:transparent;")
@@ -270,7 +285,7 @@ class AnalysisTargetsUI(QWidget):
                 lambda _=False, c=code, f=free: self.delete_row_requested.emit(c, f)
             )
             cell_l.addWidget(del_btn)
-            table.setCellWidget(row, 7, cell_w)
+            table.setCellWidget(row, action_col, cell_w)
 
     def _go_next(self) -> None:
         visible_codes = []

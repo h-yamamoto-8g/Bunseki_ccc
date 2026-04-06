@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +28,7 @@ from app.ui.generated.ui_settingpage import Ui_SettingPage
 from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
 from app.ui.pages.settings.home_tab import HomeTab
+from app.ui.pages.settings.task_columns_tab import TaskColumnsTab
 from app.ui.pages.settings.users_tab import UsersTab
 
 
@@ -131,14 +133,20 @@ class SettingsPage(QWidget):
         # tab_home: ホーム設定
         self.home_tab = HomeTab()
         self._embed(self.ui.tab_home, self.home_tab)
-        # tab_tasks: タスク設定（分析項目別設定）
+
+        # tab_tasks: タスク設定（分析項目別設定 + 表示列設定）
         holder_groups = self.data_service.get_holder_groups()
         self.hg_config_tab = HgConfigTab(self.hg_config_service, holder_groups)
-        self._embed(self.ui.tab_tasks, self.hg_config_tab)
+        self.data_config_service = DataConfigService()
+        self.task_columns_tab = TaskColumnsTab(self.data_config_service)
+        task_container = self._build_task_settings(
+            self.hg_config_tab, self.task_columns_tab
+        )
+        self._embed(self.ui.tab_tasks, task_container)
 
         self._embed(self.ui.tab_news, _placeholder("ニュース設定（実装予定）"))
+
         # tab_data: データ設定（実CSVヘッダーを渡す）
-        self.data_config_service = DataConfigService()
         try:
             csv_columns = self.data_service.get_csv_columns()
         except Exception:
@@ -148,6 +156,18 @@ class SettingsPage(QWidget):
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
         self._embed(self.ui.tab_logs, _placeholder("ログ設定（実装予定）"))
         self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
+
+    @staticmethod
+    def _build_task_settings(hg_tab: QWidget, columns_tab: QWidget) -> QWidget:
+        """分析項目設定と表示列設定をサブタブでまとめる。"""
+        container = QWidget()
+        vl = QVBoxLayout(container)
+        vl.setContentsMargins(0, 0, 0, 0)
+        sub_tabs = QTabWidget()
+        sub_tabs.addTab(hg_tab, "分析項目設定")
+        sub_tabs.addTab(columns_tab, "表示列設定")
+        vl.addWidget(sub_tabs)
+        return container
 
     @staticmethod
     def _embed(tab: QWidget, child: QWidget) -> None:
