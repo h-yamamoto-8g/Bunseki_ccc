@@ -36,6 +36,10 @@ class TaskSetupUI(QWidget):
         self._form = Ui_PageStateStart()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.verticalLayout.setSpacing(8)
+        self._form.verticalLayout.setContentsMargins(8, 8, 8, 8)
+
         # 「進む」ボタンを btn_create の後ろに追加
         self._btn_next = QPushButton("完了")
         self._btn_next.setMinimumSize(QSize(100, 50))

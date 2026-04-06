@@ -21,6 +21,10 @@ class CompletedUI(QWidget):
         self._form = Ui_PageStateEnd()
         self._form.setupUi(self)
 
+        # ── グローバル QSS でリセットされるデフォルト spacing を明示設定 ──
+        self._form.horizontalLayout.setSpacing(8)
+        self._form.horizontalLayout.setContentsMargins(8, 8, 8, 8)
+
         # 一覧へ戻るボタンを label の下に追加
         back_btn = QPushButton("タスク一覧に戻る")
         back_btn.setFixedWidth(200)
