@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,12 +17,36 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from app.services.hg_config_service import HgConfigService
 from app.ui.widgets.icon_utils import get_icon
+
+
+class _ElidedLabel(QLabel):
+    """横幅に収まらないテキストを「...」で省略するラベル。"""
+
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full_text = text
+        self.setToolTip(text)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+        self._update_elided()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._update_elided()
+
+    def _update_elided(self) -> None:
+        fm = QFontMetrics(self.font())
+        elided = fm.elidedText(
+            self._full_text, Qt.TextElideMode.ElideMiddle, self.width()
+        )
+        super().setText(elided)
 
 
 def _make_delete_button() -> QPushButton:
@@ -128,6 +153,10 @@ class _ChecklistEditor(QWidget):
             cb = QCheckBox(text)
             cb.setChecked(False)
             cb.setEnabled(False)
+            cb.setSizePolicy(
+                QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+            )
+            cb.setMinimumWidth(0)
             if i == len(self._items) - 1:
                 cb.setStyleSheet("border-bottom: none;")
             hl.addWidget(cb, 1)
@@ -276,7 +305,8 @@ class _DocumentsEditor(QWidget):
             info_layout = QVBoxLayout()
             info_layout.setSpacing(2)
 
-            name_lbl = QLabel(doc.get("name", "（名前なし）"))
+            name_text = doc.get("name", "（名前なし）")
+            name_lbl = _ElidedLabel(name_text)
             name_lbl.setStyleSheet(
                 "font-size: 13px; font-weight: 600; color: #1f2937; border: none;"
             )
@@ -291,11 +321,10 @@ class _DocumentsEditor(QWidget):
                 else:
                     prefix = "パス"
                     color = "#6b7280"
-                loc_lbl = QLabel(f"{prefix}: {location}")
+                loc_lbl = _ElidedLabel(f"{prefix}: {location}")
                 loc_lbl.setStyleSheet(
                     f"font-size: 12px; color: {color}; border: none;"
                 )
-                loc_lbl.setWordWrap(True)
                 loc_lbl.setTextInteractionFlags(
                     Qt.TextInteractionFlag.TextSelectableByMouse
                 )
