@@ -81,11 +81,21 @@ class AnalysisTargetsState(QWidget):
         )
         grouped = result.get("grouped", {})
 
+        # グループ化データをフラット化（重複コードは除去）
+        flat_samples: list[dict] = []
+        seen_codes: set[str] = set()
+        for samples in grouped.values():
+            for s in samples:
+                code = s["valid_sample_set_code"]
+                if code not in seen_codes:
+                    seen_codes.add(code)
+                    flat_samples.append(s)
+
         sd = task.get("state_data", {}).get("analysis_targets", {})
         deleted_codes = set(sd.get("deleted_codes", []))
         added_samples = list(sd.get("added_samples", []))
 
-        self._ui.set_samples(grouped, deleted_codes, added_samples)
+        self._ui.set_samples(flat_samples, deleted_codes, added_samples)
         self._ui.set_editable(False)
 
         if readonly:
@@ -171,54 +181,42 @@ class AnalysisTargetsState(QWidget):
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         vis_cols = self._ui._visible_columns()
-        grouped = self._ui._grouped_samples
+        samples = self._ui._flat_samples
         deleted = self._ui._deleted_codes
         added = self._ui._added_samples
 
         # ヘッダー行
         th_html = "".join(f"<th>{c['label']}</th>" for c in vis_cols)
 
-        tables_html = ""
-        total = 0
-        for test_name, samples in grouped.items():
-            visible = [s for s in samples
-                       if s["valid_sample_set_code"] not in deleted]
-            total += len(visible)
+        visible = [s for s in samples
+                   if s["valid_sample_set_code"] not in deleted]
+        total = len(visible)
 
-            rows_html = ""
-            for s in visible:
-                cells = "".join(
-                    f"<td>{AnalysisTargetsUI._extract_cell(s, c['key'])}</td>"
-                    for c in vis_cols
-                )
-                rows_html += f"<tr>{cells}</tr>"
-
-            tables_html += (
-                f"<h3>{test_name}</h3>"
-                f"<table><tr>{th_html}</tr>{rows_html}</table>"
+        rows_html = ""
+        for s in visible:
+            cells = "".join(
+                f"<td>{AnalysisTargetsUI._extract_cell(s, c['key'])}</td>"
+                for c in vis_cols
             )
+            rows_html += f"<tr>{cells}</tr>"
 
         # 追加サンプル
-        if added:
-            total += len(added)
-            added_rows = ""
-            for name in added:
-                dummy = {
-                    "valid_sample_set_code": f"FREE_{name}",
-                    "valid_sample_display_name": name,
-                    "sample_request_number": "", "sample_job_number": "",
-                    "sample_sampling_date": "",
-                    "median": None, "max": None, "min": None,
-                }
-                cells = "".join(
-                    f"<td>{AnalysisTargetsUI._extract_cell(dummy, c['key'])}</td>"
-                    for c in vis_cols
-                )
-                added_rows += f"<tr>{cells}</tr>"
-            tables_html += (
-                "<h3>追加サンプル</h3>"
-                f"<table><tr>{th_html}</tr>{added_rows}</table>"
+        for name in added:
+            total += 1
+            dummy = {
+                "valid_sample_set_code": f"FREE_{name}",
+                "valid_sample_display_name": name,
+                "sample_request_number": "", "sample_job_number": "",
+                "sample_sampling_date": "",
+                "median": None, "max": None, "min": None,
+            }
+            cells = "".join(
+                f"<td>{AnalysisTargetsUI._extract_cell(dummy, c['key'])}</td>"
+                for c in vis_cols
             )
+            rows_html += f"<tr>{cells}</tr>"
+
+        tables_html = f"<table><tr>{th_html}</tr>{rows_html}</table>"
 
         return (
             "<html><head><style>"

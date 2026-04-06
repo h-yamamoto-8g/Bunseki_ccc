@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QComboBox, QLineEdit, QDialog,
-    QDialogButtonBox, QTabWidget, QApplication,
+    QDialogButtonBox, QApplication,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor
@@ -39,7 +39,7 @@ class AnalysisTargetsUI(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._grouped_samples: dict[str, list[dict]] = {}
+        self._flat_samples: list[dict] = []
         self._deleted_codes: set[str] = set()
         self._added_samples: list[str] = []
         self._edit_mode = False
@@ -90,13 +90,13 @@ class AnalysisTargetsUI(QWidget):
 
         self._form.verticalLayout.insertWidget(0, _action_bar)
 
-        # ── QTableView → QTabWidget に置換 ─────────────────────────────
+        # ── QTableView → 単一テーブルに置換 ────────────────────────────
         tgt_layout = self._form.verticalLayout_2
         tgt_layout.removeWidget(self._form.tableView_targets)
         self._form.tableView_targets.deleteLater()
 
-        self.tab_widget = QTabWidget()
-        tgt_layout.addWidget(self.tab_widget)
+        self._table = QTableWidget()
+        tgt_layout.addWidget(self._table)
 
         # ── シグナル接続 ──────────────────────────────────────────────────
         self.edit_btn.clicked.connect(self.edit_requested)
@@ -112,19 +112,19 @@ class AnalysisTargetsUI(QWidget):
 
     def set_samples(
         self,
-        grouped_samples: dict[str, list[dict]],
+        flat_samples: list[dict],
         deleted_codes: set[str],
         added_samples: list[str],
     ) -> None:
-        self._grouped_samples = grouped_samples
+        self._flat_samples = flat_samples
         self._deleted_codes = set(deleted_codes)
         self._added_samples = list(added_samples)
-        self._rebuild_tabs()
+        self._rebuild_table()
 
     def set_editable(self, editable: bool) -> None:
         self._edit_mode = editable
         self.add_sample_btn.setVisible(editable)
-        self._rebuild_tabs()
+        self._rebuild_table()
 
     def show_edit_btn(self, visible: bool) -> None:
         self.edit_btn.setVisible(visible)
@@ -138,7 +138,7 @@ class AnalysisTargetsUI(QWidget):
             self._added_samples.append(name)
             self.edited_badge.setVisible(True)
             self.content_edited.emit()
-            self._rebuild_tabs()
+            self._rebuild_table()
 
     def apply_delete(self, code: str, is_free: bool) -> None:
         if is_free:
@@ -149,7 +149,7 @@ class AnalysisTargetsUI(QWidget):
             self._deleted_codes.add(code)
         self.edited_badge.setVisible(True)
         self.content_edited.emit()
-        self._rebuild_tabs()
+        self._rebuild_table()
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -166,7 +166,6 @@ class AnalysisTargetsUI(QWidget):
         """表示対象の列設定を返す。未設定時はフォールバック。"""
         if self._column_config:
             return self._column_config
-        # フォールバック: 最低限の列
         return [
             {"key": "sample_request_number", "label": "依頼番号", "visible": True},
             {"key": "sample_job_number", "label": "JOB番号", "visible": True},
@@ -177,25 +176,12 @@ class AnalysisTargetsUI(QWidget):
             {"key": "min", "label": "最小値", "visible": True},
         ]
 
-    def _rebuild_tabs(self) -> None:
-        current_idx = self.tab_widget.currentIndex()
-        self.tab_widget.clear()
-
-        if not self._grouped_samples:
-            self.tab_widget.addTab(QLabel("データがありません"), "（なし）")
-            return
-
-        for test_name, samples in self._grouped_samples.items():
-            table = self._build_table(samples)
-            self.tab_widget.addTab(table, test_name)
-
-        if 0 <= current_idx < self.tab_widget.count():
-            self.tab_widget.setCurrentIndex(current_idx)
-
-    def _build_table(self, samples: list[dict]) -> QTableWidget:
+    def _rebuild_table(self) -> None:
         vis_cols = self._visible_columns()
         headers = [c["label"] for c in vis_cols] + [""]
-        table = QTableWidget(0, len(headers))
+        table = self._table
+        table.clear()
+        table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -215,7 +201,7 @@ class AnalysisTargetsUI(QWidget):
         vh.setDefaultSectionSize(36)
 
         # ソート用データ保持
-        table._samples = samples  # type: ignore[attr-defined]
+        table._samples = list(self._flat_samples)  # type: ignore[attr-defined]
 
         def _on_sort(col: int, ascending: bool, tbl: QTableWidget = table) -> None:
             if col < len(vis_cols) and vis_cols[col]["key"] in self._SORTABLE_KEYS:
@@ -227,8 +213,7 @@ class AnalysisTargetsUI(QWidget):
 
         enable_row_numbers_and_sort(table, _on_sort)
 
-        self._refresh_table(table, samples)
-        return table
+        self._refresh_table(table, table._samples)  # type: ignore[attr-defined]
 
     def _refresh_table(self, table: QTableWidget, samples: list[dict]) -> None:
         table.setRowCount(0)
@@ -236,17 +221,15 @@ class AnalysisTargetsUI(QWidget):
                    if s["valid_sample_set_code"] not in self._deleted_codes]
         for s in visible:
             self._add_row(table, s, free=False)
-        # 追加サンプルは最初のタブのみに表示
-        if self.tab_widget.indexOf(table) == 0:
-            for name in self._added_samples:
-                self._add_row(table, {
-                    "valid_sample_set_code": f"FREE_{name}",
-                    "valid_sample_display_name": name,
-                    "sample_request_number": "",
-                    "sample_job_number": "",
-                    "sample_sampling_date": "",
-                    "median": None, "max": None, "min": None,
-                }, free=True)
+        for name in self._added_samples:
+            self._add_row(table, {
+                "valid_sample_set_code": f"FREE_{name}",
+                "valid_sample_display_name": name,
+                "sample_request_number": "",
+                "sample_job_number": "",
+                "sample_sampling_date": "",
+                "median": None, "max": None, "min": None,
+            }, free=True)
 
     @staticmethod
     def _extract_cell(s: dict, key: str) -> str:
@@ -301,11 +284,10 @@ class AnalysisTargetsUI(QWidget):
 
     def _go_next(self) -> None:
         visible_codes = []
-        for samples in self._grouped_samples.values():
-            for s in samples:
-                code = s["valid_sample_set_code"]
-                if code not in self._deleted_codes and code not in visible_codes:
-                    visible_codes.append(code)
+        for s in self._flat_samples:
+            code = s["valid_sample_set_code"]
+            if code not in self._deleted_codes and code not in visible_codes:
+                visible_codes.append(code)
         self.next_requested.emit(
             visible_codes,
             list(self._deleted_codes),
