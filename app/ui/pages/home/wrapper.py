@@ -29,6 +29,7 @@ class HomePage(QWidget):
 
     def refresh(self) -> None:
         tasks = self._task_service.get_all_tasks()
+        tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
         active = [t for t in tasks if t.get("status") != "終了"]
 
         my_tasks    = [t for t in active if t.get("assigned_to") == _cfg.CURRENT_USER]

@@ -163,6 +163,7 @@ class TasksPage(QWidget):
 
     def _refresh_list(self) -> None:
         all_tasks = self._task_service.get_all_tasks()
+        all_tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
         self._all_tasks_full = all_tasks
         self._display_limit = 100
         self._update_list_display()
