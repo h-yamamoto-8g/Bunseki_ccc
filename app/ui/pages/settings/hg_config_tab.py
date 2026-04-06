@@ -295,6 +295,7 @@ class _DocumentsEditor(QWidget):
                 loc_lbl.setStyleSheet(
                     f"font-size: 12px; color: {color}; border: none;"
                 )
+                loc_lbl.setWordWrap(True)
                 loc_lbl.setTextInteractionFlags(
                     Qt.TextInteractionFlag.TextSelectableByMouse
                 )
@@ -438,6 +439,9 @@ class HgConfigTab(QWidget):
         # ── スクロール領域 ────────────────────────────────────────────────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         content = QWidget()
