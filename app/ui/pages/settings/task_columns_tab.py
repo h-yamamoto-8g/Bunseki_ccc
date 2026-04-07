@@ -1,7 +1,7 @@
 """タスク列設定タブ — 分析対象・データ確認テーブルの表示列を設定する。"""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -33,8 +33,17 @@ def _make_separator() -> QWidget:
     return sep
 
 
+_MOVE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: 1px solid #d1d5db;"
+    " border-radius: 4px; padding: 0; min-height: 0; min-width: 0;"
+    " font-size: 12px; color: #6b7280; }"
+    "QPushButton:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }"
+    "QPushButton:disabled { color: #d1d5db; border-color: #e5e7eb; }"
+)
+
+
 class _ColumnListEditor(QWidget):
-    """1スコープ分の列チェックボックス + 表示名エディタ。"""
+    """1スコープ分の列チェックボックス + 表示名エディタ + 並び替え。"""
 
     def __init__(
         self,
@@ -48,6 +57,7 @@ class _ColumnListEditor(QWidget):
         self._scope = scope
         self._service = service
         self._csv_columns = csv_columns
+        self._columns: list[dict] = []
         self._rows: list[dict] = []
         self._build_ui(title)
         self._load()
@@ -65,7 +75,10 @@ class _ColumnListEditor(QWidget):
         vl.addWidget(lbl)
         vl.addWidget(_make_separator())
 
-        desc = QLabel("チェックで表示/非表示を切り替え、列名を変更できます。")
+        desc = QLabel(
+            "チェックで表示/非表示を切り替え、列名を変更できます。"
+            "  ▲▼ で表示順を変更できます。"
+        )
         desc.setStyleSheet(
             "color: #6b7280; font-size: 12px; padding: 8px 0 4px 0;"
         )
@@ -83,24 +96,43 @@ class _ColumnListEditor(QWidget):
         columns = self._service.get_task_columns(
             self._scope, csv_columns=self._csv_columns,
         )
-        self._rebuild(columns)
+        self._columns = columns
+        self._rebuild()
 
-    def _rebuild(self, columns: list[dict]) -> None:
+    def _rebuild(self) -> None:
         for r in self._rows:
             r["widget"].deleteLater()
         self._rows.clear()
 
-        for i, col in enumerate(columns):
-            row_data = self._make_row(col, is_last=(i == len(columns) - 1))
+        n = len(self._columns)
+        for i, col in enumerate(self._columns):
+            row_data = self._make_row(col, index=i, total=n)
             self._list_layout.addWidget(row_data["widget"])
             self._rows.append(row_data)
 
-    def _make_row(self, col: dict, is_last: bool) -> dict:
+    def _make_row(self, col: dict, index: int, total: int) -> dict:
         row = QWidget()
         row.setObjectName("col_row")
         hl = QHBoxLayout(row)
-        hl.setContentsMargins(8, 4, 16, 4)
-        hl.setSpacing(12)
+        hl.setContentsMargins(8, 4, 8, 4)
+        hl.setSpacing(8)
+
+        # 上下移動ボタン
+        btn_up = QPushButton("▲")
+        btn_up.setFixedSize(QSize(24, 24))
+        btn_up.setStyleSheet(_MOVE_BTN_STYLE)
+        btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_up.setEnabled(index > 0)
+        btn_up.clicked.connect(lambda _=False, idx=index: self._move(idx, -1))
+        hl.addWidget(btn_up, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        btn_down = QPushButton("▼")
+        btn_down.setFixedSize(QSize(24, 24))
+        btn_down.setStyleSheet(_MOVE_BTN_STYLE)
+        btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_down.setEnabled(index < total - 1)
+        btn_down.clicked.connect(lambda _=False, idx=index: self._move(idx, 1))
+        hl.addWidget(btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         cb = QCheckBox()
         cb.setChecked(col.get("visible", True))
@@ -120,20 +152,42 @@ class _ColumnListEditor(QWidget):
         edit.setPlaceholderText("表示名")
         hl.addWidget(edit, 1)
 
+        is_last = index == total - 1
         if not is_last:
             row.setStyleSheet("QWidget#col_row { border-bottom: 1px solid #e5e7eb; }")
 
         return {"widget": row, "key": col["key"], "cb": cb, "edit": edit}
 
+    def _move(self, index: int, direction: int) -> None:
+        """行を上(-1)または下(+1)に移動する。"""
+        new_index = index + direction
+        if new_index < 0 or new_index >= len(self._columns):
+            return
+        # 現在のUI入力値を _columns に反映してからスワップ
+        self._sync_to_columns()
+        self._columns[index], self._columns[new_index] = (
+            self._columns[new_index], self._columns[index]
+        )
+        self._rebuild()
+
+    def _sync_to_columns(self) -> None:
+        """UI上の編集値を _columns リストに反映する。"""
+        for i, r in enumerate(self._rows):
+            if i < len(self._columns):
+                self._columns[i]["visible"] = r["cb"].isChecked()
+                label = r["edit"].text().strip()
+                self._columns[i]["label"] = label or self._columns[i]["key"]
+
     def collect(self) -> list[dict]:
-        """現在の設定を返す。"""
+        """現在の設定を返す（表示順を保持）。"""
+        self._sync_to_columns()
         return [
             {
-                "key": r["key"],
-                "label": r["edit"].text().strip() or r["key"],
-                "visible": r["cb"].isChecked(),
+                "key": c["key"],
+                "label": c.get("label", c["key"]),
+                "visible": c.get("visible", True),
             }
-            for r in self._rows
+            for c in self._columns
         ]
 
 

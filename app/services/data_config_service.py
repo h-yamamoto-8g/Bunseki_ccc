@@ -138,27 +138,34 @@ class DataConfigService:
         default_visible: set[str],
         extras: list[dict],
     ) -> list[dict]:
-        """保存済み設定と CSV 列 + 計算列をマージする。"""
-        saved_map = {c["key"]: c for c in saved}
-        extra_keys = {e["key"] for e in extras}
-        result: list[dict] = []
+        """保存済み設定と CSV 列 + 計算列をマージする。
 
-        # CSV 列
+        保存済みの順序を優先し、新規列は末尾に追加する。
+        """
+        all_keys = set(csv_columns) | {e["key"] for e in extras}
+        saved_map = {c["key"]: c for c in saved}
+        result: list[dict] = []
+        used: set[str] = set()
+
+        # 保存済みの順序を優先
+        for c in saved:
+            if c["key"] in all_keys:
+                result.append(c)
+                used.add(c["key"])
+
+        # 未保存の CSV 列を末尾に追加
         for key in csv_columns:
-            if key in saved_map:
-                result.append(saved_map[key])
-            else:
+            if key not in used:
                 result.append({
                     "key": key,
                     "label": key,
                     "visible": key in default_visible,
                 })
+                used.add(key)
 
-        # 計算列 (CSV にない特殊列)
+        # 未保存の計算列を末尾に追加
         for e in extras:
-            if e["key"] in saved_map:
-                result.append(saved_map[e["key"]])
-            else:
+            if e["key"] not in used:
                 result.append(dict(e))
 
         return result
