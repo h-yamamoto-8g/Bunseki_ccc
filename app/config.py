@@ -121,8 +121,11 @@ def load_sync_root() -> Path | None:
     if LOCAL_SETTINGS_PATH.exists():
         try:
             data = json.loads(LOCAL_SETTINGS_PATH.read_text(encoding="utf-8"))
-            p = Path(data.get("sync_root_path", ""))
-            if p and p.exists() and p.is_dir():
+            raw = data.get("sync_root_path", "")
+            if not raw:
+                return None
+            p = Path(raw)
+            if p.exists() and p.is_dir():
                 return p
         except (json.JSONDecodeError, OSError):
             pass
