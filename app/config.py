@@ -116,9 +116,6 @@ STATUS_LABELS = {
 
 # ── SharePoint 同期パスのユーティリティ ──────────────────────────────────────
 
-SYNC_ROOT: Path = Path()  # 起動時に設定される
-
-
 def load_sync_root() -> Path | None:
     """ローカル設定から同期ルートを読み込む。未設定なら None。"""
     if LOCAL_SETTINGS_PATH.exists():
