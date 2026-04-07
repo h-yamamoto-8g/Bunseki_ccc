@@ -75,35 +75,11 @@ class TaskService:
     ) -> dict:
         """既存タスクの起票情報を更新して返す。
 
-        in_edit=True の場合は以降ステートを無効化してから更新する。
+        in_edit=True の場合は元タスクを削除し新規タスクを起票する。
         """
         if in_edit:
-            task_store.invalidate_after(task_id, "task_setup")
-            # タスク名の分析項目部分を更新
-            task = task_store.get_task(task_id)
-            old_name = task.get("task_name", "") if task else ""
-            # タスク名は "YYYYMMDDHHmmss_分析項目名" 形式
-            prefix = old_name.split("_", 1)[0] if "_" in old_name else old_name
-            new_name = f"{prefix}_{hg_name}"
-            task_store.update_task_field(
-                task_id,
-                holder_group_code=hg_code,
-                holder_group_name=hg_name,
-                job_numbers=job_numbers,
-                task_name=new_name,
-            )
-            task_store.update_task_state(
-                task_id,
-                "task_setup",
-                {
-                    "holder_group_code": hg_code,
-                    "holder_group_name": hg_name,
-                    "job_numbers": job_numbers,
-                    "completed": True,
-                },
-            )
-            # 起票完了後は analysis_targets へ進める（create_task と同じ挙動）
-            task_store.update_task_field(task_id, current_state="analysis_targets")
+            task_store.delete_task(task_id)
+            return task_store.create_task(hg_code, hg_name, job_numbers)
         task = task_store.get_task(task_id)
         return task
 
