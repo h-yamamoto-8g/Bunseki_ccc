@@ -66,6 +66,36 @@ def _make_delete_button() -> QPushButton:
     return btn
 
 
+_MOVE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: 1px solid #d1d5db;"
+    " border-radius: 4px; padding: 0; min-height: 0; min-width: 0;"
+    " font-size: 11px; color: #6b7280; }"
+    "QPushButton:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }"
+    "QPushButton:disabled { color: #d1d5db; border-color: #e5e7eb; }"
+)
+
+
+def _make_move_buttons(
+    index: int, total: int, move_cb: callable,
+) -> tuple[QPushButton, QPushButton]:
+    """▲▼ ボタンのペアを生成する。"""
+    btn_up = QPushButton("▲")
+    btn_up.setFixedSize(QSize(22, 22))
+    btn_up.setStyleSheet(_MOVE_BTN_STYLE)
+    btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn_up.setEnabled(index > 0)
+    btn_up.clicked.connect(lambda _=False, i=index: move_cb(i, -1))
+
+    btn_down = QPushButton("▼")
+    btn_down.setFixedSize(QSize(22, 22))
+    btn_down.setStyleSheet(_MOVE_BTN_STYLE)
+    btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn_down.setEnabled(index < total - 1)
+    btn_down.clicked.connect(lambda _=False, i=index: move_cb(i, 1))
+
+    return btn_up, btn_down
+
+
 # ── ステータス定義 ────────────────────────────────────────────────────────────
 
 STATUS_DEFS: list[tuple[str, str]] = [
@@ -144,11 +174,16 @@ class _ChecklistEditor(QWidget):
         self._rows.clear()
         self._list_block.setVisible(bool(self._items))
 
+        n = len(self._items)
         for i, text in enumerate(self._items):
             row = QWidget()
             hl = QHBoxLayout(row)
-            hl.setContentsMargins(8, 4, 16, 4)
-            hl.setSpacing(12)
+            hl.setContentsMargins(8, 4, 8, 4)
+            hl.setSpacing(6)
+
+            btn_up, btn_down = _make_move_buttons(i, n, self._on_move)
+            hl.addWidget(btn_up, alignment=Qt.AlignmentFlag.AlignVCenter)
+            hl.addWidget(btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             cb = QCheckBox(text)
             cb.setChecked(False)
@@ -157,13 +192,12 @@ class _ChecklistEditor(QWidget):
                 QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
             )
             cb.setMinimumWidth(0)
-            if i == len(self._items) - 1:
+            if i == n - 1:
                 cb.setStyleSheet("border-bottom: none;")
             hl.addWidget(cb, 1)
 
             btn_del = _make_delete_button()
-            idx = i
-            btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
+            btn_del.clicked.connect(lambda _=False, j=i: self._on_remove(j))
             hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self._list_layout.addWidget(row)
@@ -180,6 +214,14 @@ class _ChecklistEditor(QWidget):
     def _on_remove(self, idx: int) -> None:
         if 0 <= idx < len(self._items):
             self._items.pop(idx)
+            self._rebuild()
+
+    def _on_move(self, idx: int, direction: int) -> None:
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._items):
+            self._items[idx], self._items[new_idx] = (
+                self._items[new_idx], self._items[idx]
+            )
             self._rebuild()
 
 
@@ -295,11 +337,21 @@ class _DocumentsEditor(QWidget):
         self._rows.clear()
         self._list_block.setVisible(bool(self._docs))
 
+        n = len(self._docs)
         for i, doc in enumerate(self._docs):
             row = QWidget()
             hl = QHBoxLayout(row)
             hl.setContentsMargins(10, 8, 10, 8)
             hl.setSpacing(8)
+
+            # 移動ボタン
+            move_vl = QVBoxLayout()
+            move_vl.setSpacing(2)
+            move_vl.setContentsMargins(0, 0, 0, 0)
+            btn_up, btn_down = _make_move_buttons(i, n, self._on_move)
+            move_vl.addWidget(btn_up)
+            move_vl.addWidget(btn_down)
+            hl.addLayout(move_vl)
 
             # 情報表示
             info_layout = QVBoxLayout()
@@ -368,6 +420,14 @@ class _DocumentsEditor(QWidget):
     def _on_remove(self, idx: int) -> None:
         if 0 <= idx < len(self._docs):
             self._docs.pop(idx)
+            self._rebuild()
+
+    def _on_move(self, idx: int, direction: int) -> None:
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._docs):
+            self._docs[idx], self._docs[new_idx] = (
+                self._docs[new_idx], self._docs[idx]
+            )
             self._rebuild()
 
 
