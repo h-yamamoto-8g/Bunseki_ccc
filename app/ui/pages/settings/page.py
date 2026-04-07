@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -29,6 +31,7 @@ from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
 from app.ui.pages.settings.home_tab import HomeTab
 from app.ui.pages.settings.task_columns_tab import TaskColumnsTab
+from app.ui.pages.settings.tool_settings_tab import ToolSettingsTab
 from app.ui.pages.settings.users_tab import UsersTab
 
 
@@ -66,7 +69,6 @@ class SettingsPage(QWidget):
         self.ui.setupUi(self)
         self._build_sync_root_section()
         self._build_data_path_section()
-        self._build_tool_path_section()
         self._setup_tabs()
         self.ui.tabs.setCurrentIndex(0)
 
@@ -183,79 +185,6 @@ class SettingsPage(QWidget):
             "変更を完全に反映するにはアプリケーションを再起動してください。",
         )
 
-    # ── ツールパス設定セクション ─────────────────────────────────────────────
-
-    def _build_tool_path_section(self) -> None:
-        """ツールパス設定セクション（Lab-Aid / 入力ツール）を挿入する。"""
-        from app.services.data_config_service import DataConfigService
-        self._tool_config = DataConfigService()
-
-        section = QWidget()
-        section.setObjectName("widget_tool_path_section")
-        section.setStyleSheet(
-            "#widget_tool_path_section { background: #ffffff; "
-            "border: 1px solid #e5e7eb; border-radius: 8px; }"
-        )
-        vl = QVBoxLayout(section)
-        vl.setContentsMargins(16, 10, 16, 10)
-        vl.setSpacing(8)
-
-        title = QLabel("ツール設定")
-        title.setStyleSheet("font-weight: bold; font-size: 13px; border: none;")
-        vl.addWidget(title)
-
-        # Lab-Aid パス
-        row1 = QHBoxLayout()
-        row1.setSpacing(8)
-        lbl1 = QLabel("Lab-Aid")
-        lbl1.setFixedWidth(80)
-        lbl1.setStyleSheet("font-size: 12px; color: #6b7280; border: none;")
-        row1.addWidget(lbl1)
-        self._input_labaid = QLineEdit(self._tool_config.get_tool_path("labaid_path"))
-        self._input_labaid.setPlaceholderText("Lab-Aid のパスまたは URL")
-        self._input_labaid.setStyleSheet(
-            "background: #f9fafb; border: 1px solid #e5e7eb; "
-            "border-radius: 4px; padding: 4px 8px;"
-        )
-        row1.addWidget(self._input_labaid, 1)
-        vl.addLayout(row1)
-
-        # 入力ツールパス
-        row2 = QHBoxLayout()
-        row2.setSpacing(8)
-        lbl2 = QLabel("入力ツール")
-        lbl2.setFixedWidth(80)
-        lbl2.setStyleSheet("font-size: 12px; color: #6b7280; border: none;")
-        row2.addWidget(lbl2)
-        self._input_tool = QLineEdit(self._tool_config.get_tool_path("input_tool_path"))
-        self._input_tool.setPlaceholderText("入力ツールのパスまたは URL（空欄でCSVを直接開く）")
-        self._input_tool.setStyleSheet(
-            "background: #f9fafb; border: 1px solid #e5e7eb; "
-            "border-radius: 4px; padding: 4px 8px;"
-        )
-        row2.addWidget(self._input_tool, 1)
-        vl.addLayout(row2)
-
-        # 保存ボタン
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_save_tool = QPushButton("保存")
-        btn_save_tool.setStyleSheet(
-            "background: #3b82f6; color: white; border: none; "
-            "border-radius: 6px; padding: 6px 16px; font-weight: 600;"
-        )
-        btn_save_tool.clicked.connect(self._on_save_tool_paths)
-        btn_row.addWidget(btn_save_tool)
-        vl.addLayout(btn_row)
-
-        # 同期環境(0) + データ保存先(1) の次 (index 2) に挿入
-        self.ui.verticalLayout.insertWidget(2, section)
-
-    def _on_save_tool_paths(self) -> None:
-        self._tool_config.save_tool_path("labaid_path", self._input_labaid.text().strip())
-        self._tool_config.save_tool_path("input_tool_path", self._input_tool.text().strip())
-        QMessageBox.information(self, "保存完了", "ツール設定を保存しました。")
-
     # ── タブ構成 ──────────────────────────────────────────────────────────────
 
     def _setup_tabs(self) -> None:
@@ -281,8 +210,9 @@ class SettingsPage(QWidget):
         self.task_columns_tab = TaskColumnsTab(
             self.data_config_service, csv_columns=csv_columns,
         )
+        self.tool_settings_tab = ToolSettingsTab(self.data_config_service)
         task_container = self._build_task_settings(
-            self.hg_config_tab, self.task_columns_tab
+            self.hg_config_tab, self.task_columns_tab, self.tool_settings_tab,
         )
         self._embed(self.ui.tab_tasks, task_container)
 
@@ -296,14 +226,17 @@ class SettingsPage(QWidget):
         self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
 
     @staticmethod
-    def _build_task_settings(hg_tab: QWidget, columns_tab: QWidget) -> QWidget:
-        """分析項目設定と表示列設定をサブタブでまとめる。"""
+    def _build_task_settings(
+        hg_tab: QWidget, columns_tab: QWidget, tool_tab: QWidget,
+    ) -> QWidget:
+        """分析項目設定・表示列設定・ツール設定をサブタブでまとめる。"""
         container = QWidget()
         vl = QVBoxLayout(container)
         vl.setContentsMargins(0, 0, 0, 0)
         sub_tabs = QTabWidget()
         sub_tabs.addTab(hg_tab, "分析項目設定")
         sub_tabs.addTab(columns_tab, "表示列設定")
+        sub_tabs.addTab(tool_tab, "ツール設定")
         vl.addWidget(sub_tabs)
         return container
 
