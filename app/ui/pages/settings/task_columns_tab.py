@@ -25,6 +25,13 @@ _FRAME_STYLE = (
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 _SUB_TITLE_STYLE = "font-size: 13px; font-weight: 600; color: #374151; border: none;"
 
+_TOGGLE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: none; padding: 0;"
+    " font-size: 13px; font-weight: 600; color: #374151;"
+    " text-align: left; min-height: 0; }"
+    "QPushButton:hover { color: #3b82f6; }"
+)
+
 
 def _make_separator() -> QWidget:
     sep = QWidget()
@@ -70,10 +77,20 @@ class _ColumnListEditor(QWidget):
         vl.setContentsMargins(16, 12, 16, 12)
         vl.setSpacing(0)
 
-        lbl = QLabel(title)
-        lbl.setStyleSheet(_SUB_TITLE_STYLE)
-        vl.addWidget(lbl)
-        vl.addWidget(_make_separator())
+        # ── ヘッダー（クリックで開閉） ────────────────────────
+        self._toggle_btn = QPushButton(f"▼  {title}")
+        self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._toggle_btn.setStyleSheet(_TOGGLE_BTN_STYLE)
+        vl.addWidget(self._toggle_btn)
+
+        self._sep = _make_separator()
+        vl.addWidget(self._sep)
+
+        # ── コンテンツ領域 ─────────────────────────────────────
+        self._content = QWidget()
+        cl = QVBoxLayout(self._content)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
 
         desc = QLabel(
             "チェックで表示/非表示を切り替え、列名を変更できます。"
@@ -82,11 +99,26 @@ class _ColumnListEditor(QWidget):
         desc.setStyleSheet(
             "color: #6b7280; font-size: 12px; padding: 8px 0 4px 0;"
         )
-        vl.addWidget(desc)
+        cl.addWidget(desc)
 
         self._list_layout = QVBoxLayout()
         self._list_layout.setSpacing(0)
-        vl.addLayout(self._list_layout)
+        cl.addLayout(self._list_layout)
+
+        vl.addWidget(self._content)
+
+        # ── 開閉ロジック ───────────────────────────────────────
+        self._title = title
+
+        def _toggle() -> None:
+            collapsed = self._content.isVisible()
+            self._content.setVisible(not collapsed)
+            self._sep.setVisible(not collapsed)
+            self._toggle_btn.setText(
+                f"{'▼' if not collapsed else '▶'}  {self._title}"
+            )
+
+        self._toggle_btn.clicked.connect(_toggle)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)

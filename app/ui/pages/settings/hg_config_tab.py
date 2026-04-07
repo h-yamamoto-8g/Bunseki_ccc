@@ -380,6 +380,13 @@ _FRAME_STYLE = (
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
+_TOGGLE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: none; padding: 0;"
+    " font-size: 14px; font-weight: 700; color: #1f2937;"
+    " text-align: left; min-height: 0; }"
+    "QPushButton:hover { color: #3b82f6; }"
+)
+
 
 def _make_separator() -> QWidget:
     """細い水平区切り線を生成する。"""
@@ -390,7 +397,7 @@ def _make_separator() -> QWidget:
 
 
 def _make_status_block(title: str, widgets: list[QWidget]) -> QFrame:
-    """ステータス名付きブロックを生成する。"""
+    """ステータス名付きアコーディオンブロックを生成する。"""
     group = QFrame()
     group.setObjectName("status_block")
     group.setStyleSheet(_FRAME_STYLE)
@@ -398,20 +405,42 @@ def _make_status_block(title: str, widgets: list[QWidget]) -> QFrame:
     vl.setContentsMargins(16, 12, 16, 12)
     vl.setSpacing(12)
 
-    lbl_title = QLabel(title)
-    lbl_title.setStyleSheet(_TITLE_STYLE)
-    vl.addWidget(lbl_title)
+    # ── ヘッダー（クリックで開閉） ─────────────────────────────
+    toggle_btn = QPushButton(f"▼  {title}")
+    toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    toggle_btn.setStyleSheet(_TOGGLE_BTN_STYLE)
+    vl.addWidget(toggle_btn)
 
-    vl.addWidget(_make_separator())
+    sep = _make_separator()
+    vl.addWidget(sep)
+
+    # ── コンテンツ領域 ─────────────────────────────────────────
+    content = QWidget()
+    cl = QVBoxLayout(content)
+    cl.setContentsMargins(0, 0, 0, 0)
+    cl.setSpacing(12)
 
     if not widgets:
         lbl = QLabel("設定項目なし")
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet("color: #9ca3af; font-size: 13px; padding: 12px;")
-        vl.addWidget(lbl)
+        cl.addWidget(lbl)
     else:
         for w in widgets:
-            vl.addWidget(w)
+            cl.addWidget(w)
+
+    vl.addWidget(content)
+
+    # ── 開閉ロジック ───────────────────────────────────────────
+    def _toggle() -> None:
+        collapsed = content.isVisible()
+        content.setVisible(not collapsed)
+        sep.setVisible(not collapsed)
+        toggle_btn.setText(
+            f"{'▼' if not collapsed else '▶'}  {title}"
+        )
+
+    toggle_btn.clicked.connect(_toggle)
 
     return group
 
