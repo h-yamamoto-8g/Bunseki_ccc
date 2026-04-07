@@ -407,10 +407,27 @@ class _DocumentsEditor(QWidget):
         location = self._input_location.text().strip()
         if not name:
             return
+
+        loc_type = _classify_location(location) if location else ""
+
+        # パスの場合: 同期ルートからの相対パスに変換
+        if location and loc_type == "path":
+            from app.config import to_relative_path
+            rel = to_relative_path(location)
+            if rel is None:
+                QMessageBox.warning(
+                    self,
+                    "パスエラー",
+                    "SharePoint同期フォルダ外のパスは設定できません。\n"
+                    "同期フォルダ内のファイルを指定してください。",
+                )
+                return
+            location = rel
+
         doc: dict[str, str] = {
             "name": name,
             "location": location,
-            "type": _classify_location(location) if location else "",
+            "type": loc_type,
         }
         self._docs.append(doc)
         self._input_name.clear()

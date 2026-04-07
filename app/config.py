@@ -113,6 +113,40 @@ STATUS_LABELS = {
     "終了": "#10b981",
 }
 
+
+# ── SharePoint 同期パスのユーティリティ ──────────────────────────────────────
+
+def get_sync_root() -> Path:
+    """SharePoint 同期フォルダのルートを返す（DATA_PATH の親）。"""
+    return DATA_PATH.parent
+
+
+def to_relative_path(absolute_path: str) -> str | None:
+    """絶対パスを同期ルートからの相対パスに変換する。
+
+    同期ルート配下でなければ None を返す。
+    """
+    try:
+        rel = Path(absolute_path).resolve().relative_to(get_sync_root().resolve())
+        return str(rel)
+    except (ValueError, OSError):
+        return None
+
+
+def to_absolute_path(relative_path: str) -> str:
+    """同期ルートからの相対パスを絶対パスに変換する。"""
+    return str(get_sync_root() / relative_path)
+
+
+def is_under_sync_root(absolute_path: str) -> bool:
+    """絶対パスが同期ルート配下かどうかを判定する。"""
+    try:
+        Path(absolute_path).resolve().relative_to(get_sync_root().resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
 # Sidebar pages
 SIDEBAR_PAGES = [
     ("home",     "⌂",  "ホーム"),

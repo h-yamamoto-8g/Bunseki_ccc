@@ -66,7 +66,12 @@ def _open_location(location: str, loc_type: str) -> None:
         from PySide6.QtGui import QDesktopServices
         QDesktopServices.openUrl(QUrl(location))
     else:
-        path = os.path.normpath(location)
+        # 相対パスの場合は同期ルートからの絶対パスに復元
+        from app.config import to_absolute_path
+        if not os.path.isabs(location):
+            path = os.path.normpath(to_absolute_path(location))
+        else:
+            path = os.path.normpath(location)
         if sys.platform == "win32":
             os.startfile(path)  # noqa: S606
         elif sys.platform == "darwin":
