@@ -8,10 +8,10 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
-    QAbstractItemView, QFrame, QApplication,
+    QAbstractItemView, QFrame, QApplication, QStyledItemDelegate,
 )
 from PySide6.QtCore import Signal, Qt, QEvent
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QColor
 
 from app.ui.widgets.icon_utils import get_icon
 
@@ -40,6 +40,51 @@ _TABLE_STYLE = (
     f" border:none; border-bottom:1px solid {_BORDER}; }}"
     f"QTableWidget::item {{ padding:4px 6px; font-size:12px; color:{_TEXT}; }}"
 )
+
+
+class _EnterMoveDelegate(QStyledItemDelegate):
+    """Enter で編集を確定して下のセルへ、Shift+Enter で上のセルへ移動するデリゲート。"""
+
+    def __init__(self, input_col: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._input_col = input_col
+
+    def createEditor(self, parent, option, index):  # noqa: N802
+        editor = super().createEditor(parent, option, index)
+        if editor is not None:
+            editor.installEventFilter(self)
+        return editor
+
+    def eventFilter(self, obj, event):  # noqa: N802
+        if event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                # 現在のエディタの値を確定
+                self.commitData.emit(obj)
+                self.closeEditor.emit(obj, QStyledItemDelegate.EndEditHint.NoHint)
+                # 親テーブルを取得して次/前のセルへ移動
+                table = self.parent()
+                if isinstance(table, QTableWidget):
+                    row = table.currentRow()
+                    if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                        new_row = max(0, row - 1)
+                    else:
+                        new_row = min(table.rowCount() - 1, row + 1)
+                    table.setCurrentCell(new_row, self._input_col)
+                    table.editItem(table.item(new_row, self._input_col))
+                return True
+            if key == Qt.Key.Key_Tab:
+                # Tab も下へ移動（Excelライク）
+                self.commitData.emit(obj)
+                self.closeEditor.emit(obj, QStyledItemDelegate.EndEditHint.NoHint)
+                table = self.parent()
+                if isinstance(table, QTableWidget):
+                    row = table.currentRow()
+                    new_row = min(table.rowCount() - 1, row + 1)
+                    table.setCurrentCell(new_row, self._input_col)
+                    table.editItem(table.item(new_row, self._input_col))
+                return True
+        return super().eventFilter(obj, event)
 
 
 class ResultEntryUI(QWidget):
@@ -282,32 +327,12 @@ class ResultEntryUI(QWidget):
                 if col_i == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row_key)
 
-        table.installEventFilter(self)
+        # Enter/Tab で次のセルへ移動するデリゲートを設定
+        if input_col_idx >= 0:
+            delegate = _EnterMoveDelegate(input_col_idx, table)
+            table.setItemDelegateForColumn(input_col_idx, delegate)
+
         return table
-
-    def eventFilter(self, obj: object, event: QEvent) -> bool:  # noqa: N802
-        """Enter/Shift+Enter でデータ入力列のセルを上下移動する。"""
-        if not isinstance(obj, QTableWidget) or event.type() != QEvent.Type.KeyPress:
-            return super().eventFilter(obj, event)
-        key_event: QKeyEvent = event  # type: ignore[assignment]
-        if key_event.key() not in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            return super().eventFilter(obj, event)
-
-        table: QTableWidget = obj  # type: ignore[assignment]
-        row = table.currentRow()
-        col = table.currentColumn()
-
-        vis_cols = self._visible_columns()
-        input_col_idx = self._get_input_col_idx(vis_cols)
-        if input_col_idx < 0 or col != input_col_idx:
-            return super().eventFilter(obj, event)
-
-        if key_event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-            new_row = max(0, row - 1)
-        else:
-            new_row = min(table.rowCount() - 1, row + 1)
-        table.setCurrentCell(new_row, input_col_idx)
-        return True
 
     def _collect_all_data(self) -> list[dict]:
         """全タブのテーブルデータを収集する。"""
