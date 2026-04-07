@@ -117,8 +117,12 @@ STATUS_LABELS = {
 # ── SharePoint 同期パスのユーティリティ ──────────────────────────────────────
 
 def get_sync_root() -> Path:
-    """SharePoint 同期フォルダのルートを返す（DATA_PATH の親）。"""
-    return DATA_PATH.parent
+    """SharePoint 同期フォルダのルートを返す（DATA_PATH の2階層上）。
+
+    DATA_PATH = .../トクヤマグループ/環境分析課 - ドキュメント/app_data
+    同期ルート = .../トクヤマグループ
+    """
+    return DATA_PATH.parent.parent
 
 
 def to_relative_path(absolute_path: str) -> str | None:
