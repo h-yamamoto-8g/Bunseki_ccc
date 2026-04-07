@@ -116,13 +116,63 @@ STATUS_LABELS = {
 
 # ── SharePoint 同期パスのユーティリティ ──────────────────────────────────────
 
-def get_sync_root() -> Path:
-    """SharePoint 同期フォルダのルートを返す（DATA_PATH の2階層上）。
+SYNC_ROOT: Path = Path()  # 起動時に設定される
 
-    DATA_PATH = .../トクヤマグループ/環境分析課 - ドキュメント/app_data
-    同期ルート = .../トクヤマグループ
-    """
-    return DATA_PATH.parent.parent
+
+def load_sync_root() -> Path | None:
+    """ローカル設定から同期ルートを読み込む。未設定なら None。"""
+    if LOCAL_SETTINGS_PATH.exists():
+        try:
+            data = json.loads(LOCAL_SETTINGS_PATH.read_text(encoding="utf-8"))
+            p = Path(data.get("sync_root_path", ""))
+            if p and p.exists() and p.is_dir():
+                return p
+        except (json.JSONDecodeError, OSError):
+            pass
+    return None
+
+
+def save_sync_root(path: Path) -> None:
+    """同期ルートをローカル設定に保存する。"""
+    LOCAL_SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    settings: dict = {}
+    if LOCAL_SETTINGS_PATH.exists():
+        try:
+            settings = json.loads(
+                LOCAL_SETTINGS_PATH.read_text(encoding="utf-8")
+            )
+        except (json.JSONDecodeError, OSError):
+            pass
+    settings["sync_root_path"] = str(path)
+    LOCAL_SETTINGS_PATH.write_text(
+        json.dumps(settings, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _resolve_sync_root() -> Path:
+    """設定ファイルから同期ルートを解決する。"""
+    saved = load_sync_root()
+    if saved is not None:
+        return saved
+    # 本番環境: SharePoint 標準パスを試行
+    if platform.system() == "Windows":
+        return Path.home() / "トクヤマグループ"
+    return Path.home()
+
+
+SYNC_ROOT = _resolve_sync_root()
+
+
+def reload_sync_root(new_path: Path) -> None:
+    """同期ルートをモジュールレベルで更新する。"""
+    global SYNC_ROOT
+    SYNC_ROOT = new_path
+
+
+def get_sync_root() -> Path:
+    """SharePoint 同期フォルダのルートを返す。"""
+    return SYNC_ROOT
 
 
 def to_relative_path(absolute_path: str) -> str | None:

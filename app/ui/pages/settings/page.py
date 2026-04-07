@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 import app.config as _cfg
-from app.config import save_data_path, reload_paths
+from app.config import save_data_path, reload_paths, save_sync_root, reload_sync_root
 from app.services.data_config_service import DataConfigService
 from app.services.data_service import DataService
 from app.services.hg_config_service import HgConfigService
@@ -64,14 +64,74 @@ class SettingsPage(QWidget):
         self.data_service = data_service
         self.ui = Ui_SettingPage()
         self.ui.setupUi(self)
+        self._build_sync_root_section()
         self._build_data_path_section()
         self._setup_tabs()
         self.ui.tabs.setCurrentIndex(0)
 
+    # ── 同期環境設定セクション ─────────────────────────────────────────────────
+
+    def _build_sync_root_section(self) -> None:
+        """タブの上に同期環境パス表示・変更セクションを挿入する。"""
+        section = QWidget()
+        section.setObjectName("widget_sync_root_section")
+        section.setStyleSheet(
+            "#widget_sync_root_section { background: #ffffff; "
+            "border: 1px solid #e5e7eb; border-radius: 8px; }"
+        )
+        hl = QHBoxLayout(section)
+        hl.setContentsMargins(16, 10, 16, 10)
+        hl.setSpacing(12)
+
+        label = QLabel("同期環境")
+        label.setStyleSheet("font-weight: bold; font-size: 13px; border: none;")
+        hl.addWidget(label)
+
+        self.input_sync_root = QLineEdit(str(_cfg.SYNC_ROOT))
+        self.input_sync_root.setReadOnly(True)
+        self.input_sync_root.setStyleSheet(
+            "background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; "
+            "border-radius: 4px; padding: 4px 8px;"
+        )
+        hl.addWidget(self.input_sync_root, 1)
+
+        self.btn_change_sync = QPushButton("変更")
+        self.btn_change_sync.setStyleSheet(
+            "background: #3b82f6; color: white; border: none; "
+            "border-radius: 6px; padding: 6px 16px; font-weight: 600;"
+        )
+        self.btn_change_sync.clicked.connect(self._on_change_sync_root)
+        hl.addWidget(self.btn_change_sync)
+
+        # verticalLayout の先頭 (index 0) に挿入
+        self.ui.verticalLayout.insertWidget(0, section)
+
+    def _on_change_sync_root(self) -> None:
+        """フォルダ選択ダイアログで同期環境パスを変更する。"""
+        from PySide6.QtWidgets import QFileDialog
+        start_dir = str(_cfg.SYNC_ROOT)
+        folder = QFileDialog.getExistingDirectory(
+            self, "同期環境フォルダを選択", start_dir
+        )
+        if not folder:
+            return
+        new_path = Path(folder)
+        if not new_path.exists() or not new_path.is_dir():
+            return
+        save_sync_root(new_path)
+        reload_sync_root(new_path)
+        self.input_sync_root.setText(str(new_path))
+        QMessageBox.information(
+            self,
+            "同期環境を変更しました",
+            f"新しい同期環境:\n{new_path}\n\n"
+            "変更を完全に反映するにはアプリケーションを再起動してください。",
+        )
+
     # ── data_path 設定セクション ───────────────────────────────────────────────
 
     def _build_data_path_section(self) -> None:
-        """タブの上に data_path 表示・変更セクションを挿入する。"""
+        """同期環境セクションの下に data_path 表示・変更セクションを挿入する。"""
         section = QWidget()
         section.setObjectName("widget_data_path_section")
         section.setStyleSheet(
@@ -102,8 +162,8 @@ class SettingsPage(QWidget):
         self.btn_change_path.clicked.connect(self._on_change_data_path)
         hl.addWidget(self.btn_change_path)
 
-        # verticalLayout の先頭 (index 0) に挿入（tabs の前）
-        self.ui.verticalLayout.insertWidget(0, section)
+        # 同期環境セクション(index 0)の次 (index 1) に挿入
+        self.ui.verticalLayout.insertWidget(1, section)
 
     def _on_change_data_path(self) -> None:
         """SetupRootDialog を開いてデータ保存先を変更する。"""
