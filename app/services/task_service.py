@@ -79,11 +79,18 @@ class TaskService:
         """
         if in_edit:
             task_store.invalidate_after(task_id, "task_setup")
+            # タスク名の分析項目部分を更新
+            task = task_store.get_task(task_id)
+            old_name = task.get("task_name", "") if task else ""
+            # タスク名は "YYYYMMDDHHmmss_分析項目名" 形式
+            prefix = old_name.split("_", 1)[0] if "_" in old_name else old_name
+            new_name = f"{prefix}_{hg_name}"
             task_store.update_task_field(
                 task_id,
                 holder_group_code=hg_code,
                 holder_group_name=hg_name,
                 job_numbers=job_numbers,
+                task_name=new_name,
             )
             task_store.update_task_state(
                 task_id,
