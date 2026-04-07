@@ -286,6 +286,14 @@ class TaskColumnsTab(QWidget):
         )
         cl.addWidget(self._verify_editor)
 
+        self._entry_editor = _ColumnListEditor(
+            "データ入力テーブル",
+            "result_entry",
+            self._service,
+            csv_columns=self._csv_columns,
+        )
+        cl.addWidget(self._entry_editor)
+
         cl.addStretch()
         scroll.setWidget(content)
         outer.addWidget(scroll, 1)
@@ -296,5 +304,8 @@ class TaskColumnsTab(QWidget):
         )
         self._service.save_task_columns(
             "result_verification", self._verify_editor.collect()
+        )
+        self._service.save_task_columns(
+            "result_entry", self._entry_editor.collect()
         )
         QMessageBox.information(self, "保存完了", "タスクテーブルの表示列設定を保存しました。")

@@ -32,6 +32,14 @@ _RESULT_VERIFICATION_DEFAULT_VISIBLE = {
     "test_unit_name",
 }
 
+_RESULT_ENTRY_DEFAULT_VISIBLE = {
+    "sample_request_number",
+    "valid_sample_display_name",
+    "valid_holder_display_name",
+    "valid_test_display_name",
+    "test_unit_name",
+}
+
 # 計算列（CSVには存在しないがテーブルで使える特殊列）
 _ANALYSIS_TARGETS_EXTRA = [
     {"key": "median", "label": "中央値", "visible": True},
@@ -45,14 +53,20 @@ _RESULT_VERIFICATION_EXTRA = [
     {"key": "anomaly_flag", "label": "異常フラグ",   "visible": True},
 ]
 
+_RESULT_ENTRY_EXTRA = [
+    {"key": "input_data", "label": "データ入力", "visible": True},
+]
+
 _TASK_DEFAULT_VISIBLE: dict[str, set[str]] = {
     "analysis_targets": _ANALYSIS_TARGETS_DEFAULT_VISIBLE,
     "result_verification": _RESULT_VERIFICATION_DEFAULT_VISIBLE,
+    "result_entry": _RESULT_ENTRY_DEFAULT_VISIBLE,
 }
 
 _TASK_EXTRA_COLUMNS: dict[str, list[dict]] = {
     "analysis_targets": _ANALYSIS_TARGETS_EXTRA,
     "result_verification": _RESULT_VERIFICATION_EXTRA,
+    "result_entry": _RESULT_ENTRY_EXTRA,
 }
 
 
