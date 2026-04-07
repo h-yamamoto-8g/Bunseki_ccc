@@ -19,12 +19,6 @@ from app.services.data_update_service import run_all as _run_data_update
 from app.ui.dialogs.loading_dialog import LoadingDialog, LoadingOverlay
 from .state import ResultEntryUI
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Lab-Aid / 入力ツール の起動パス設定
-# ─────────────────────────────────────────────────────────────────────────────
-_LABAID_PATH = ""
-_INPUT_TOOL_PATH = ""  # CSV を処理する外部ツールのパス
-
 
 class ResultEntryState(QWidget):
     go_next = Signal()
@@ -54,6 +48,7 @@ class ResultEntryState(QWidget):
         self._ui.save_temp_requested.connect(self._on_save_temp)
         self._ui.csv_export_requested.connect(self._on_csv_export)
         self._ui.open_tool_requested.connect(self._open_input_tool)
+        self._ui.open_folder_requested.connect(self._open_output_folder)
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
         self._task = task
@@ -197,9 +192,9 @@ class ResultEntryState(QWidget):
             self._open_input_tool()
 
     def _open_labaid(self) -> None:
-        path = _LABAID_PATH.strip()
+        path = self._data_config.get_tool_path("labaid_path").strip()
         if not path:
-            QMessageBox.information(self, "Lab-Aid", "Lab-Aidを起動します（デモ）")
+            QMessageBox.information(self, "Lab-Aid", "Lab-Aidのパスが設定されていません。\n設定画面で設定してください。")
             return
         try:
             if path.startswith(("http://", "https://")):
@@ -211,7 +206,7 @@ class ResultEntryState(QWidget):
 
     def _open_input_tool(self) -> None:
         """入力ツールを起動する。"""
-        path = _INPUT_TOOL_PATH.strip()
+        path = self._data_config.get_tool_path("input_tool_path").strip()
         if not path:
             # パス未設定: CSVファイルを直接開く
             task_name = self._task.get("task_name", "export")
@@ -240,6 +235,12 @@ class ResultEntryState(QWidget):
             subprocess.Popen(["open", filepath])
         else:
             subprocess.Popen(["xdg-open", filepath])
+
+    def _open_output_folder(self) -> None:
+        """CSV保存先フォルダを開く。"""
+        output_dir = _cfg.DATA_PATH / "bunseki" / "entry"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self._open_file(str(output_dir))
 
     def _on_data_update(self) -> None:
         dlg = LoadingDialog(_run_data_update, parent=self)

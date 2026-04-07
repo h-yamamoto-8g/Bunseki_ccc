@@ -54,7 +54,7 @@ _RESULT_VERIFICATION_EXTRA = [
 ]
 
 _RESULT_ENTRY_EXTRA = [
-    {"key": "input_data", "label": "データ入力", "visible": True},
+    {"key": "input_data", "label": "データ", "visible": True},
 ]
 
 _TASK_DEFAULT_VISIBLE: dict[str, set[str]] = {
@@ -188,4 +188,17 @@ class DataConfigService:
         """タスクステートの列設定を保存する。"""
         cfg = data_config_store.load()
         cfg[f"{scope}_columns"] = columns
+        data_config_store.save(cfg)
+
+    # ── ツールパス設定 ────────────────────────────────────────────────────────
+
+    def get_tool_path(self, key: str) -> str:
+        """ツールパスを取得する。key: 'labaid_path' | 'input_tool_path'"""
+        cfg = data_config_store.load()
+        return cfg.get(key, "")
+
+    def save_tool_path(self, key: str, path: str) -> None:
+        """ツールパスを保存する。"""
+        cfg = data_config_store.load()
+        cfg[key] = path
         data_config_store.save(cfg)

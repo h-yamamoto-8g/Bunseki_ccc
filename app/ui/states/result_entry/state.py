@@ -8,10 +8,10 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
-    QAbstractItemView, QFrame,
+    QAbstractItemView, QFrame, QApplication,
 )
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Signal, Qt, QEvent
+from PySide6.QtGui import QColor, QKeyEvent
 
 from app.ui.widgets.icon_utils import get_icon
 
@@ -62,6 +62,7 @@ class ResultEntryUI(QWidget):
     save_temp_requested = Signal(list)
     csv_export_requested = Signal(list)
     open_tool_requested = Signal()
+    open_folder_requested = Signal()
 
     _INPUT_COL_KEY = "input_data"
 
@@ -121,6 +122,12 @@ class ResultEntryUI(QWidget):
         self._btn_open_tool.clicked.connect(self.open_tool_requested)
         ab.addWidget(self._btn_open_tool)
 
+        self._btn_open_folder = QPushButton("保存先を開く")
+        self._btn_open_folder.setFixedHeight(30)
+        self._btn_open_folder.setStyleSheet(_BTN_SECONDARY)
+        self._btn_open_folder.clicked.connect(self.open_folder_requested)
+        ab.addWidget(self._btn_open_folder)
+
         outer.addWidget(action_bar)
 
         # ── タブウィジェット ──────────────────────────────────────
@@ -179,6 +186,7 @@ class ResultEntryUI(QWidget):
         self._btn_save_temp.setVisible(not readonly)
         self._btn_csv.setVisible(not readonly)
         self._btn_open_tool.setVisible(not readonly)
+        self._btn_open_folder.setVisible(not readonly)
 
     def set_state_done(self, done: bool) -> None:
         if done:
@@ -198,7 +206,7 @@ class ResultEntryUI(QWidget):
             {"key": "valid_holder_display_name", "label": "ホルダ名", "visible": True},
             {"key": "valid_test_display_name", "label": "試験項目名", "visible": True},
             {"key": "test_unit_name", "label": "単位", "visible": True},
-            {"key": self._INPUT_COL_KEY, "label": "データ入力", "visible": True},
+            {"key": self._INPUT_COL_KEY, "label": "データ", "visible": True},
         ]
 
     def _get_input_col_idx(self, vis_cols: list[dict]) -> int:
@@ -234,7 +242,7 @@ class ResultEntryUI(QWidget):
         input_col_idx = self._get_input_col_idx(vis_cols)
 
         for i, c in enumerate(vis_cols):
-            if c["key"] == "valid_sample_display_name":
+            if c["key"] == self._INPUT_COL_KEY:
                 hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
             else:
                 hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
@@ -274,7 +282,32 @@ class ResultEntryUI(QWidget):
                 if col_i == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row_key)
 
+        table.installEventFilter(self)
         return table
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:  # noqa: N802
+        """Enter/Shift+Enter でデータ入力列のセルを上下移動する。"""
+        if not isinstance(obj, QTableWidget) or event.type() != QEvent.Type.KeyPress:
+            return super().eventFilter(obj, event)
+        key_event: QKeyEvent = event  # type: ignore[assignment]
+        if key_event.key() not in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            return super().eventFilter(obj, event)
+
+        table: QTableWidget = obj  # type: ignore[assignment]
+        row = table.currentRow()
+        col = table.currentColumn()
+
+        vis_cols = self._visible_columns()
+        input_col_idx = self._get_input_col_idx(vis_cols)
+        if input_col_idx < 0 or col != input_col_idx:
+            return super().eventFilter(obj, event)
+
+        if key_event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            new_row = max(0, row - 1)
+        else:
+            new_row = min(table.rowCount() - 1, row + 1)
+        table.setCurrentCell(new_row, input_col_idx)
+        return True
 
     def _collect_all_data(self) -> list[dict]:
         """全タブのテーブルデータを収集する。"""
