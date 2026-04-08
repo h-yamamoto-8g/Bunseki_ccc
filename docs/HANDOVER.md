@@ -86,7 +86,7 @@ DATA_PATH/
 
 ### 2.4 Critical Bug: DATA_PATH Cached at Import Time
 
-All store modules cached `DATA_PATH` as module-level constants via `from app.config import DATA_PATH`. Calling `reload_paths()` did NOT update stores.
+All store modules cached `DATA_PATH` as module-level constants via `from app.config import DATA_PATH`.
 
 **Fix**: Use lazy evaluation via function calls in all stores:
 
@@ -101,20 +101,9 @@ def _tasks_file():
     return _cfg.DATA_PATH / "bunseki" / "tasks" / "tasks.json"
 ```
 
-**Always use this pattern in new apps.**
-
 ### 2.5 Attachment Paths Must Be Relative
 
 SharePoint sharing means local paths differ per user.
-
-```python
-# Save: convert to relative path from DATA_PATH
-rel = str(dest.relative_to(_cfg.DATA_PATH))
-
-# Load: prepend DATA_PATH if relative
-if not p.is_absolute():
-    p = _cfg.DATA_PATH / p
-```
 
 ---
 
@@ -127,37 +116,15 @@ if not p.is_absolute():
 | macOS | Hiragino Sans 12pt | Hiragino Sans |
 | Windows | Yu Gothic UI 10pt | Yu Gothic |
 
-```python
-if platform.system() == "Darwin":
-    qapp.setFont(QFont("Hiragino Sans", 12))
-    matplotlib.rcParams["font.family"] = "Hiragino Sans"
-else:
-    qapp.setFont(QFont("Yu Gothic UI", 10))
-    matplotlib.rcParams["font.family"] = "Yu Gothic"
-```
+### 3.2 File Open
 
-### 3.2 DATA_PATH Default
-- **Windows**: SharePoint sync path for the team
-- **macOS/Linux**: `~/app_data` (forces setup dialog)
+`_open_file()` branches by OS:
+- Windows: `os.startfile()` — also supports shell associations like `.appref-ms`
+- macOS: `subprocess.Popen(["open", ...])`
+- Linux: `subprocess.Popen(["xdg-open", ...])`
 
-### 3.3 File Open
-
-```python
-if platform.system() == "Darwin":
-    subprocess.Popen(["open", str(path)])
-elif platform.system() == "Windows":
-    os.startfile(str(path))
-else:
-    subprocess.Popen(["xdg-open", str(path)])
-```
-
-### 3.4 External Tools
-`lab_aid_extract.exe` / `lab_aid_etl.exe` are Windows-only. Disable via `data_update_service.py` `ENABLED = False` on macOS.
-
-### 3.5 Dev Notes
-- Test on mac -> build exe on Windows -> distribute via SharePoint
-- Windows may break layout even if macOS works fine (font sizes, path separators)
-- Use `Path` objects; never concatenate path strings
+### 3.3 External Tools
+`lab_aid_extract.exe` / `lab_aid_etl.exe` are Windows-only. Disable on macOS during development.
 
 ---
 
@@ -171,34 +138,14 @@ pyinstaller bunseki.spec
 # -> dist/Bunseki.exe
 ```
 
-### 4.2 Spec File Essentials
+### 4.2 Splash Screen
 
-```python
-a = Analysis(
-    ["main.py"],
-    datas=[("resources/assets/splash.png", "resources/assets")],
-    hiddenimports=[
-        "matplotlib.backends.backend_qtagg",  # dynamically loaded
-        "PySide6.QtSvg",                       # SVG icon support
-        "PySide6.QtSvgWidgets",
-        "openpyxl",                            # report output
-    ],
-    excludes=[
-        "matplotlib.backends.backend_tk",      # not needed (size reduction)
-        "matplotlib.backends.backend_tkagg",
-        "PyQt5", "PyQt6",                      # prevent PySide6 conflicts
-    ],
-)
-```
+- Does NOT use `WindowStaysOnTopHint` (allows splash to go behind other apps when user interacts with them)
+- Two-stage: PyInstaller Splash (during exe extraction) + QSplashScreen (after Python starts)
 
 ### 4.3 app_data Is NOT Bundled in exe
-`app_data/` lives on SharePoint. Bundling would prevent per-user updates and bloat exe size.
 
-### 4.4 Resources Compiled as Qt Resources
-```
-resources/assets/*.svg -> resources.qrc -> app/ui/generated/resources_rc.py
-```
-`resources_rc.py` is a Python file, auto-bundled in exe. No external file deployment needed.
+`app_data/` lives on SharePoint sync folder, deployed separately.
 
 ---
 
@@ -206,37 +153,16 @@ resources/assets/*.svg -> resources.qrc -> app/ui/generated/resources_rc.py
 
 ### 5.1 [Critical] PySide6 + six + shibokensupport Import Conflict
 
-**Symptom**: `AttributeError` on PyInstaller build, app won't start.
-**Cause**: PySide6 patches `builtins.__import__`, conflicts with `six._SixMetaPathImporter`.
-
-**Fix (two-stage defense)**:
-```python
-# Stage 1: restore __import__
-import builtins
-_original_import = builtins.__import__
-# ... import PySide6 ...
-builtins.__import__ = _original_import
-
-# Stage 2: PyInstaller frozen environment
-if getattr(sys, "frozen", False):
-    try:
-        import shibokensupport.feature as _sbk_feature
-        _sbk_feature._mod_uses_pyside = lambda *_a, **_kw: False
-    except Exception:
-        pass
-```
+**Fix**: Two-stage defense: restore `builtins.__import__` + `shibokensupport.feature` monkey-patch.
 
 ### 5.2 [Critical] Splash Screen Startup Order
 
-**Final solution**: Two-stage splash: PyInstaller Splash (during exe extraction) + QSplashScreen (after Python starts). Do NOT use `WindowStaysOnTopHint` — splash should go behind other apps when user switches.
-
-**Required order**:
 ```
 1. Create QApplication (minimal imports only)
-2. Show QSplashScreen (no WindowStaysOnTopHint)
+2. Show QSplashScreen (without WindowStaysOnTopHint)
 3. Heavy imports (matplotlib, app.* modules)
 4. Call processEvents() to keep splash rendering
-5. Close splash after minimum display time (1500ms)
+5. Close splash after minimum display time
 ```
 
 ### 5.3 [Important] openpyxl Destroys Macros in .xlsm Files
@@ -255,35 +181,30 @@ from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
 ### 5.5 [Important] pandas Converts Integers to Floats
 
-**Symptom**: Integer `0` displayed as `0.0` in tables.
-**Fix**: Check `float.is_integer()` at display time and cast to int:
+**Symptom**: Integer values in CSV display as `0.0`.
+**Fix**: Cast float to int at display time when the value is an integer:
+
 ```python
-if isinstance(val, float) and val.is_integer():
-    return str(int(val))
+def _to_display(val) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, float):
+        if val != val:  # NaN
+            return ""
+        if val.is_integer():
+            return str(int(val))
+        return str(val)
+    s = str(val)
+    return "" if s in ("nan", "None") else s
 ```
 
-### 5.6 [Important] Blocking Ops Freeze Animations
+### 5.6 [Important] Data Loss on Circulation Rejection
 
-**Symptom**: Loading spinner shows but doesn't animate.
-**Cause**: `subprocess.run()` blocks main thread, `QTimer` events don't process.
-**Fix**: Run in `QThread`, call `processEvents()` on main thread.
-
-### 5.7 [Important] Variable Name `app` Shadows Package `app`
-
-**Fix**: Name QApplication variable `qapp`. Never use variable names matching package names.
-
-### 5.8 [Important] Data Loss on Circulation Rejection
-
-**Cause**: Two-step `update` creates intermediate inconsistency.
 **Fix**: Single `update_task_field()` call for atomic write.
 
-### 5.9 [Medium] Login Dialog Hidden Behind Windows
+### 5.7 [Medium] Blocking Ops Freeze Animations
 
-**Fix**: `WindowStaysOnTopHint` + `raise_()` + `activateWindow()` (all three required).
-
-### 5.10 [Medium] Setup Dialog Not Shown for Unconfigured Users
-
-**Fix**: Check `~/.bunseki/settings.json` existence/content, not just path existence.
+**Fix**: Run in `QThread`, call `processEvents()` on main thread.
 
 ---
 
@@ -323,57 +244,12 @@ Each state has `app/ui/states/{state_name}/` with `state.py` (UI) + `wrapper.py`
 
 ---
 
-## 7. New App Development Checklist
-
-### 7.1 Initial Setup
-1. Copy this repo as template
-2. Rewrite `docs/requirements.md` for new business
-3. Update `docs/CLAUDE.md` project overview
-4. Update `app/config.py` paths for new app name
-5. Redesign states for new workflow
-
-### 7.2 Info to Provide Claude Code First
-```
-1. CLAUDE.md (coding conventions, architecture rules)
-2. requirements.md (functional requirements)
-3. HANDOVER.md (past bugs and lessons)
-4. app/config.py (path design example)
-5. main.py startup sequence (splash -> login -> main window)
-```
-
-### 7.3 Defensive Code to Include From Day One
-```python
-# 1. Restore builtins.__import__ (PySide6 + six conflict prevention)
-# 2. shibokensupport monkey-patch (PyInstaller frozen env)
-# 3. DATA_PATH via function (lazy evaluation)
-# 4. QApplication var named `qapp` (avoid shadowing `app` package)
-# 5. Splash -> heavy import -> login startup order
-# 6. External process execution in QThread
-# 7. File paths as Path objects + relative paths for storage
-```
-
----
-
-## 8. Tech Stack
+## 7. Tech Stack
 
 | Item | Library | Notes |
 |------|---------|-------|
 | UI | PySide6 >= 6.7 | Not PyQt. License difference. |
 | Data | pandas >= 2.0 | CSV read/aggregation |
 | Charts | matplotlib >= 3.7 | Backend: `qtagg` (add to hiddenimports) |
-| Excel I/O | openpyxl >= 3.1 | Excel read/write; use `keep_vba=True` for .xlsm |
+| Excel I/O | openpyxl >= 3.1 | `.xlsm` requires `keep_vba=True` |
 | Build | PyInstaller | One-file mode (`--onefile`) |
-| Icon gen | cairosvg + Pillow | `tools/gen_icon.py`, `tools/gen_splash.py` |
-
----
-
-## 9. Development Timeline
-
-- **2/26**: Initial commit
-- **3/2**: UI creation, feature additions
-- **3/3 AM**: Production path switching, SharePoint support, relative attachment paths
-- **3/3 PM**: PyInstaller work begins -> DATA_PATH lazy evaluation bug fix
-- **3/4 late night~morning**: PySide6+six conflict, splash, startup order, variable name collision — **hardest period**
-- **3/4 AM**: Loading UI, one-file build complete
-
-**Key lesson**: Don't delay PyInstaller build — **test exe build early**. Import order, path resolution, and library conflicts only appear in frozen environments.
