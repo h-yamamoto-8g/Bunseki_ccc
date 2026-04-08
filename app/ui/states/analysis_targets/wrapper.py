@@ -11,6 +11,7 @@ from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.data_config_service import DataConfigService
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import AnalysisTargetsUI, AddSampleDialog
 from .print_preview import PrintPreviewDialog
@@ -31,6 +32,7 @@ class AnalysisTargetsState(QWidget):
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._data_config = DataConfigService()
         self._task: dict = {}
         self._readonly = False
         self._edit_mode = False
@@ -58,6 +60,17 @@ class AnalysisTargetsState(QWidget):
         self._edit_mode = False
         self._ui.edited_badge.setVisible(False)
 
+        # 列設定を読み込んで UI にセット（CSV全列 + 計算列）
+        try:
+            csv_columns = self._data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        all_cols = self._data_config.get_task_columns(
+            "analysis_targets", csv_columns=csv_columns,
+        )
+        visible_cols = [c for c in all_cols if c.get("visible", True)]
+        self._ui.set_column_config(visible_cols)
+
         hg_code = task.get("holder_group_code", "")
         jobs = task.get("job_numbers", [])
 
@@ -68,11 +81,21 @@ class AnalysisTargetsState(QWidget):
         )
         grouped = result.get("grouped", {})
 
+        # グループ化データをフラット化（重複コードは除去）
+        flat_samples: list[dict] = []
+        seen_codes: set[str] = set()
+        for samples in grouped.values():
+            for s in samples:
+                code = s["valid_sample_set_code"]
+                if code not in seen_codes:
+                    seen_codes.add(code)
+                    flat_samples.append(s)
+
         sd = task.get("state_data", {}).get("analysis_targets", {})
         deleted_codes = set(sd.get("deleted_codes", []))
         added_samples = list(sd.get("added_samples", []))
 
-        self._ui.set_samples(grouped, deleted_codes, added_samples)
+        self._ui.set_samples(flat_samples, deleted_codes, added_samples)
         self._ui.set_editable(False)
 
         if readonly:
@@ -149,69 +172,51 @@ class AnalysisTargetsState(QWidget):
 
     def _build_print_html(self) -> str:
         """印刷用 HTML を生成する（全タブ分）。"""
+        from app.ui.states.analysis_targets.state import AnalysisTargetsUI
+
         task = self._task
         task_name = task.get("task_name", "")
         hg_name = task.get("holder_group_name", "")
         jobs = "、".join(task.get("job_numbers", []))
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        grouped = self._ui._grouped_samples
+        vis_cols = self._ui._visible_columns()
+        samples = self._ui._flat_samples
         deleted = self._ui._deleted_codes
         added = self._ui._added_samples
 
-        tables_html = ""
-        total = 0
-        for test_name, samples in grouped.items():
-            visible = [s for s in samples
-                       if s["valid_sample_set_code"] not in deleted]
-            total += len(visible)
+        # ヘッダー行
+        th_html = "".join(f"<th>{c['label']}</th>" for c in vis_cols)
 
-            rows_html = ""
-            for s in visible:
-                median = f"{s['median']:.3g}" if s.get("median") is not None else "—"
-                max_v = f"{s['max']:.3g}" if s.get("max") is not None else "—"
-                min_v = f"{s['min']:.3g}" if s.get("min") is not None else "—"
-                rows_html += (
-                    f"<tr>"
-                    f"<td>{s.get('sample_request_number', '')}</td>"
-                    f"<td>{s.get('sample_job_number', '')}</td>"
-                    f"<td>{s.get('sample_sampling_date', '')}</td>"
-                    f"<td>{s.get('valid_sample_display_name', '')}</td>"
-                    f"<td style='text-align:right;'>{median}</td>"
-                    f"<td style='text-align:right;'>{max_v}</td>"
-                    f"<td style='text-align:right;'>{min_v}</td>"
-                    f"</tr>"
-                )
+        visible = [s for s in samples
+                   if s["valid_sample_set_code"] not in deleted]
+        total = len(visible)
 
-            tables_html += (
-                f"<h3>{test_name}</h3>"
-                "<table>"
-                "<tr><th>依頼番号</th><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
-                "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
-                f"{rows_html}"
-                "</table>"
+        rows_html = ""
+        for s in visible:
+            cells = "".join(
+                f"<td>{AnalysisTargetsUI._extract_cell(s, c['key'])}</td>"
+                for c in vis_cols
             )
+            rows_html += f"<tr>{cells}</tr>"
 
         # 追加サンプル
-        if added:
-            total += len(added)
-            added_rows = ""
-            for name in added:
-                added_rows += (
-                    f"<tr>"
-                    f"<td></td><td></td><td></td>"
-                    f"<td style='color:#7c3aed;'>{name}（追加）</td>"
-                    f"<td>—</td><td>—</td><td>—</td>"
-                    f"</tr>"
-                )
-            tables_html += (
-                "<h3>追加サンプル</h3>"
-                "<table>"
-                "<tr><th>依頼番号</th><th>JOB番号</th><th>採取日</th><th>サンプル名</th>"
-                "<th>中央値</th><th>最大値</th><th>最小値</th></tr>"
-                f"{added_rows}"
-                "</table>"
+        for name in added:
+            total += 1
+            dummy = {
+                "valid_sample_set_code": f"FREE_{name}",
+                "valid_sample_display_name": name,
+                "sample_request_number": "", "sample_job_number": "",
+                "sample_sampling_date": "",
+                "median": None, "max": None, "min": None,
+            }
+            cells = "".join(
+                f"<td>{AnalysisTargetsUI._extract_cell(dummy, c['key'])}</td>"
+                for c in vis_cols
             )
+            rows_html += f"<tr>{cells}</tr>"
+
+        tables_html = f"<table><tr>{th_html}</tr>{rows_html}</table>"
 
         return (
             "<html><head><style>"

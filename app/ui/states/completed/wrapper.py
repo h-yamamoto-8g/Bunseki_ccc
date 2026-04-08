@@ -18,5 +18,5 @@ class CompletedState(QWidget):
         layout.addWidget(self._ui)
         self._ui.list_requested.connect(self.go_list)
 
-    def load_task(self, task: dict, preview: bool = False) -> None:
-        self._ui.set_summary(task, preview=preview)
+    def load_task(self, task: dict, done: bool = False) -> None:
+        self._ui.set_summary(task, done=done)

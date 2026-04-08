@@ -69,6 +69,9 @@ class DataTab(QWidget):
         # ── スクロール領域 ────────────────────────────────────────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         content = QWidget()

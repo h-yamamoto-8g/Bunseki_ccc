@@ -57,7 +57,10 @@ if getattr(sys, "frozen", False):
 # TYPE_CHECKING ブロック: 静的解析用（実行時は読み込まれない）
 if TYPE_CHECKING:
     import app.config as _cfg
-    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
+    from app.config import (
+        APP_VERSION, load_data_path, reload_paths, set_current_user,
+        load_sync_root, save_sync_root, reload_sync_root,
+    )
     from app.core.loader import DataLoader
     from app.services.data_service import DataService
     from app.services.data_update_service import run_all as _run_data_update
@@ -144,7 +147,10 @@ def _load_app_modules(qapp: QApplication) -> None:
     qapp.processEvents()
 
     import app.config as _cfg_mod
-    from app.config import APP_VERSION, load_data_path, reload_paths, set_current_user
+    from app.config import (
+        APP_VERSION, load_data_path, reload_paths, set_current_user,
+        load_sync_root, save_sync_root, reload_sync_root,
+    )
     from app.ui.styles import GLOBAL_QSS
     qapp.processEvents()
 
@@ -179,6 +185,9 @@ def _load_app_modules(qapp: QApplication) -> None:
     g["load_data_path"] = load_data_path
     g["reload_paths"] = reload_paths
     g["set_current_user"] = set_current_user
+    g["load_sync_root"] = load_sync_root
+    g["save_sync_root"] = save_sync_root
+    g["reload_sync_root"] = reload_sync_root
     g["GLOBAL_QSS"] = GLOBAL_QSS
     g["DataLoader"] = DataLoader
     g["TaskService"] = TaskService
@@ -640,6 +649,39 @@ class MainWindow(QMainWindow):
 
 
 
+def _ensure_sync_root(qapp: QApplication) -> bool:
+    """同期環境が有効か確認し、未設定ならフォルダ選択ダイアログで設定を促す。
+
+    Returns:
+        True: 有効なパスが設定済み。False: ユーザーがキャンセル。
+    """
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    if load_sync_root() is not None:
+        return True
+
+    # 未設定 → フォルダ選択ダイアログを表示
+    QMessageBox.information(
+        None,  # type: ignore[arg-type]
+        "同期環境の設定",
+        "SharePoint 同期フォルダのルート（例: トクヤマグループ）を選択してください。\n\n"
+        "このフォルダはドキュメントリンクを他のユーザーと共有するために使用されます。",
+    )
+    folder = QFileDialog.getExistingDirectory(
+        None,  # type: ignore[arg-type]
+        "同期環境フォルダを選択",
+        str(_cfg.SYNC_ROOT),
+    )
+    if not folder:
+        return False
+    p = pathlib.Path(folder)
+    if not p.exists() or not p.is_dir():
+        return False
+    save_sync_root(p)
+    reload_sync_root(p)
+    return True
+
+
 def _ensure_data_path(qapp: QApplication) -> bool:
     """DATA_PATH が有効か確認し、未設定または無効ならダイアログで設定を促す。
 
@@ -694,6 +736,9 @@ def main() -> None:
         qapp.setFont(QFont("Yu Gothic UI", 10))
     qapp.setStyle("Fusion")
     qapp.setStyleSheet(GLOBAL_QSS)
+
+    if not _ensure_sync_root(qapp):
+        sys.exit(0)
 
     if not _ensure_data_path(qapp):
         sys.exit(0)

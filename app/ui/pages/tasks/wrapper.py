@@ -163,6 +163,7 @@ class TasksPage(QWidget):
 
     def _refresh_list(self) -> None:
         all_tasks = self._task_service.get_all_tasks()
+        all_tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
         self._all_tasks_full = all_tasks
         self._display_limit = 100
         self._update_list_display()
@@ -297,7 +298,8 @@ class TasksPage(QWidget):
         elif state == "submission":
             self.submission_state.load_task(task, readonly=readonly)
         elif state == "completed":
-            self.completed_state.load_task(task, preview=preview)
+            done = task.get("current_state") == "completed"
+            self.completed_state.load_task(task, done=done)
         else:
             self.show_list()
             return

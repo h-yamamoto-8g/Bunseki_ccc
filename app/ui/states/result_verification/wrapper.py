@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal
 
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.data_config_service import DataConfigService
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import ResultVerificationUI, TrendDialog
 
@@ -24,6 +25,7 @@ class ResultVerificationState(QWidget):
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._data_config = DataConfigService()
         self._task: dict = {}
 
         self._ui = ResultVerificationUI()
@@ -37,6 +39,18 @@ class ResultVerificationState(QWidget):
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
         self._task = task
+
+        # 列設定を読み込んで UI にセット（CSV全列 + 計算列）
+        try:
+            csv_columns = self._data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        all_cols = self._data_config.get_task_columns(
+            "result_verification", csv_columns=csv_columns,
+        )
+        visible_cols = [c for c in all_cols if c.get("visible", True)]
+        self._ui.set_column_config(visible_cols)
+
         hg_code = task.get("holder_group_code", "")
         jobs = task.get("job_numbers", [])
         vsset_codes = (
@@ -66,6 +80,11 @@ class ResultVerificationState(QWidget):
             self._data_service.calculate_anomaly,
             self._data_service.extract_numeric,
         )
+
+        # フローステートの添付資料を表示
+        submission_data = task.get("state_data", {}).get("submission", {})
+        attachments = submission_data.get("attachments", [])
+        self._ui.set_attachments(attachments)
 
         sd = task.get("state_data", {}).get("result_verification", {})
         saved = sd.get("checks", [False] * len(verify_items))

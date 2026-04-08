@@ -113,8 +113,8 @@ class SubmissionUI(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 16, 20, 16)
-        root.setSpacing(0)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

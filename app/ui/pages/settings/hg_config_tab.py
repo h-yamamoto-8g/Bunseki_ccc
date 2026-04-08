@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,12 +17,36 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from app.services.hg_config_service import HgConfigService
 from app.ui.widgets.icon_utils import get_icon
+
+
+class _ElidedLabel(QLabel):
+    """横幅に収まらないテキストを「...」で省略するラベル。"""
+
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full_text = text
+        self.setToolTip(text)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+        self._update_elided()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._update_elided()
+
+    def _update_elided(self) -> None:
+        fm = QFontMetrics(self.font())
+        elided = fm.elidedText(
+            self._full_text, Qt.TextElideMode.ElideMiddle, self.width()
+        )
+        super().setText(elided)
 
 
 def _make_delete_button() -> QPushButton:
@@ -39,6 +64,36 @@ def _make_delete_button() -> QPushButton:
         " border-color:#ef4444; }"
     )
     return btn
+
+
+_MOVE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: 1px solid #d1d5db;"
+    " border-radius: 4px; padding: 0; min-height: 0; min-width: 0;"
+    " font-size: 11px; color: #6b7280; }"
+    "QPushButton:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }"
+    "QPushButton:disabled { color: #d1d5db; border-color: #e5e7eb; }"
+)
+
+
+def _make_move_buttons(
+    index: int, total: int, move_cb: callable,
+) -> tuple[QPushButton, QPushButton]:
+    """▲▼ ボタンのペアを生成する。"""
+    btn_up = QPushButton("▲")
+    btn_up.setFixedSize(QSize(22, 22))
+    btn_up.setStyleSheet(_MOVE_BTN_STYLE)
+    btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn_up.setEnabled(index > 0)
+    btn_up.clicked.connect(lambda _=False, i=index: move_cb(i, -1))
+
+    btn_down = QPushButton("▼")
+    btn_down.setFixedSize(QSize(22, 22))
+    btn_down.setStyleSheet(_MOVE_BTN_STYLE)
+    btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
+    btn_down.setEnabled(index < total - 1)
+    btn_down.clicked.connect(lambda _=False, i=index: move_cb(i, 1))
+
+    return btn_up, btn_down
 
 
 # ── ステータス定義 ────────────────────────────────────────────────────────────
@@ -119,22 +174,30 @@ class _ChecklistEditor(QWidget):
         self._rows.clear()
         self._list_block.setVisible(bool(self._items))
 
+        n = len(self._items)
         for i, text in enumerate(self._items):
             row = QWidget()
             hl = QHBoxLayout(row)
-            hl.setContentsMargins(8, 4, 16, 4)
-            hl.setSpacing(12)
+            hl.setContentsMargins(8, 4, 8, 4)
+            hl.setSpacing(6)
+
+            btn_up, btn_down = _make_move_buttons(i, n, self._on_move)
+            hl.addWidget(btn_up, alignment=Qt.AlignmentFlag.AlignVCenter)
+            hl.addWidget(btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             cb = QCheckBox(text)
             cb.setChecked(False)
             cb.setEnabled(False)
-            if i == len(self._items) - 1:
+            cb.setSizePolicy(
+                QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+            )
+            cb.setMinimumWidth(0)
+            if i == n - 1:
                 cb.setStyleSheet("border-bottom: none;")
             hl.addWidget(cb, 1)
 
             btn_del = _make_delete_button()
-            idx = i
-            btn_del.clicked.connect(lambda _=False, j=idx: self._on_remove(j))
+            btn_del.clicked.connect(lambda _=False, j=i: self._on_remove(j))
             hl.addWidget(btn_del, alignment=Qt.AlignmentFlag.AlignVCenter)
 
             self._list_layout.addWidget(row)
@@ -151,6 +214,14 @@ class _ChecklistEditor(QWidget):
     def _on_remove(self, idx: int) -> None:
         if 0 <= idx < len(self._items):
             self._items.pop(idx)
+            self._rebuild()
+
+    def _on_move(self, idx: int, direction: int) -> None:
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._items):
+            self._items[idx], self._items[new_idx] = (
+                self._items[new_idx], self._items[idx]
+            )
             self._rebuild()
 
 
@@ -266,17 +337,28 @@ class _DocumentsEditor(QWidget):
         self._rows.clear()
         self._list_block.setVisible(bool(self._docs))
 
+        n = len(self._docs)
         for i, doc in enumerate(self._docs):
             row = QWidget()
             hl = QHBoxLayout(row)
             hl.setContentsMargins(10, 8, 10, 8)
             hl.setSpacing(8)
 
+            # 移動ボタン
+            move_vl = QVBoxLayout()
+            move_vl.setSpacing(2)
+            move_vl.setContentsMargins(0, 0, 0, 0)
+            btn_up, btn_down = _make_move_buttons(i, n, self._on_move)
+            move_vl.addWidget(btn_up)
+            move_vl.addWidget(btn_down)
+            hl.addLayout(move_vl)
+
             # 情報表示
             info_layout = QVBoxLayout()
             info_layout.setSpacing(2)
 
-            name_lbl = QLabel(doc.get("name", "（名前なし）"))
+            name_text = doc.get("name", "（名前なし）")
+            name_lbl = _ElidedLabel(name_text)
             name_lbl.setStyleSheet(
                 "font-size: 13px; font-weight: 600; color: #1f2937; border: none;"
             )
@@ -291,7 +373,7 @@ class _DocumentsEditor(QWidget):
                 else:
                     prefix = "パス"
                     color = "#6b7280"
-                loc_lbl = QLabel(f"{prefix}: {location}")
+                loc_lbl = _ElidedLabel(f"{prefix}: {location}")
                 loc_lbl.setStyleSheet(
                     f"font-size: 12px; color: {color}; border: none;"
                 )
@@ -325,10 +407,27 @@ class _DocumentsEditor(QWidget):
         location = self._input_location.text().strip()
         if not name:
             return
+
+        loc_type = _classify_location(location) if location else ""
+
+        # パスの場合: 同期ルートからの相対パスに変換
+        if location and loc_type == "path":
+            from app.config import to_relative_path
+            rel = to_relative_path(location)
+            if rel is None:
+                QMessageBox.warning(
+                    self,
+                    "パスエラー",
+                    "SharePoint同期フォルダ外のパスは設定できません。\n"
+                    "同期フォルダ内のファイルを指定してください。",
+                )
+                return
+            location = rel
+
         doc: dict[str, str] = {
             "name": name,
             "location": location,
-            "type": _classify_location(location) if location else "",
+            "type": loc_type,
         }
         self._docs.append(doc)
         self._input_name.clear()
@@ -338,6 +437,14 @@ class _DocumentsEditor(QWidget):
     def _on_remove(self, idx: int) -> None:
         if 0 <= idx < len(self._docs):
             self._docs.pop(idx)
+            self._rebuild()
+
+    def _on_move(self, idx: int, direction: int) -> None:
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._docs):
+            self._docs[idx], self._docs[new_idx] = (
+                self._docs[new_idx], self._docs[idx]
+            )
             self._rebuild()
 
 
@@ -350,6 +457,13 @@ _FRAME_STYLE = (
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
+_TOGGLE_BTN_STYLE = (
+    "QPushButton { background: transparent; border: none; padding: 0;"
+    " font-size: 14px; font-weight: 700; color: #1f2937;"
+    " text-align: left; min-height: 0; }"
+    "QPushButton:hover { color: #3b82f6; }"
+)
+
 
 def _make_separator() -> QWidget:
     """細い水平区切り線を生成する。"""
@@ -360,7 +474,7 @@ def _make_separator() -> QWidget:
 
 
 def _make_status_block(title: str, widgets: list[QWidget]) -> QFrame:
-    """ステータス名付きブロックを生成する。"""
+    """ステータス名付きアコーディオンブロックを生成する。"""
     group = QFrame()
     group.setObjectName("status_block")
     group.setStyleSheet(_FRAME_STYLE)
@@ -368,20 +482,42 @@ def _make_status_block(title: str, widgets: list[QWidget]) -> QFrame:
     vl.setContentsMargins(16, 12, 16, 12)
     vl.setSpacing(12)
 
-    lbl_title = QLabel(title)
-    lbl_title.setStyleSheet(_TITLE_STYLE)
-    vl.addWidget(lbl_title)
+    # ── ヘッダー（クリックで開閉） ─────────────────────────────
+    toggle_btn = QPushButton(f"▼  {title}")
+    toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    toggle_btn.setStyleSheet(_TOGGLE_BTN_STYLE)
+    vl.addWidget(toggle_btn)
 
-    vl.addWidget(_make_separator())
+    sep = _make_separator()
+    vl.addWidget(sep)
+
+    # ── コンテンツ領域 ─────────────────────────────────────────
+    content = QWidget()
+    cl = QVBoxLayout(content)
+    cl.setContentsMargins(0, 0, 0, 0)
+    cl.setSpacing(12)
 
     if not widgets:
         lbl = QLabel("設定項目なし")
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setStyleSheet("color: #9ca3af; font-size: 13px; padding: 12px;")
-        vl.addWidget(lbl)
+        cl.addWidget(lbl)
     else:
         for w in widgets:
-            vl.addWidget(w)
+            cl.addWidget(w)
+
+    vl.addWidget(content)
+
+    # ── 開閉ロジック ───────────────────────────────────────────
+    def _toggle() -> None:
+        collapsed = content.isVisible()
+        content.setVisible(not collapsed)
+        sep.setVisible(not collapsed)
+        toggle_btn.setText(
+            f"{'▼' if not collapsed else '▶'}  {title}"
+        )
+
+    toggle_btn.clicked.connect(_toggle)
 
     return group
 
@@ -438,6 +574,9 @@ class HgConfigTab(QWidget):
         # ── スクロール領域 ────────────────────────────────────────────────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         content = QWidget()

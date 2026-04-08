@@ -4,12 +4,17 @@
 """
 from __future__ import annotations
 
+import os
+import platform
+import subprocess
+from pathlib import Path
+
 import pandas as pd
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QAbstractItemView, QCheckBox, QDialog, QApplication,
-    QSplitter, QFrame,
+    QSplitter, QFrame, QMessageBox,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QColor, QFont
@@ -50,6 +55,7 @@ class ResultVerificationUI(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._checks: list[QCheckBox] = []
+        self._column_config: list[dict] = []  # 表示列設定
 
         self._form = Ui_StateResultVerification()
         self._form.setupUi(self)
@@ -81,7 +87,27 @@ class ResultVerificationUI(QWidget):
         self._check_layout.setSpacing(0)
         cs_layout.addLayout(self._check_layout)
 
+        # ── 添付資料セクション（テーブルと確認項目の間） ──
+        self._att_section = QFrame()
+        self._att_section.setObjectName("verify_section")
+        self._att_section.setStyleSheet(_FRAME_STYLE)
+        att_vl = QVBoxLayout(self._att_section)
+        att_vl.setContentsMargins(16, 12, 16, 12)
+        att_vl.setSpacing(6)
+
+        att_title = QLabel("添付資料")
+        att_title.setStyleSheet(_TITLE_STYLE)
+        att_vl.addWidget(att_title)
+        att_vl.addWidget(_make_separator())
+
+        self._att_layout = QVBoxLayout()
+        self._att_layout.setSpacing(4)
+        att_vl.addLayout(self._att_layout)
+
+        self._att_section.setVisible(False)  # 添付なし時は非表示
+
         # widget_check_list の verticalLayout_3 に挿入
+        self._form.verticalLayout_3.addWidget(self._att_section)
         self._form.verticalLayout_3.addWidget(self._check_section)
 
         # デフォルトチェックリストで初期化
@@ -93,6 +119,98 @@ class ResultVerificationUI(QWidget):
         self._form.btn_next.clicked.connect(self._on_next)
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def set_column_config(self, columns: list[dict]) -> None:
+        """表示列設定をセットする。columns は visible=True のもののみ。"""
+        self._column_config = columns
+
+    def _visible_columns(self) -> list[dict]:
+        """表示対象の列設定を返す。"""
+        if self._column_config:
+            return self._column_config
+        # フォールバック: 最低限の列
+        return [
+            {"key": "valid_sample_display_name", "label": "サンプル名", "visible": True},
+            {"key": "valid_test_display_name", "label": "試験項目名", "visible": True},
+            {"key": "test_raw_data", "label": "データ", "visible": True},
+            {"key": "test_unit_name", "label": "単位", "visible": True},
+            {"key": "upper_limit", "label": "最上限基準値", "visible": True},
+            {"key": "lower_limit", "label": "最下限基準値", "visible": True},
+            {"key": "anomaly_flag", "label": "異常フラグ", "visible": True},
+        ]
+
+    def set_attachments(self, attachments: list[dict]) -> None:
+        """添付資料を表示する。空なら非表示。"""
+        # 既存をクリア
+        while self._att_layout.count():
+            item = self._att_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        if not attachments:
+            self._att_section.setVisible(False)
+            return
+
+        self._att_section.setVisible(True)
+        for att in attachments:
+            self._att_layout.addWidget(self._make_att_card(att))
+
+    def _make_att_card(self, att: dict) -> QFrame:
+        """添付ファイルカードを生成する（読み取り専用）。"""
+        path = att.get("path", "") if isinstance(att, dict) else str(att)
+        added_by = att.get("added_by", "") if isinstance(att, dict) else ""
+
+        card = QFrame()
+        card.setStyleSheet(
+            "QFrame { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; }"
+        )
+        hl = QHBoxLayout(card)
+        hl.setContentsMargins(10, 6, 10, 6)
+        hl.setSpacing(8)
+
+        icon = QLabel()
+        icon.setPixmap(get_icon(":/icons/link.svg", "#3b82f6", 14).pixmap(14, 14))
+        icon.setFixedSize(14, 14)
+        icon.setStyleSheet("border:none;")
+        hl.addWidget(icon)
+
+        name_btn = QPushButton(Path(path).name)
+        name_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        name_btn.setFlat(True)
+        name_btn.setStyleSheet(
+            "QPushButton { font-size:12px; color:#333333; border:none;"
+            " background:transparent; text-align:left; padding:0; }"
+            "QPushButton:hover { color:#3b82f6; text-decoration:underline; }"
+        )
+        name_btn.clicked.connect(lambda _=False, p=path: self._open_attachment(p))
+        hl.addWidget(name_btn, 1)
+
+        if added_by:
+            by_lbl = QLabel(added_by)
+            by_lbl.setStyleSheet("font-size:11px; color:#9ca3af; border:none;")
+            hl.addWidget(by_lbl)
+
+        return card
+
+    def _open_attachment(self, path: str) -> None:
+        """添付ファイルをOSのデフォルトアプリで開く。"""
+        p = Path(path)
+        if not p.is_absolute():
+            import app.config as _cfg
+            p = _cfg.DATA_PATH / p
+        if not p.exists():
+            QMessageBox.warning(self, "ファイルが見つかりません", str(p))
+            return
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(["open", str(p)], check=False)
+            elif platform.system() == "Windows":
+                os.startfile(str(p))  # type: ignore[attr-defined]
+            else:
+                subprocess.run(["xdg-open", str(p)], check=False)
+        except Exception as e:
+            QMessageBox.warning(self, "ファイルを開けません", str(e))
 
     def set_check_items(self, items: list[str]) -> None:
         """チェックリスト項目を動的に差し替える。"""
@@ -147,6 +265,7 @@ class ResultVerificationUI(QWidget):
         self._hg_code = hg_code
         self._anomaly_fn = anomaly_fn
         self._extract_numeric_fn = extract_numeric_fn
+        self._vis_cols = self._visible_columns()
         self.tab_widget.clear()
 
         if df.empty:
@@ -167,6 +286,14 @@ class ResultVerificationUI(QWidget):
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
+    # ソート可能な列キー
+    _RV_SORTABLE_KEYS = {
+        "valid_sample_display_name", "valid_test_display_name",
+        "test_raw_data", "test_unit_name",
+    }
+    # Stretch にする列
+    _RV_STRETCH_KEYS = {"valid_sample_display_name", "valid_test_display_name"}
+
     def _build_tab(
         self, df: pd.DataFrame, hg_code: str, holder_name: str
     ) -> QWidget:
@@ -174,16 +301,22 @@ class ResultVerificationUI(QWidget):
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 8, 0, 0)
 
-        headers = ["サンプル名", "試験項目名", "データ", "単位",
-                   "最上限基準値", "最下限基準値", "異常フラグ", ""]
+        vis_cols = self._vis_cols
+        headers = [c["label"] for c in vis_cols] + [""]
         table = QTableWidget(0, len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setAlternatingRowColors(True)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        table.setColumnWidth(7, 44)
+        hh = table.horizontalHeader()
+        for i, c in enumerate(vis_cols):
+            if c["key"] in self._RV_STRETCH_KEYS:
+                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+            else:
+                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
+        action_col = len(vis_cols)
+        hh.setSectionResizeMode(action_col, QHeaderView.ResizeMode.Fixed)
+        table.setColumnWidth(action_col, 44)
         table.verticalHeader().setDefaultSectionSize(36)
         table.setStyleSheet("""
             QTableWidget { border:none; }
@@ -197,12 +330,8 @@ class ResultVerificationUI(QWidget):
         def _on_sort(col: int, ascending: bool, tbl: QTableWidget = table) -> None:
             src_df: pd.DataFrame = tbl._source_df  # type: ignore[attr-defined]
             hg: str = tbl._hg_code  # type: ignore[attr-defined]
-            _SORT_COLS = [
-                "valid_sample_display_name", "valid_test_display_name",
-                "test_raw_data", "test_unit_name",
-            ]
-            if col < len(_SORT_COLS):
-                col_key = _SORT_COLS[col]
+            if col < len(vis_cols) and vis_cols[col]["key"] in self._RV_SORTABLE_KEYS:
+                col_key = vis_cols[col]["key"]
                 tbl._source_df = src_df.sort_values(  # type: ignore[attr-defined]
                     col_key, ascending=ascending, na_position="last",
                 )
@@ -219,12 +348,10 @@ class ResultVerificationUI(QWidget):
         layout.addWidget(table)
         return widget
 
-    def _add_data_row(
-        self, table: QTableWidget, row: pd.Series, hg_code: str
-    ) -> None:
-        r = table.rowCount()
-        table.insertRow(r)
-
+    def _compute_row_extras(
+        self, row: pd.Series, hg_code: str,
+    ) -> dict:
+        """行の計算済みデータ（基準値、異常フラグ等）を返す。"""
         upper_specs = [row.get(f"test_upper_limit_spec_{i}") for i in range(1, 5)]
         lower_specs = [row.get(f"test_lower_limit_spec_{i}") for i in range(1, 5)]
         upper_vals = [v for v in upper_specs if pd.notna(v)]
@@ -235,30 +362,22 @@ class ResultVerificationUI(QWidget):
         grade_raw = str(row.get("test_grade_code", ""))
         trend_ok = row.get("trend_enabled") == True
 
-        # 優先度1: test_grade_code の判定
-        if grade_raw in ("NN", "--") or grade_raw in ("nan", "None"):
-            # NN / -- → 異常なし
+        if grade_raw in ("NN", "--", "nan", "None"):
             flag_text = "NN"
             is_anomaly = False
         elif grade_raw and grade_raw not in ("",):
-            # NN/-- 以外の値がある → 異常
             flag_text = grade_raw
             is_anomaly = True
         else:
-            # grade_code が空 → 優先度2: 基準値チェック → 優先度3: mean±2σ
             raw_num = self._extract_numeric_fn(str(row.get("test_raw_data", "")))
-
-            # 優先度2: 基準値超過チェック (U{N}/L{N})
             from app.core.loader import DataLoader
             spec_label = None
             if raw_num is not None:
                 spec_label = DataLoader.check_spec_violation(row, raw_num)
-
             if spec_label:
                 flag_text = spec_label
                 is_anomaly = True
             elif trend_ok:
-                # 優先度3: mean±2σ チェック (異常なしのもののみ)
                 is_anomaly = self._anomaly_fn(row, hg_code)
                 if is_anomaly is True:
                     flag_text = "異常"
@@ -267,43 +386,73 @@ class ResultVerificationUI(QWidget):
                 else:
                     flag_text = "—"
             else:
-                # 基準値も問題なし → NN
                 flag_text = "NN"
                 is_anomaly = False
 
-        values = [
-            str(row.get("valid_sample_display_name", "")),
-            str(row.get("valid_test_display_name", "")),
-            str(row.get("test_raw_data", "")),
-            str(row.get("test_unit_name", "")),
-            upper_lim,
-            lower_lim,
-            flag_text,
-        ]
+        return {
+            "upper_limit": upper_lim,
+            "lower_limit": lower_lim,
+            "anomaly_flag": flag_text,
+            "is_anomaly": is_anomaly,
+            "upper_vals": upper_vals,
+            "lower_vals": lower_vals,
+        }
 
-        for col, v in enumerate(values):
-            item = QTableWidgetItem(str(v) if v not in ("nan", "None") else "")
-            if col == 6 and is_anomaly:
+    def _add_data_row(
+        self, table: QTableWidget, row: pd.Series, hg_code: str
+    ) -> None:
+        vis_cols = self._vis_cols
+        r = table.rowCount()
+        table.insertRow(r)
+
+        extras = self._compute_row_extras(row, hg_code)
+
+        # 計算列のマッピング（CSV列は row から直接取得）
+        computed_map: dict[str, str] = {
+            "upper_limit": extras["upper_limit"],
+            "lower_limit": extras["lower_limit"],
+            "anomaly_flag": extras["anomaly_flag"],
+        }
+
+        raw_num = None
+        try:
+            raw_num = self._extract_numeric_fn(str(row.get("test_raw_data", "")))
+        except Exception:
+            pass
+
+        for col, c in enumerate(vis_cols):
+            key = c["key"]
+            if key in computed_map:
+                v = computed_map[key]
+            else:
+                v = row.get(key, "")
+                if v is None or (isinstance(v, float) and str(v) == "nan"):
+                    v = ""
+            item = QTableWidgetItem(str(v) if str(v) not in ("nan", "None") else "")
+
+            # 異常フラグの色付け
+            if key == "anomaly_flag" and extras["is_anomaly"]:
                 item.setBackground(QColor("#fee2e2"))
                 item.setForeground(QColor("#dc2626"))
                 item.setFont(QFont("", -1, QFont.Weight.Bold))
-            if col in (4, 5):
-                try:
-                    raw_num = self._extract_numeric_fn(str(row.get("test_raw_data", "")))
-                    if raw_num is not None:
-                        if col == 4 and upper_vals and raw_num > min(upper_vals):
-                            item.setBackground(QColor("#fef9c3"))
-                        if col == 5 and lower_vals and raw_num < max(lower_vals):
-                            item.setBackground(QColor("#fef9c3"))
-                except Exception:
-                    pass
+
+            # 基準値超過の色付け
+            if key == "upper_limit" and raw_num is not None:
+                if extras["upper_vals"] and raw_num > min(extras["upper_vals"]):
+                    item.setBackground(QColor("#fef9c3"))
+            if key == "lower_limit" and raw_num is not None:
+                if extras["lower_vals"] and raw_num < max(extras["lower_vals"]):
+                    item.setBackground(QColor("#fef9c3"))
+
             table.setItem(r, col, item)
 
+        # トレンドグラフボタン (末尾列)
         vsset = str(row.get("valid_sample_set_code", ""))
         vtest = str(row.get("valid_test_set_code", ""))
         unit  = str(row.get("test_unit_name", ""))
         test_name = str(row.get("valid_test_display_name", ""))
 
+        action_col = len(vis_cols)
         trend_btn = QPushButton()
         trend_btn.setIcon(get_icon(":/icons/graph.svg", "#4a8cff", 14))
         trend_btn.setIconSize(QSize(14, 14))
@@ -325,7 +474,7 @@ class ResultVerificationUI(QWidget):
         cell_l.setContentsMargins(4, 4, 4, 4)
         cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cell_l.addWidget(trend_btn)
-        table.setCellWidget(r, 7, cell_w)
+        table.setCellWidget(r, action_col, cell_w)
 
     def _update_next_btn(self) -> None:
         self.next_btn.setEnabled(all(cb.isChecked() for cb in self._checks))
