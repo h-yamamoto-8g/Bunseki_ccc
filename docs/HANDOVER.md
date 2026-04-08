@@ -21,7 +21,7 @@
 
 ### 2.1 Path Resolution
 
-All paths derive from a single USERPROFILE setting (user's home folder, e.g. `C:\Users\12414`).
+All paths are derived from USERPROFILE (user's home folder) at startup.
 
 **Settings file**: `~/.bunseki/settings.json`
 
@@ -31,22 +31,32 @@ All paths derive from a single USERPROFILE setting (user's home folder, e.g. `C:
 }
 ```
 
-**Derived paths**:
-| Variable | Derivation |
-|----------|-----------|
-| `USER_PROFILE` | Saved path or `Path.home()` fallback |
-| `SYNC_ROOT` | `{USER_PROFILE}/トクヤマグループ` |
-| `DATA_PATH` | `{USER_PROFILE}/トクヤマグループ/環境分析課 - ドキュメント/app_data` |
+**Derivation rules**:
+| Variable | Derived Path |
+|----------|-------------|
+| `USERPROFILE` | `C:\Users\12414` |
+| `SYNC_ROOT` | `{USERPROFILE}\トクヤマグループ` |
+| `DATA_PATH` | `{USERPROFILE}\トクヤマグループ\環境分析課 - ドキュメント\app_data` |
 
-**Backward compatibility**: Legacy settings (`app_data_path`, `sync_root_path`) are used as fallback.
+**Resolution priority**:
+1. `~/.bunseki/settings.json` key `user_profile_path`
+2. Fallback: `Path.home()` (if unset, shows dialog prompting user to configure)
+
+**Backward compatibility**: If old settings (`app_data_path`, `sync_root_path`) exist, they are used as fallback.
 
 ### 2.2 Path Variables for Tool Settings
 
-Tool path inputs support these variables (expanded by `_expand_path()`):
-- `%USERPROFILE%` → user profile path
-- `%SYNC_ROOT%` → SharePoint sync root
-- `%DATA_PATH%` → app data path
-- Plus any OS environment variables via `os.path.expandvars()`
+The following variables can be used in tool settings path input fields:
+
+| Variable | Example Expansion |
+|----------|------------------|
+| `%USERPROFILE%` | `C:\Users\12414` |
+| `%SYNC_ROOT%` | `C:\Users\12414\トクヤマグループ` |
+| `%DATA_PATH%` | `C:\Users\12414\トクヤマグループ\環境分析課 - ドキュメント\app_data` |
+
+Expansion is handled uniformly by the `_expand_path()` function:
+1. Replace app-specific variables (`%SYNC_ROOT%`, `%DATA_PATH%`)
+2. Expand OS environment variables (`%USERPROFILE%` etc.) via `os.path.expandvars()`
 
 ### 2.3 app_data Directory Structure
 
@@ -62,18 +72,15 @@ DATA_PATH/
 │   │   ├── raw/                      # Extractor output (raw CSV)
 │   │   └── normalized/bunseki.csv    # ETL output (normalized)
 │   └── tools/
-│       ├── lab_aid_extractor/dist/   # External exe tool
-│       └── lab_aid_etl/dist/         # External exe tool
 └── bunseki/                          # App-specific data
     ├── config/
     │   ├── users.json                # User accounts (SHA-256 hashed)
     │   ├── hg_config.json            # Holder group checklist config
-    │   └── data_config.json          # Column settings, tool paths, CSV export config
+    │   └── data_config.json          # Column settings & tool path settings
     ├── tasks/tasks.json              # Task (workflow) data
     ├── data/anomalies.json
     ├── news/news.json
     ├── jobs/jobs.json
-    ├── manuals/
     └── logs/
 ```
 
