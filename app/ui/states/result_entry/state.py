@@ -13,8 +13,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt, QEvent
 from PySide6.QtGui import QColor
 
-from app.ui.widgets.icon_utils import get_icon
-
 # ── スタイル定数 ──────────────────────────────────────────────────────────────
 
 _ACCENT = "#3b82f6"
@@ -154,8 +152,6 @@ class ResultEntryUI(QWidget):
         ab.addWidget(self._btn_transfer)
 
         self._btn_data_update = QPushButton("データ更新")
-        self._btn_data_update.setIcon(get_icon(":/icons/data.svg", _ACCENT))
-        self._btn_data_update.setMinimumWidth(100)
         self._btn_data_update.setFixedHeight(30)
         self._btn_data_update.setStyleSheet(_BTN_SECONDARY)
         self._btn_data_update.clicked.connect(self.data_update_requested)
