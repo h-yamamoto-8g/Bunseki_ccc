@@ -190,7 +190,7 @@ class ResultEntryState(QWidget):
         # Excel に書き込み
         try:
             from openpyxl import load_workbook
-            from openpyxl.utils import coordinate_from_string, column_index_from_string
+            from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
             wb = load_workbook(excel_path)
 
