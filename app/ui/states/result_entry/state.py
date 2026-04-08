@@ -106,6 +106,7 @@ class ResultEntryUI(QWidget):
     data_update_requested = Signal()
     save_temp_requested = Signal(list)
     transfer_requested = Signal(list)
+    load_results_requested = Signal()
     verify_requested = Signal()
 
     _INPUT_COL_KEY = "input_data"
@@ -159,6 +160,13 @@ class ResultEntryUI(QWidget):
         self._btn_transfer.setStyleSheet(_BTN_PRIMARY)
         self._btn_transfer.clicked.connect(self._on_transfer)
         ab.addWidget(self._btn_transfer)
+
+        self._btn_load_results = QPushButton("分析結果の読み込み")
+        self._btn_load_results.setFixedHeight(30)
+        self._btn_load_results.setStyleSheet(_BTN_SECONDARY)
+        self._btn_load_results.setEnabled(False)
+        self._btn_load_results.clicked.connect(self.load_results_requested)
+        ab.addWidget(self._btn_load_results)
 
         self._btn_verify = QPushButton("データ照合")
         self._btn_verify.setFixedHeight(30)
@@ -223,6 +231,7 @@ class ResultEntryUI(QWidget):
         self._btn_data_update.setVisible(not readonly)
         self._btn_save_temp.setVisible(not readonly)
         self._btn_transfer.setVisible(not readonly)
+        self._btn_load_results.setVisible(not readonly)
         self._btn_verify.setVisible(not readonly)
 
     def set_state_done(self, done: bool) -> None:
