@@ -240,6 +240,12 @@ class AnalysisTargetsUI(QWidget):
         v = s.get(key, "")
         if v is None:
             return ""
+        if isinstance(v, float):
+            if v != v:  # NaN
+                return ""
+            if v.is_integer():
+                return str(int(v))
+            return str(v)
         s_val = str(v)
         return "" if s_val in ("nan", "None") else s_val
 

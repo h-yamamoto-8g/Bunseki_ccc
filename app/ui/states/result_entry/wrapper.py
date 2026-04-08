@@ -267,7 +267,18 @@ class ResultEntryState(QWidget):
                     f"{row.get('valid_test_set_code', '')}"
                 )
                 val = row.get("data_raw_data", "")
-                raw_map[key] = "" if val is None or str(val) in ("nan", "None") else str(val)
+                if val is None:
+                    raw_map[key] = ""
+                elif isinstance(val, float):
+                    if val != val:
+                        raw_map[key] = ""
+                    elif val.is_integer():
+                        raw_map[key] = str(int(val))
+                    else:
+                        raw_map[key] = str(val)
+                else:
+                    s = str(val)
+                    raw_map[key] = "" if s in ("nan", "None") else s
 
         all_data = self._ui._collect_all_data()
         mismatch_keys: set[str] = set()

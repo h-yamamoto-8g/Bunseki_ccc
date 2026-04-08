@@ -428,7 +428,16 @@ class ResultVerificationUI(QWidget):
                 v = row.get(key, "")
                 if v is None or (isinstance(v, float) and str(v) == "nan"):
                     v = ""
-            item = QTableWidgetItem(str(v) if str(v) not in ("nan", "None") else "")
+            if isinstance(v, float):
+                if v != v:
+                    v = ""
+                elif v.is_integer():
+                    v = str(int(v))
+                else:
+                    v = str(v)
+            else:
+                v = "" if str(v) in ("nan", "None") else str(v)
+            item = QTableWidgetItem(v)
 
             # 異常フラグの色付け
             if key == "anomaly_flag" and extras["is_anomaly"]:
