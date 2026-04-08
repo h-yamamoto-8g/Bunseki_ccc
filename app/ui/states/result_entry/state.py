@@ -105,9 +105,7 @@ class ResultEntryUI(QWidget):
     labaid_requested = Signal()
     data_update_requested = Signal()
     save_temp_requested = Signal(list)
-    csv_export_requested = Signal(list)
-    open_tool_requested = Signal()
-    open_folder_requested = Signal()
+    transfer_requested = Signal(list)
     verify_requested = Signal()
 
     _INPUT_COL_KEY = "input_data"
@@ -149,30 +147,18 @@ class ResultEntryUI(QWidget):
 
         ab.addStretch()
 
-        # 右側: 一時保存・CSV出力・入力ツール
+        # 右側: 一時保存・入力ツールへ引継ぎ・データ照合
         self._btn_save_temp = QPushButton("一時保存")
         self._btn_save_temp.setFixedHeight(30)
         self._btn_save_temp.setStyleSheet(_BTN_SECONDARY)
         self._btn_save_temp.clicked.connect(self._on_save_temp)
         ab.addWidget(self._btn_save_temp)
 
-        self._btn_csv = QPushButton("CSV出力")
-        self._btn_csv.setFixedHeight(30)
-        self._btn_csv.setStyleSheet(_BTN_PRIMARY)
-        self._btn_csv.clicked.connect(self._on_csv_export)
-        ab.addWidget(self._btn_csv)
-
-        self._btn_open_tool = QPushButton("入力ツール")
-        self._btn_open_tool.setFixedHeight(30)
-        self._btn_open_tool.setStyleSheet(_BTN_SECONDARY)
-        self._btn_open_tool.clicked.connect(self.open_tool_requested)
-        ab.addWidget(self._btn_open_tool)
-
-        self._btn_open_folder = QPushButton("保存先を開く")
-        self._btn_open_folder.setFixedHeight(30)
-        self._btn_open_folder.setStyleSheet(_BTN_SECONDARY)
-        self._btn_open_folder.clicked.connect(self.open_folder_requested)
-        ab.addWidget(self._btn_open_folder)
+        self._btn_transfer = QPushButton("入力ツールへ引継ぎ")
+        self._btn_transfer.setFixedHeight(30)
+        self._btn_transfer.setStyleSheet(_BTN_PRIMARY)
+        self._btn_transfer.clicked.connect(self._on_transfer)
+        ab.addWidget(self._btn_transfer)
 
         self._btn_verify = QPushButton("データ照合")
         self._btn_verify.setFixedHeight(30)
@@ -236,9 +222,7 @@ class ResultEntryUI(QWidget):
         self._btn_labaid.setVisible(not readonly)
         self._btn_data_update.setVisible(not readonly)
         self._btn_save_temp.setVisible(not readonly)
-        self._btn_csv.setVisible(not readonly)
-        self._btn_open_tool.setVisible(not readonly)
-        self._btn_open_folder.setVisible(not readonly)
+        self._btn_transfer.setVisible(not readonly)
         self._btn_verify.setVisible(not readonly)
 
     def set_state_done(self, done: bool) -> None:
@@ -386,5 +370,5 @@ class ResultEntryUI(QWidget):
     def _on_save_temp(self) -> None:
         self.save_temp_requested.emit(self._collect_all_data())
 
-    def _on_csv_export(self) -> None:
-        self.csv_export_requested.emit(self._collect_all_data())
+    def _on_transfer(self) -> None:
+        self.transfer_requested.emit(self._collect_all_data())

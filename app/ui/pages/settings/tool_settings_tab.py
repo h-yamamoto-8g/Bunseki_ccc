@@ -76,18 +76,53 @@ class ToolSettingsTab(QWidget):
 
         # ── 入力ツール ────────────────────────────────────────
         tool_section = self._make_section(
-            "入力ツール",
-            "CSV出力後に起動するツールのパスまたは URL を設定します。\n"
-            "空欄の場合はCSVファイルを直接開きます。",
+            "入力ツール（Excel）",
+            "データを書き込む Excel ファイルのパスと、書き込み先のシート名・開始セルを設定します。",
         )
+        tl = tool_section.layout()
+
+        lbl_path = QLabel("Excel ファイルパス")
+        lbl_path.setStyleSheet(_LABEL_STYLE)
+        tl.addWidget(lbl_path)
         self._input_tool = QLineEdit(
             self._service.get_tool_path("input_tool_path")
         )
         self._input_tool.setPlaceholderText(
-            "例: C:\\Tools\\InputTool.exe  （空欄でCSVを直接開く）"
+            r"例: C:\Tools\入力ツール.xlsx"
         )
         self._input_tool.setStyleSheet(_INPUT_STYLE)
-        tool_section.layout().addWidget(self._input_tool)
+        tl.addWidget(self._input_tool)
+
+        row_widget = QWidget()
+        row_widget.setStyleSheet("background: transparent;")
+        rl = QHBoxLayout(row_widget)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(12)
+
+        lbl_sheet = QLabel("シート名")
+        lbl_sheet.setStyleSheet(_LABEL_STYLE)
+        lbl_sheet.setFixedWidth(60)
+        rl.addWidget(lbl_sheet)
+        self._input_sheet = QLineEdit(
+            self._service.get_tool_path("input_tool_sheet")
+        )
+        self._input_sheet.setPlaceholderText("例: Sheet1")
+        self._input_sheet.setStyleSheet(_INPUT_STYLE)
+        rl.addWidget(self._input_sheet)
+
+        lbl_cell = QLabel("開始セル")
+        lbl_cell.setStyleSheet(_LABEL_STYLE)
+        lbl_cell.setFixedWidth(60)
+        rl.addWidget(lbl_cell)
+        self._input_cell = QLineEdit(
+            self._service.get_tool_path("input_tool_cell")
+        )
+        self._input_cell.setPlaceholderText("例: A1")
+        self._input_cell.setStyleSheet(_INPUT_STYLE)
+        self._input_cell.setFixedWidth(100)
+        rl.addWidget(self._input_cell)
+
+        tl.addWidget(row_widget)
         outer.addWidget(tool_section)
 
         outer.addStretch()
@@ -120,5 +155,11 @@ class ToolSettingsTab(QWidget):
         )
         self._service.save_tool_path(
             "input_tool_path", self._input_tool.text().strip()
+        )
+        self._service.save_tool_path(
+            "input_tool_sheet", self._input_sheet.text().strip()
+        )
+        self._service.save_tool_path(
+            "input_tool_cell", self._input_cell.text().strip()
         )
         QMessageBox.information(self, "保存完了", "ツール設定を保存しました。")
