@@ -66,6 +66,7 @@ class _ColumnListEditor(QWidget):
         self._csv_columns = csv_columns
         self._columns: list[dict] = []
         self._rows: list[dict] = []
+        self._rebuilding = False
         self._build_ui(title)
         self._load()
 
@@ -129,9 +130,12 @@ class _ColumnListEditor(QWidget):
             self._scope, csv_columns=self._csv_columns,
         )
         self._columns = columns
+        # チェック済みを上、未チェックを下に安定ソート
+        self._columns.sort(key=lambda c: not c.get("visible", True))
         self._rebuild()
 
     def _rebuild(self) -> None:
+        self._rebuilding = True
         for r in self._rows:
             r["widget"].deleteLater()
         self._rows.clear()
@@ -141,6 +145,7 @@ class _ColumnListEditor(QWidget):
             row_data = self._make_row(col, index=i, total=n)
             self._list_layout.addWidget(row_data["widget"])
             self._rows.append(row_data)
+        self._rebuilding = False
 
     def _make_row(self, col: dict, index: int, total: int) -> dict:
         row = QWidget()
@@ -173,6 +178,9 @@ class _ColumnListEditor(QWidget):
             "QCheckBox { border-bottom: none; padding: 0; }"
             "QCheckBox::indicator { width: 24px; height: 24px; }"
         )
+        cb.toggled.connect(
+            lambda checked, idx=index: self._on_check_toggled(idx, checked)
+        )
         hl.addWidget(cb, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         key_lbl = QLabel(col["key"])
@@ -189,6 +197,30 @@ class _ColumnListEditor(QWidget):
             row.setStyleSheet("QWidget#col_row { border-bottom: 1px solid #e5e7eb; }")
 
         return {"widget": row, "key": col["key"], "cb": cb, "edit": edit}
+
+    def _on_check_toggled(self, index: int, checked: bool) -> None:
+        """チェック変更時に行を自動移動する。"""
+        if self._rebuilding:
+            return
+        self._sync_to_columns()
+        col = self._columns.pop(index)
+        col["visible"] = checked
+        if checked:
+            # チェック群の末尾に挿入
+            insert_at = 0
+            for i, c in enumerate(self._columns):
+                if c.get("visible", True):
+                    insert_at = i + 1
+            self._columns.insert(insert_at, col)
+        else:
+            # 未チェック群の先頭に挿入
+            insert_at = len(self._columns)
+            for i, c in enumerate(self._columns):
+                if not c.get("visible", True):
+                    insert_at = i
+                    break
+            self._columns.insert(insert_at, col)
+        self._rebuild()
 
     def _move(self, index: int, direction: int) -> None:
         """行を上(-1)または下(+1)に移動する。"""
