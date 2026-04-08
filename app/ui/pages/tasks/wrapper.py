@@ -298,7 +298,8 @@ class TasksPage(QWidget):
         elif state == "submission":
             self.submission_state.load_task(task, readonly=readonly)
         elif state == "completed":
-            self.completed_state.load_task(task, preview=preview)
+            done = task.get("current_state") == "completed"
+            self.completed_state.load_task(task, done=done)
         else:
             self.show_list()
             return

@@ -36,7 +36,7 @@ class CompletedUI(QWidget):
         # summary_lbl エイリアス (wrapper から参照)
         self.summary_lbl = self._form.label
 
-    def set_summary(self, task: dict, preview: bool = False) -> None:
+    def set_summary(self, task: dict, done: bool = False) -> None:
         created = task.get("created_at", "")[:16].replace("T", " ")
         holder = task.get("holder_group_name", "")
         jobs = ", ".join(task.get("job_numbers", []))
@@ -47,10 +47,7 @@ class CompletedUI(QWidget):
             .get("valid_sample_set_codes", [])
         )
 
-        if preview:
-            # まだ完了していないプレビュー
-            self._form.label.setText("タスクを進めてください")
-        else:
+        if done:
             updated = task.get("updated_at", "")[:16].replace("T", " ")
             self._form.label.setText(
                 f"タスクが完了しました\n"
@@ -58,4 +55,12 @@ class CompletedUI(QWidget):
                 f"ホルダグループ: {holder}  JOB番号: {jobs}\n"
                 f"担当者: {creator}  分析サンプル数: {n_samples} 件\n"
                 f"起票日時: {created}  完了日時: {updated}"
+            )
+        else:
+            self._form.label.setText(
+                f"タスクは進捗中です\n"
+                f"タスク名: {task.get('task_name', '')}\n"
+                f"ホルダグループ: {holder}  JOB番号: {jobs}\n"
+                f"担当者: {creator}  分析サンプル数: {n_samples} 件\n"
+                f"起票日時: {created}"
             )
