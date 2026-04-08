@@ -161,7 +161,7 @@ class ResultEntryUI(QWidget):
 
         self._btn_transfer = QPushButton("入力ツールへ引継ぎ")
         self._btn_transfer.setFixedHeight(30)
-        self._btn_transfer.setStyleSheet(_BTN_PRIMARY)
+        self._btn_transfer.setStyleSheet(_BTN_SECONDARY)
         self._btn_transfer.clicked.connect(self._on_transfer)
         ab.addWidget(self._btn_transfer)
 
