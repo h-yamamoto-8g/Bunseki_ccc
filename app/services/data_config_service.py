@@ -115,7 +115,10 @@ class DataConfigService:
     # ── タスクステート列設定 ──────────────────────────────────────────────────
 
     def get_task_columns(
-        self, scope: str, csv_columns: list[str] | None = None,
+        self,
+        scope: str,
+        csv_columns: list[str] | None = None,
+        include_extras: bool = True,
     ) -> list[dict]:
         """タスクステートの列設定を返す。
 
@@ -124,16 +127,21 @@ class DataConfigService:
         Args:
             scope: "analysis_targets" または "result_verification"
             csv_columns: bunseki.csv の実ヘッダー一覧
+            include_extras: False にすると機能列（計算列・入力欄）を除外する
         """
         cfg = data_config_store.load()
         saved: list[dict] | None = cfg.get(f"{scope}_columns")
         default_visible = _TASK_DEFAULT_VISIBLE.get(scope, set())
-        extras = _TASK_EXTRA_COLUMNS.get(scope, [])
+        extras = _TASK_EXTRA_COLUMNS.get(scope, []) if include_extras else []
 
         if csv_columns is not None:
             return self._merge_task(saved or [], csv_columns, default_visible, extras)
 
         if saved:
+            # include_extras=False のとき、保存済みデータから機能列を除外
+            extra_keys = {e["key"] for e in _TASK_EXTRA_COLUMNS.get(scope, [])}
+            if not include_extras and extra_keys:
+                saved = [c for c in saved if c["key"] not in extra_keys]
             # csv_columns なしでも計算列が漏れていたら末尾に追加
             saved_keys = {c["key"] for c in saved}
             merged = list(saved)

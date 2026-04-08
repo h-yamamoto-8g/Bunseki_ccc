@@ -58,12 +58,14 @@ class _ColumnListEditor(QWidget):
         scope: str,
         service: DataConfigService,
         csv_columns: list[str] | None = None,
+        include_extras: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._scope = scope
         self._service = service
         self._csv_columns = csv_columns
+        self._include_extras = include_extras
         self._columns: list[dict] = []
         self._rows: list[dict] = []
         self._rebuilding = False
@@ -127,7 +129,9 @@ class _ColumnListEditor(QWidget):
 
     def _load(self) -> None:
         columns = self._service.get_task_columns(
-            self._scope, csv_columns=self._csv_columns,
+            self._scope,
+            csv_columns=self._csv_columns,
+            include_extras=self._include_extras,
         )
         self._columns = columns
         # チェック済みを上、未チェックを下に安定ソート
@@ -323,6 +327,7 @@ class TaskColumnsTab(QWidget):
             "result_entry",
             self._service,
             csv_columns=self._csv_columns,
+            include_extras=False,
         )
         cl.addWidget(self._entry_editor)
 
