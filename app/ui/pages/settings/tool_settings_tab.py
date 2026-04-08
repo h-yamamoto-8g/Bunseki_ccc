@@ -62,13 +62,13 @@ class ToolSettingsTab(QWidget):
         # ── Lab-Aid ───────────────────────────────────────────
         labaid_section = self._make_section(
             "Lab-Aid",
-            "Lab-Aid のパスまたは URL を設定します。",
+            "Lab-Aid のアプリパスまたは URL を設定します。",
         )
         self._input_labaid = QLineEdit(
             self._service.get_tool_path("labaid_path")
         )
         self._input_labaid.setPlaceholderText(
-            "例: C:\\LabAid\\LabAid.exe  または  http://192.168.x.x/labaid/"
+            r"例: C:\Users\...\Lab-Aid v5 Client.appref-ms  または  http://..."
         )
         self._input_labaid.setStyleSheet(_INPUT_STYLE)
         labaid_section.layout().addWidget(self._input_labaid)

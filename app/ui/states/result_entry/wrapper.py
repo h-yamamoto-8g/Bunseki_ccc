@@ -237,7 +237,7 @@ class ResultEntryState(QWidget):
             if path.startswith(("http://", "https://")):
                 webbrowser.open(path)
             else:
-                subprocess.Popen([path])
+                self._open_file(path)
         except Exception as e:
             QMessageBox.warning(self, "Lab-Aid 起動エラー", str(e))
 
