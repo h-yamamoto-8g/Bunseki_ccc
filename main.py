@@ -655,33 +655,15 @@ def _ensure_user_profile(qapp: QApplication) -> bool:
     Returns:
         True: 有効なパスが設定済み。False: ユーザーがキャンセル。
     """
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
-    from app.config import load_user_profile, save_user_profile, reload_user_profile
+    from app.config import load_user_profile
 
     if load_user_profile() is not None:
         return True
 
-    # 未設定 → フォルダ選択ダイアログを表示
-    QMessageBox.information(
-        None,  # type: ignore[arg-type]
-        "USERPROFILE の設定",
-        "ユーザープロファイルフォルダを選択してください。\n\n"
-        "例: C:\\Users\\12414\n\n"
-        "このフォルダを基準に同期環境やデータ保存先が自動設定されます。",
-    )
-    folder = QFileDialog.getExistingDirectory(
-        None,  # type: ignore[arg-type]
-        "ユーザープロファイルフォルダを選択",
-        str(pathlib.Path.home()),
-    )
-    if not folder:
-        return False
-    p = pathlib.Path(folder)
-    if not p.exists() or not p.is_dir():
-        return False
-    save_user_profile(p)
-    reload_user_profile(p)
-    return True
+    from app.ui.dialogs.setup_profile_dialog import SetupUserProfileDialog
+
+    dlg = SetupUserProfileDialog()
+    return dlg.exec() == SetupUserProfileDialog.DialogCode.Accepted
 
 
 def _login(qapp: QApplication) -> bool:
