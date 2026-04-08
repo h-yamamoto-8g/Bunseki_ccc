@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -36,8 +37,19 @@ _PREVIEW_ERROR_STYLE = (
 
 
 def _expand_path(raw: str) -> str:
-    """環境変数を展開してパスを返す。"""
-    return os.path.expandvars(raw.strip()) if raw.strip() else ""
+    """環境変数およびアプリ独自変数を展開してパスを返す。
+
+    %USERPROFILE%, %SYNC_ROOT%, %DATA_PATH% が使用可能。
+    """
+    import app.config as _cfg
+    s = raw.strip()
+    if not s:
+        return ""
+    # アプリ独自変数を先に置換
+    s = s.replace("%SYNC_ROOT%", str(_cfg.SYNC_ROOT))
+    s = s.replace("%DATA_PATH%", str(_cfg.DATA_PATH))
+    # OS 環境変数を展開（%USERPROFILE% 等）
+    return os.path.expandvars(s)
 
 
 def _preview_text(raw: str) -> tuple[str, bool]:
@@ -89,6 +101,46 @@ class ToolSettingsTab(QWidget):
         self._btn_save.clicked.connect(self._on_save)
         header.addWidget(self._btn_save)
         outer.addLayout(header)
+
+        # ── 使用可能な変数 ────────────────────────────────────
+        var_section = self._make_section(
+            "使用可能な変数",
+            "パス入力欄で以下の変数が使えます。ボタンでコピーできます。",
+        )
+        vl = var_section.layout()
+
+        import app.config as _cfg
+        _COPY_BTN_STYLE = (
+            "QPushButton { background: #f3f4f6; border: 1px solid #d1d5db;"
+            " border-radius: 4px; padding: 2px 8px; font-size: 11px;"
+            " font-family: monospace; color: #374151; }"
+            "QPushButton:hover { background: #e5e7eb; }"
+        )
+        _VAL_STYLE = "font-size: 11px; color: #6b7280; border: none;"
+
+        for var_name, var_value in [
+            ("%USERPROFILE%", str(_cfg.USER_PROFILE)),
+            ("%SYNC_ROOT%", str(_cfg.SYNC_ROOT)),
+            ("%DATA_PATH%", str(_cfg.DATA_PATH)),
+        ]:
+            row = QWidget()
+            row.setStyleSheet("background: transparent;")
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 2, 0, 2)
+            rl.setSpacing(8)
+            btn = QPushButton(var_name)
+            btn.setStyleSheet(_COPY_BTN_STYLE)
+            btn.setFixedHeight(24)
+            btn.clicked.connect(
+                lambda _, v=var_name: QApplication.clipboard().setText(v)
+            )
+            rl.addWidget(btn)
+            val_lbl = QLabel(f"→ {var_value}")
+            val_lbl.setStyleSheet(_VAL_STYLE)
+            rl.addWidget(val_lbl, 1)
+            vl.addWidget(row)
+
+        outer.addWidget(var_section)
 
         # ── Lab-Aid ───────────────────────────────────────────
         labaid_section = self._make_section(
