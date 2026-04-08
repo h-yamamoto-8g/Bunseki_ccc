@@ -1,56 +1,108 @@
 import json
+import os
 import platform
 from pathlib import Path
 
 APP_VERSION = "1.0"
 
 # ─── ユーザーローカル設定 ───────────────────────────────────────────────────
-# DATA_PATH のブートストラップ設定は ~/.bunseki/settings.json に保存する。
-# app_data 内の settings.json とは別（app_data 自体の場所を決めるため）。
+# ブートストラップ設定は ~/.bunseki/settings.json に保存する。
 LOCAL_SETTINGS_DIR = Path.home() / ".bunseki"
 LOCAL_SETTINGS_PATH = LOCAL_SETTINGS_DIR / "settings.json"
 
+# ─── USERPROFILE ベースのパス導出 ─────────────────────────────────────────────
+_SYNC_ROOT_SUFFIX = "トクヤマグループ"
+_DATA_PATH_SUFFIX = os.path.join(
+    "トクヤマグループ", "環境分析課 - ドキュメント", "app_data"
+)
 
-def load_data_path() -> Path | None:
-    """ローカル設定から DATA_PATH を読み込む。未設定なら None。"""
+
+def _load_settings() -> dict:
     if LOCAL_SETTINGS_PATH.exists():
         try:
-            data = json.loads(LOCAL_SETTINGS_PATH.read_text(encoding="utf-8"))
-            p = Path(data.get("app_data_path", ""))
-            if p and p.exists() and p.is_dir():
-                return p
+            return json.loads(LOCAL_SETTINGS_PATH.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
-    return None
+    return {}
 
 
-def save_data_path(path: Path) -> None:
-    """DATA_PATH をローカル設定に保存する。"""
+def _save_settings(settings: dict) -> None:
     LOCAL_SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    settings: dict = {}
-    if LOCAL_SETTINGS_PATH.exists():
-        try:
-            settings = json.loads(
-                LOCAL_SETTINGS_PATH.read_text(encoding="utf-8")
-            )
-        except (json.JSONDecodeError, OSError):
-            pass
-    settings["app_data_path"] = str(path)
     LOCAL_SETTINGS_PATH.write_text(
         json.dumps(settings, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
 
+# ── USERPROFILE ──────────────────────────────────────────────────────────────
+
+def load_user_profile() -> Path | None:
+    """ローカル設定から USERPROFILE を読み込む。未設定なら None。"""
+    raw = _load_settings().get("user_profile_path", "")
+    if raw:
+        p = Path(raw)
+        if p.exists() and p.is_dir():
+            return p
+    return None
+
+
+def save_user_profile(path: Path) -> None:
+    """USERPROFILE をローカル設定に保存する。"""
+    settings = _load_settings()
+    settings["user_profile_path"] = str(path)
+    _save_settings(settings)
+
+
+def _resolve_user_profile() -> Path:
+    saved = load_user_profile()
+    if saved is not None:
+        return saved
+    return Path.home()
+
+
+USER_PROFILE = _resolve_user_profile()
+
+
+def reload_user_profile(new_path: Path) -> None:
+    """USERPROFILE と派生パスをすべて更新する。"""
+    global USER_PROFILE
+    USER_PROFILE = new_path
+    reload_sync_root(new_path / _SYNC_ROOT_SUFFIX)
+    reload_paths(new_path / _DATA_PATH_SUFFIX)
+
+
+# ── DATA_PATH (USERPROFILE から導出) ─────────────────────────────────────────
+
+def load_data_path() -> Path | None:
+    """ローカル設定から DATA_PATH を読み込む。未設定なら None。"""
+    # まず USERPROFILE から導出を試みる
+    up = load_user_profile()
+    if up is not None:
+        derived = up / _DATA_PATH_SUFFIX
+        if derived.exists() and derived.is_dir():
+            return derived
+    # フォールバック: 旧 app_data_path 設定
+    raw = _load_settings().get("app_data_path", "")
+    if raw:
+        p = Path(raw)
+        if p.exists() and p.is_dir():
+            return p
+    return None
+
+
+def save_data_path(path: Path) -> None:
+    """DATA_PATH をローカル設定に保存する。"""
+    settings = _load_settings()
+    settings["app_data_path"] = str(path)
+    _save_settings(settings)
+
+
 def _resolve_data_path() -> Path:
-    """設定ファイル → SharePoint 標準パスの順で DATA_PATH を解決する。"""
     saved = load_data_path()
     if saved is not None:
         return saved
-    # 本番環境: SharePoint 同期フォルダの標準パスを試行
     if platform.system() == "Windows":
-        return Path.home() / "トクヤマグループ" / "環境分析課 - ドキュメント" / "app_data"
-    # Windows 以外は設定ダイアログで指定させる（存在しないパスを返す）
+        return Path.home() / _DATA_PATH_SUFFIX
     return Path.home() / "app_data"
 
 
@@ -117,47 +169,34 @@ STATUS_LABELS = {
 # ── SharePoint 同期パスのユーティリティ ──────────────────────────────────────
 
 def load_sync_root() -> Path | None:
-    """ローカル設定から同期ルートを読み込む。未設定なら None。"""
-    if LOCAL_SETTINGS_PATH.exists():
-        try:
-            data = json.loads(LOCAL_SETTINGS_PATH.read_text(encoding="utf-8"))
-            raw = data.get("sync_root_path", "")
-            if not raw:
-                return None
-            p = Path(raw)
-            if p.exists() and p.is_dir():
-                return p
-        except (json.JSONDecodeError, OSError):
-            pass
+    """USERPROFILE から同期ルートを導出する。"""
+    up = load_user_profile()
+    if up is not None:
+        derived = up / _SYNC_ROOT_SUFFIX
+        if derived.exists() and derived.is_dir():
+            return derived
+    # フォールバック: 旧 sync_root_path 設定
+    raw = _load_settings().get("sync_root_path", "")
+    if raw:
+        p = Path(raw)
+        if p.exists() and p.is_dir():
+            return p
     return None
 
 
 def save_sync_root(path: Path) -> None:
     """同期ルートをローカル設定に保存する。"""
-    LOCAL_SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    settings: dict = {}
-    if LOCAL_SETTINGS_PATH.exists():
-        try:
-            settings = json.loads(
-                LOCAL_SETTINGS_PATH.read_text(encoding="utf-8")
-            )
-        except (json.JSONDecodeError, OSError):
-            pass
+    settings = _load_settings()
     settings["sync_root_path"] = str(path)
-    LOCAL_SETTINGS_PATH.write_text(
-        json.dumps(settings, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    _save_settings(settings)
 
 
 def _resolve_sync_root() -> Path:
-    """設定ファイルから同期ルートを解決する。"""
     saved = load_sync_root()
     if saved is not None:
         return saved
-    # 本番環境: SharePoint 標準パスを試行
     if platform.system() == "Windows":
-        return Path.home() / "トクヤマグループ"
+        return Path.home() / _SYNC_ROOT_SUFFIX
     return Path.home()
 
 
