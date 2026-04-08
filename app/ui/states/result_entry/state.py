@@ -108,6 +108,7 @@ class ResultEntryUI(QWidget):
     csv_export_requested = Signal(list)
     open_tool_requested = Signal()
     open_folder_requested = Signal()
+    verify_requested = Signal()
 
     _INPUT_COL_KEY = "input_data"
 
@@ -173,6 +174,12 @@ class ResultEntryUI(QWidget):
         self._btn_open_folder.clicked.connect(self.open_folder_requested)
         ab.addWidget(self._btn_open_folder)
 
+        self._btn_verify = QPushButton("データ照合")
+        self._btn_verify.setFixedHeight(30)
+        self._btn_verify.setStyleSheet(_BTN_SECONDARY)
+        self._btn_verify.clicked.connect(self.verify_requested)
+        ab.addWidget(self._btn_verify)
+
         outer.addWidget(action_bar)
 
         # ── タブウィジェット ──────────────────────────────────────
@@ -232,6 +239,7 @@ class ResultEntryUI(QWidget):
         self._btn_csv.setVisible(not readonly)
         self._btn_open_tool.setVisible(not readonly)
         self._btn_open_folder.setVisible(not readonly)
+        self._btn_verify.setVisible(not readonly)
 
     def set_state_done(self, done: bool) -> None:
         if done:
@@ -348,6 +356,32 @@ class ResultEntryUI(QWidget):
                         row_dict["_row_key"] = item.data(Qt.ItemDataRole.UserRole) or ""
                 result.append(row_dict)
         return result
+
+    def highlight_mismatches(self, mismatch_keys: set[str]) -> None:
+        """不一致の行を薄い赤色枠線でハイライトする。一致行はリセットする。"""
+        _MISMATCH_STYLE = (
+            "border: 2px solid #fca5a5; background: #fef2f2;"
+        )
+        for table in self._tables.values():
+            vis_cols = self._visible_columns()
+            for r in range(table.rowCount()):
+                first_item = table.item(r, 0)
+                if not first_item:
+                    continue
+                row_key = first_item.data(Qt.ItemDataRole.UserRole) or ""
+                is_mismatch = row_key in mismatch_keys
+                for col_i, c in enumerate(vis_cols):
+                    item = table.item(r, col_i)
+                    if not item:
+                        continue
+                    if c["key"] == self._INPUT_COL_KEY:
+                        item.setBackground(
+                            QColor("#fee2e2") if is_mismatch else QColor("#fffbeb")
+                        )
+                    else:
+                        item.setBackground(
+                            QColor("#fee2e2") if is_mismatch else QColor("#ffffff")
+                        )
 
     def _on_save_temp(self) -> None:
         self.save_temp_requested.emit(self._collect_all_data())

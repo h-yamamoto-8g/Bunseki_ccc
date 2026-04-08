@@ -49,6 +49,7 @@ class ResultEntryState(QWidget):
         self._ui.csv_export_requested.connect(self._on_csv_export)
         self._ui.open_tool_requested.connect(self._open_input_tool)
         self._ui.open_folder_requested.connect(self._open_output_folder)
+        self._ui.verify_requested.connect(self._on_verify)
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
         self._task = task
@@ -242,6 +243,46 @@ class ResultEntryState(QWidget):
         output_dir = _cfg.DATA_PATH / "bunseki" / "entry"
         output_dir.mkdir(parents=True, exist_ok=True)
         self._open_file(str(output_dir))
+
+    def _on_verify(self) -> None:
+        """入力データと bunseki.csv の data_raw_data を照合する。"""
+        hg_code = self._task.get("holder_group_code", "")
+        jobs = self._task.get("job_numbers", [])
+        sd = self._task.get("state_data", {}).get("analysis_targets", {})
+        vsset_codes = sd.get("valid_sample_set_codes", [])
+
+        df = self._data_service.get_result_data(hg_code, jobs, vsset_codes)
+        raw_map: dict[str, str] = {}
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                key = (
+                    f"{row.get('sample_request_number', '')}_"
+                    f"{row.get('valid_holder_set_code', '')}_"
+                    f"{row.get('valid_test_set_code', '')}"
+                )
+                val = row.get("data_raw_data", "")
+                raw_map[key] = "" if val is None or str(val) in ("nan", "None") else str(val)
+
+        all_data = self._ui._collect_all_data()
+        mismatch_keys: set[str] = set()
+        for row in all_data:
+            row_key = row.get("_row_key", "")
+            input_val = row.get("input_data", "").strip()
+            raw_val = raw_map.get(row_key, "").strip()
+            if not input_val:
+                continue
+            if input_val != raw_val:
+                mismatch_keys.add(row_key)
+
+        self._ui.highlight_mismatches(mismatch_keys)
+
+        if mismatch_keys:
+            QMessageBox.warning(
+                self, "データ照合",
+                f"{len(mismatch_keys)} 件の不一致があります。",
+            )
+        else:
+            QMessageBox.information(self, "データ照合", "すべてのデータが一致しています。")
 
     def _on_data_update(self) -> None:
         dlg = LoadingDialog(_run_data_update, parent=self)
