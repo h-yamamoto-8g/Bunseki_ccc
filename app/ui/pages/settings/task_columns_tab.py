@@ -327,7 +327,6 @@ class TaskColumnsTab(QWidget):
             "result_entry",
             self._service,
             csv_columns=self._csv_columns,
-            include_extras=False,
         )
         cl.addWidget(self._entry_editor)
 
