@@ -13,6 +13,20 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt, QEvent
 from PySide6.QtGui import QColor
 
+def _to_display(val) -> str:
+    """値を表示用文字列に変換する。pandas の float 化を補正し取得値そのままを返す。"""
+    if val is None:
+        return ""
+    if isinstance(val, float):
+        if val != val:  # NaN
+            return ""
+        if val.is_integer():
+            return str(int(val))
+        return str(val)
+    s = str(val)
+    return "" if s in ("nan", "None") else s
+
+
 # ── スタイル定数 ──────────────────────────────────────────────────────────────
 
 _ACCENT = "#3b82f6"
@@ -315,7 +329,7 @@ class ResultEntryUI(QWidget):
                 else:
                     # 表示列 — 読み取り専用
                     val = row_data.get(c["key"], "")
-                    text = "" if val is None or str(val) in ("nan", "None") else str(val)
+                    text = _to_display(val)
                     item = QTableWidgetItem(text)
                     item.setFlags(
                         item.flags() & ~Qt.ItemFlag.ItemIsEditable
