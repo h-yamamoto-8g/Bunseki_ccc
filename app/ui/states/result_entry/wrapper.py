@@ -1,7 +1,6 @@
 """ResultEntryState — データ入力ステートのUIラッパー。"""
 from __future__ import annotations
 
-import csv
 import os
 import subprocess
 import sys
@@ -46,9 +45,7 @@ class ResultEntryState(QWidget):
         self._ui.data_update_requested.connect(self._on_data_update)
         self._ui.labaid_requested.connect(self._open_labaid)
         self._ui.save_temp_requested.connect(self._on_save_temp)
-        self._ui.csv_export_requested.connect(self._on_csv_export)
-        self._ui.open_tool_requested.connect(self._open_input_tool)
-        self._ui.open_folder_requested.connect(self._open_output_folder)
+        self._ui.transfer_requested.connect(self._on_transfer)
         self._ui.verify_requested.connect(self._on_verify)
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
@@ -128,12 +125,24 @@ class ResultEntryState(QWidget):
 
         QMessageBox.information(self, "一時保存完了", "入力データを一時保存しました。")
 
-    def _on_csv_export(self, all_data: list[dict]) -> None:
-        """CSV出力: タスク名でCSVファイルを出力する。"""
-        task_name = self._task.get("task_name", "export")
-        output_dir = _cfg.DATA_PATH / "bunseki" / "entry"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{task_name}.csv"
+    def _on_transfer(self, all_data: list[dict]) -> None:
+        """入力ツール(Excel)の指定シート・セルにデータを書き込んで開く。"""
+        excel_path = self._data_config.get_tool_path("input_tool_path").strip()
+        sheet_name = self._data_config.get_tool_path("input_tool_sheet").strip()
+        start_cell = self._data_config.get_tool_path("input_tool_cell").strip()
+
+        if not excel_path:
+            QMessageBox.warning(
+                self, "入力ツール",
+                "Excel ファイルのパスが設定されていません。\n設定画面で設定してください。",
+            )
+            return
+        if not Path(excel_path).exists():
+            QMessageBox.warning(
+                self, "入力ツール",
+                f"Excel ファイルが見つかりません。\n{excel_path}",
+            )
+            return
 
         # CSV出力列の設定を取得
         try:
@@ -168,30 +177,56 @@ class ResultEntryState(QWidget):
         for row in all_data:
             row_key = row.get("_row_key", "")
             source = code_map.get(row_key, {})
-            csv_row = []
+            out_row: list[str] = []
             for col_key in csv_headers:
                 if col_key == "input_data":
-                    csv_row.append(row.get("input_data", ""))
+                    out_row.append(row.get("input_data", ""))
                 else:
-                    csv_row.append(str(source.get(col_key, "")))
-            rows_out.append(csv_row)
+                    out_row.append(str(source.get(col_key, "")))
+            rows_out.append(out_row)
 
-        with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.writer(f)
-            writer.writerow(csv_labels)
-            writer.writerows(rows_out)
+        # Excel に書き込み
+        try:
+            from openpyxl import load_workbook
+            from openpyxl.utils import coordinate_from_string, column_index_from_string
+
+            wb = load_workbook(excel_path)
+
+            if sheet_name and sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+            elif sheet_name:
+                ws = wb.create_sheet(sheet_name)
+            else:
+                ws = wb.active
+
+            # 開始セルの解析（デフォルト A1）
+            cell_ref = start_cell or "A1"
+            col_letter, start_row = coordinate_from_string(cell_ref)
+            start_col = column_index_from_string(col_letter)
+
+            # ヘッダー行を書き込み
+            for ci, label in enumerate(csv_labels):
+                ws.cell(row=start_row, column=start_col + ci, value=label)
+
+            # データ行を書き込み
+            for ri, data_row in enumerate(rows_out):
+                for ci, val in enumerate(data_row):
+                    ws.cell(
+                        row=start_row + 1 + ri,
+                        column=start_col + ci,
+                        value=val,
+                    )
+
+            wb.save(excel_path)
+        except Exception as e:
+            QMessageBox.warning(self, "Excel 書き込みエラー", str(e))
+            return
 
         # 一時保存も同時に行う
         self._on_save_temp(all_data)
 
-        reply = QMessageBox.information(
-            self,
-            "CSV出力完了",
-            f"CSVファイルを出力しました。\n{output_path}\n\n入力ツールを起動しますか？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self._open_input_tool()
+        # Excel を開く
+        self._open_file(excel_path)
 
     def _open_labaid(self) -> None:
         path = self._data_config.get_tool_path("labaid_path").strip()
@@ -206,29 +241,6 @@ class ResultEntryState(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "Lab-Aid 起動エラー", str(e))
 
-    def _open_input_tool(self) -> None:
-        """入力ツールを起動する。"""
-        path = self._data_config.get_tool_path("input_tool_path").strip()
-        if not path:
-            # パス未設定: CSVファイルを直接開く
-            task_name = self._task.get("task_name", "export")
-            csv_path = _cfg.DATA_PATH / "bunseki" / "entry" / f"{task_name}.csv"
-            if csv_path.exists():
-                self._open_file(str(csv_path))
-            else:
-                QMessageBox.information(
-                    self, "入力ツール",
-                    "CSVファイルが見つかりません。先にCSV出力を行ってください。",
-                )
-            return
-        try:
-            if path.startswith(("http://", "https://")):
-                webbrowser.open(path)
-            else:
-                subprocess.Popen([path])
-        except Exception as e:
-            QMessageBox.warning(self, "入力ツール起動エラー", str(e))
-
     @staticmethod
     def _open_file(filepath: str) -> None:
         if sys.platform == "win32":
@@ -237,12 +249,6 @@ class ResultEntryState(QWidget):
             subprocess.Popen(["open", filepath])
         else:
             subprocess.Popen(["xdg-open", filepath])
-
-    def _open_output_folder(self) -> None:
-        """CSV保存先フォルダを開く。"""
-        output_dir = _cfg.DATA_PATH / "bunseki" / "entry"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        self._open_file(str(output_dir))
 
     def _on_verify(self) -> None:
         """入力データと bunseki.csv の data_raw_data を照合する。"""
