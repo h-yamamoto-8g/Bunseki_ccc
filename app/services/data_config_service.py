@@ -57,16 +57,49 @@ _RESULT_ENTRY_EXTRA = [
     {"key": "input_data", "label": "データ", "visible": True},
 ]
 
+# CSV出力列のデフォルト設定
+_RESULT_ENTRY_CSV_EXPORT_DEFAULT_VISIBLE = {
+    "sample_request_number",
+    "valid_holder_set_code",
+    "valid_test_set_code",
+    "test_unit_name",
+}
+
+_RESULT_ENTRY_CSV_EXPORT_EXTRA = [
+    {"key": "input_data", "label": "入力データ", "visible": True},
+]
+
+_RESULT_ENTRY_CSV_EXPORT_DEFAULT_LABELS = {
+    "sample_request_number": "依頼番号",
+    "sample_job_number": "JOB番号",
+    "sample_sampling_date": "試料採取日",
+    "valid_holder_set_code": "ホルダコード",
+    "valid_holder_display_name": "ホルダ名",
+    "valid_sample_set_code": "サンプルコード",
+    "valid_sample_display_name": "サンプル名",
+    "valid_test_set_code": "試験コード",
+    "valid_test_display_name": "試験項目名",
+    "test_unit_name": "単位",
+    "test_raw_data": "実測データ",
+    "test_grade_code": "等級コード",
+}
+
 _TASK_DEFAULT_VISIBLE: dict[str, set[str]] = {
     "analysis_targets": _ANALYSIS_TARGETS_DEFAULT_VISIBLE,
     "result_verification": _RESULT_VERIFICATION_DEFAULT_VISIBLE,
     "result_entry": _RESULT_ENTRY_DEFAULT_VISIBLE,
+    "result_entry_csv_export": _RESULT_ENTRY_CSV_EXPORT_DEFAULT_VISIBLE,
 }
 
 _TASK_EXTRA_COLUMNS: dict[str, list[dict]] = {
     "analysis_targets": _ANALYSIS_TARGETS_EXTRA,
     "result_verification": _RESULT_VERIFICATION_EXTRA,
     "result_entry": _RESULT_ENTRY_EXTRA,
+    "result_entry_csv_export": _RESULT_ENTRY_CSV_EXPORT_EXTRA,
+}
+
+_TASK_DEFAULT_LABELS: dict[str, dict[str, str]] = {
+    "result_entry_csv_export": _RESULT_ENTRY_CSV_EXPORT_DEFAULT_LABELS,
 }
 
 
@@ -134,8 +167,12 @@ class DataConfigService:
         default_visible = _TASK_DEFAULT_VISIBLE.get(scope, set())
         extras = _TASK_EXTRA_COLUMNS.get(scope, []) if include_extras else []
 
+        default_labels = _TASK_DEFAULT_LABELS.get(scope, {})
+
         if csv_columns is not None:
-            return self._merge_task(saved or [], csv_columns, default_visible, extras)
+            return self._merge_task(
+                saved or [], csv_columns, default_visible, extras, default_labels,
+            )
 
         if saved:
             # include_extras=False のとき、保存済みデータから機能列を除外
@@ -159,11 +196,13 @@ class DataConfigService:
         csv_columns: list[str],
         default_visible: set[str],
         extras: list[dict],
+        default_labels: dict[str, str] | None = None,
     ) -> list[dict]:
         """保存済み設定と CSV 列 + 計算列をマージする。
 
         保存済みの順序を優先し、新規列は末尾に追加する。
         """
+        default_labels = default_labels or {}
         all_keys = set(csv_columns) | {e["key"] for e in extras}
         saved_map = {c["key"]: c for c in saved}
         result: list[dict] = []
@@ -180,7 +219,7 @@ class DataConfigService:
             if key not in used:
                 result.append({
                     "key": key,
-                    "label": key,
+                    "label": default_labels.get(key, key),
                     "visible": key in default_visible,
                 })
                 used.add(key)

@@ -134,15 +134,17 @@ class ResultEntryState(QWidget):
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"{task_name}.csv"
 
-        # CSV出力列の構成
-        csv_headers = [
-            "sample_request_number",
-            "valid_holder_set_code",
-            "valid_test_set_code",
-            "test_unit_name",
-            "input_data",
-        ]
-        csv_labels = ["依頼番号", "ホルダコード", "試験コード", "単位", "入力データ"]
+        # CSV出力列の設定を取得
+        try:
+            csv_columns = self._data_service.get_csv_columns()
+        except Exception:
+            csv_columns = None
+        export_cols = self._data_config.get_task_columns(
+            "result_entry_csv_export", csv_columns=csv_columns,
+        )
+        visible_export = [c for c in export_cols if c.get("visible", True)]
+        csv_headers = [c["key"] for c in visible_export]
+        csv_labels = [c["label"] for c in visible_export]
 
         # 元データからコード値を取得するためにキーマップを構築
         hg_code = self._task.get("holder_group_code", "")
@@ -165,13 +167,12 @@ class ResultEntryState(QWidget):
         for row in all_data:
             row_key = row.get("_row_key", "")
             source = code_map.get(row_key, {})
-            csv_row = [
-                str(source.get("sample_request_number", "")),
-                str(source.get("valid_holder_set_code", "")),
-                str(source.get("valid_test_set_code", "")),
-                str(source.get("test_unit_name", "")),
-                row.get("input_data", ""),
-            ]
+            csv_row = []
+            for col_key in csv_headers:
+                if col_key == "input_data":
+                    csv_row.append(row.get("input_data", ""))
+                else:
+                    csv_row.append(str(source.get(col_key, "")))
             rows_out.append(csv_row)
 
         with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
