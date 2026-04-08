@@ -193,7 +193,7 @@ class ResultEntryState(QWidget):
             from openpyxl import load_workbook
             from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
-            wb = load_workbook(excel_path)
+            wb = load_workbook(excel_path, keep_vba=True)
 
             if sheet_name and sheet_name in wb.sheetnames:
                 ws = wb[sheet_name]
