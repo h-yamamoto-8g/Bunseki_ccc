@@ -207,15 +207,11 @@ class ResultEntryState(QWidget):
             col_letter, start_row = coordinate_from_string(cell_ref)
             start_col = column_index_from_string(col_letter)
 
-            # ヘッダー行を書き込み
-            for ci, label in enumerate(csv_labels):
-                ws.cell(row=start_row, column=start_col + ci, value=label)
-
             # データ行を書き込み
             for ri, data_row in enumerate(rows_out):
                 for ci, val in enumerate(data_row):
                     ws.cell(
-                        row=start_row + 1 + ri,
+                        row=start_row + ri,
                         column=start_col + ci,
                         value=val,
                     )
