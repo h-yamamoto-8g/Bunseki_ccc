@@ -1,7 +1,7 @@
 # Functional Requirements & Screen Specifications
 
-**Version**: 1.1
-**Last Updated**: 2026-03-01
+**Version**: 1.2
+**Last Updated**: 2026-04-08
 
 ---
 
@@ -9,8 +9,16 @@
 
 ### Startup & Shutdown
 - Runs as standalone exe (no Python environment required)
-- On startup, load `{app_data}/bunseki/config/settings.json` (if missing, show setup dialog)
+- On startup, load USERPROFILE from `~/.bunseki/settings.json` (if missing, show folder selection dialog)
+- USERPROFILE is used to derive SYNC_ROOT and DATA_PATH automatically
+- Splash screen is shown on startup but does NOT use WindowStaysOnTopHint (it goes behind other apps when user interacts with them)
 - Default: fullscreen
+
+### Path Resolution
+- **USERPROFILE**: User's home folder (e.g., `C:\Users\12414`)
+- **SYNC_ROOT**: `{USERPROFILE}\トクヤマグループ`
+- **DATA_PATH**: `{USERPROFILE}\トクヤマグループ\環境分析課 - ドキュメント\app_data`
+- Tool settings paths support `%USERPROFILE%`, `%SYNC_ROOT%`, `%DATA_PATH%` variables
 
 ### Window
 - Single main window with tab switching
@@ -19,6 +27,12 @@
 
 ### Calculation Rule
 - When calculating from `bunseki.csv::test_raw_data`, exclude string values. Use digit precision as-is from input data.
+
+### Data Display Rules
+- Display numeric values as-is from source (correct pandas float conversion)
+- Integer values displayed as integers (e.g., `0` not `0.0`)
+- Decimal values displayed as-is (e.g., `1.234`)
+- Empty values / NaN displayed as empty string
 
 ---
 
@@ -33,16 +47,16 @@
 | library | page | Library | Attached documents from circulation | Required |
 | log | page | Log | Equipment and reagent logs | Required |
 | job | page | Job | JOB number management | Required |
-| settings | page | Settings | Edit settings.json, users.json | Required |
+| settings | page | Settings | USERPROFILE, user management, tool settings | Required |
 | logon | dialog | Logon | User login | Required |
-| setup | dialog | Setup | User-specific data path setup | Required |
+| setup | dialog | Setup | USERPROFILE folder selection | Required |
 | tasks.task_ticket | state | Task Ticket | Task ticket creation | Required |
 | tasks.analysis_targets | state | Analysis Targets | Sample list for analysis | Required |
 | tasks.analysis | state | Analysis | Pre/post analysis info and checklists | Required |
-| tasks.result_entry | state | Result Entry | Data entry | Required |
+| tasks.result_entry | state | Result Entry | Data entry + input tool integration | Required |
 | tasks.result_verification | state | Result Verification | Data verification + anomaly detection | Required |
 | tasks.submission | state | Submission | Circulation to reviewers | Required |
-| tasks.completed | state | Completed | Task completed | Required |
+| tasks.completed | state | Completed | Task completed / in-progress display | Required |
 
 ### Screen Kind Definition
 - `page`: Shown in sidebar navigation
@@ -58,15 +72,11 @@
 **Content**:
 - Monthly schedule (QWebView rendering Excel)
 - Active task list (separated: own tasks vs others')
-  - Status breakdown by `tasks.{state}` name
-- New task button (navigates to `tasks.task_ticket`)
+- New task button
 
 **Actions**:
 - "New Task" button -> navigate to `tasks.task_ticket`
 - Double-click task row -> navigate to that task's current `tasks.{state}`
-
-**Errors**:
-- If active task not found: red warning banner + re-create button -> `tasks.task_ticket`
 
 ---
 
@@ -80,12 +90,6 @@ Initial view shows task list + new task button. Display latest 100 tasks.
 - Status filter (All / In Progress / Completed / Mine / By Assignee)
 - "Load More" button for next 100 records
 
-**Actions**:
-- "New" button -> `tasks.task_ticket`
-- Double-click row or Action button -> navigate to task's current state
-- Filter toggle -> filter list
-- "Load More" -> additional 100 records
-
 ### State Transition Flow
 
 ```
@@ -94,14 +98,8 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Navigation rules**:
 - All states are navigable from any other state
-- States except `task_ticket` and `analysis_targets` are editable when revisited
-- `task_ticket` and `analysis_targets` require "Edit" button to enable editing; saving resets subsequent states (with warning dialog)
-- After circulation to reviewer: `result_verification` and `submission` only are editable; others are read-only. Reviewer can send back to analyst for changes.
-
-**Proxy circulation**:
-- Available for non-completed tasks owned by other users
-- Proxy user can advance the workflow on behalf of original user
-- Proxy actions are recorded and visibly displayed
+- `task_ticket` and `analysis_targets` require "Edit" button to enable editing
+- After circulation to reviewer: `result_verification` and `submission` only are editable
 
 ---
 
@@ -110,28 +108,13 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 **Purpose**: Create new task ticket.
 
 **Content**:
-- Holder group dropdown
+- Holder group dropdown (`holder_groups.json`)
 - JOB number input + add button (tag-style)
 - News list (filtered by selected holder group)
-
-**Data source**:
-- File: `holder_groups.json`
-- Holder groups: `holder_groups.json > items[].holder_group_name`
-
-**Modes**:
-- New: editable
-- From another state: read-only, "Edit" button enables editing (saving resets subsequent states)
-- After circulation: fully locked
-
-**Actions**:
-- "Create" button -> create task, navigate to `tasks.analysis_targets`
-- "+" button -> add JOB number tag (default from admin settings)
-- On creation: force-popup important news if not yet viewed
 
 **Notes**:
 - Task ID: `{creation_datetime}_{holder_group_code}`
 - Task name: `{creation_datetime}_{holder_group_name}`
-- Persist selected `holder_group_code` from `holder_groups.json::holder_group_code`
 
 ---
 
@@ -139,31 +122,13 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Purpose**: View/edit sample list for this task.
 
-**Modes**:
-- **View mode** (default): read-only
-- **Edit mode**: "Edit" button enables add/delete samples (marked as edited). Editing from another state resets subsequent states with warning. Locked after circulation.
-
 **Content**:
-- Task name (header)
-- Sample table: JOB Number, Sampling DateTime, Sample Name, Data Number, Median, Max, Min
-
-**Actions**:
-- "Add" -> dropdown or free-text entry (free-text creates temporary ID, no calculation)
-- "Delete" -> remove sample record
-- "Print" -> landscape print, fit columns to page width
-- "Next" -> `tasks.analysis`
-- "Back" -> `tasks.task_ticket` (view mode)
+- Sample table (column visibility, order, and display name configurable in settings)
+- Calculated columns: Median, Max, Min
 
 **Data source**:
 - Sample table file: `bunseki.csv`
-  - Filter: `holder_group_code` matches selected + `job_number` in selected list (OR) + no duplicates
-  - Aggregation data: matching `valid_sample_set_code`, `trend_enabled` = true, `sample_sampling_date` within last 5 years (AND)
 - Sample add dropdown file: `valid_samples.json`
-  - Filter: `items[].is_active` = true, sorted by `sort_order`, display `display_name`
-
-**Notes**:
-- Persist `bunseki.csv::valid_sample_set_code` for selected samples
-- If `bunseki.csv` has no data number column, default all to 0
 
 ---
 
@@ -172,32 +137,49 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 **Purpose**: Provide analysis info (manuals, tools, checklists) and wait for user to complete analysis.
 
 **Content**:
-- Pre-analysis:
-  - Links: analysis standards, related manuals, work tools
-  - Checklist (may not exist for some analysis types)
-- Post-analysis:
-  - Logs: equipment, reagents (may not exist for some types)
-  - Checklist (may not exist for some types)
-
-**Actions**:
-- Links: switch between web URL and file path as needed
-- Log entry (same as log page; required if log exists for this analysis type)
-- Checklists: checkboxes, all must be checked to proceed. Bulk-check button available. Locked after circulation.
-- "Next" -> `tasks.result_entry`
-- "Back" -> `tasks.analysis_targets` (view mode)
+- Pre-analysis: links, checklists
+- Post-analysis: logs, checklists
 
 ---
 
 ### [state] tasks.result_entry
 
-**Purpose**: Data entry after analysis. (Minimal implementation for now)
+**Purpose**: Data entry after analysis with input tool (Excel) integration.
 
-**Content**:
-- Message: "Please perform standard data entry."
+**Action bar (button layout)**:
+```
+Lab-Aid (left) | 分析結果の読み込み, 入力ツールへ引継ぎ, データ更新, 入力チェック (center) | 一時保存 (right)
+```
 
-**Actions**:
-- "Launch Lab-Aid" button -> start Lab-Aid application
-- "Entry Complete" -> `tasks.result_verification`
+**Button functions**:
+
+| Button | Function |
+|--------|----------|
+| Lab-Aid | Launch Lab-Aid application (from configured path; supports `.appref-ms` etc.) |
+| 分析結果の読み込み | Planned for future implementation (currently disabled) |
+| 入力ツールへ引継ぎ | Write data to configured Excel file's specified sheet/cell, then open the Excel file |
+| データ更新 | Reload bunseki.csv |
+| 入力チェック | Compare `input_data` vs `bunseki.csv::data_raw_data`, highlight mismatched rows in red |
+| 一時保存 | Save input data to state_data |
+
+**Table**:
+- Tabs per holder
+- Column visibility and order configurable in settings
+- Only `input_data` column is editable (yellow background)
+- Enter/Tab auto-moves to next row
+
+**Input tool handoff details**:
+- Writes data for columns selected in "CSV export column settings"
+- Header row is NOT written (data only)
+- `.xlsm` file macros are preserved (`keep_vba=True`)
+- Triggers temporary save after writing
+
+**Data verification (入力チェック) details**:
+- Compares: `input_data` (user input) vs `bunseki.csv::data_raw_data` (actual measured data)
+- Rows with empty input are skipped
+- Mismatched rows highlighted with light red background
+- Matched rows reset to original color
+- Shows result count in a dialog
 
 ---
 
@@ -206,47 +188,12 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 **Purpose**: Verify entered data with automatic anomaly detection.
 
 **Content**:
-- Tabs per `valid_holder_display_name`, each showing:
-  - Data table (read-only):
-
-| Column | Display Name | Notes |
-|--------|-------------|-------|
-| valid_sample_display_name | Sample Name | holds valid_sample_set_code |
-| valid_test_display_name | Test Item | holds valid_test_display_name |
-| test_raw_data | Data | |
-| test_unit_name | Unit | |
-| - | Upper Limit | min of test_upper_limit_spec_1~4 |
-| - | Lower Limit | max of test_lower_limit_spec_1~4 |
-| test_judgment | Anomaly Flag | if NN: show calculated result (trend_enabled=true only); else show as-is |
-| - | Trend | trend graph button |
-
-  - Color-coded anomaly detection results
-  - Highlighted anomaly flags
+- Tabs per `valid_holder_display_name`
+- Data table (column visibility and order configurable in settings)
+- Calculated columns: Upper Limit (min of specs 1-4), Lower Limit (max of specs 1-4), Anomaly Flag
+- Color-coded anomaly detection results
+- Trend graph button
 - Confirmation checkboxes
-
-**Data source**:
-- File: `bunseki.csv`
-- Analysis result data (OR): `holder_group_code` match + `job_number` match + no duplicates
-- Calculation data (AND): `holder_group_code` + `trend_enabled` = true + `valid_sample_set_code` match + `sample_sampling_date` last 5 years + numeric-only from `test_raw_data`
-- Graph data (AND): same as calculation + `valid_test_code` match
-
-**Chart requirements**:
-- No font garbling (JP font support)
-- No plain image paste — interactive charts
-- Tooltip showing data at cursor position
-- Upper/lower limits (red dashed) + mean +/- 2 sigma (orange dashed)
-- Data table below chart (anomalous data highlighted)
-
-| Column | Display | Notes |
-|--------|---------|-------|
-| sample_sampling_date | DateTime | |
-| test_raw_data | Data | |
-| test_unit_name | Unit | |
-| test_judgment | Judgment | NN -> OK, else show as-is |
-
-**Actions**:
-- Trend graph button -> popup dialog
-- "To Circulation" -> verify checkboxes, navigate to `tasks.submission`
 
 ---
 
@@ -254,74 +201,34 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Purpose**: Circulate results with attachments to reviewers.
 
-**Content**:
-- Attachment field (drag & drop or dialog; files saved in `{app_data}` keyed by task ID)
-- Circulation flow (analyst -> reviewer(s), variable number of reviewers)
-- Comment field
-
 **Circulation**:
 - No direct SMTP — use Outlook via pywin32 (create + display email, user sends)
-- HTML-designed notification email (professional appearance)
-- Status changes when email is created
-- If anomalies exist: warning-style email with anomaly table (filtered from result_verification table)
-- Items exceeding mean +/- 2 sigma: record to anomaly list for `[page] data` display. Save from `bunseki.csv`: `sample_request_number`, `sample_job_number`, `valid_sample_set_code`, `valid_holder_set_code`, `valid_test_set_code`
-
-**Actions**:
-- Role: Creator -> "Send" button (notifies reviewer, creator's work is done)
-- Role: Reviewer -> "Forward" (select next reviewer) or "Complete" -> `tasks.completed`
+- HTML-designed notification email
+- If anomalies exist: warning-style email
 
 ---
 
 ### [state] tasks.completed
 
-**Purpose**: Display task completion status.
+**Purpose**: Display task completion status or in-progress status.
 
-**Content**: Completion message + summary.
-
-**Actions**: "Back to Tasks" -> tasks page
+**Content**:
+- When task is actually completed (`current_state == "completed"`):
+  - "Task has been completed" + task name, holder group, JOB numbers, assignee, sample count, created at, completed at
+- When task is still in progress:
+  - "Task is in progress" + task name, holder group, JOB numbers, assignee, sample count, created at
 
 ---
 
 ## [page] data
 
-**Purpose**: View/search historical analysis data.
-
-**Content table**:
-
-| Column | Display Name | Notes |
-|--------|-------------|-------|
-| sample_request_number | Request Number | |
-| sample_sampling_date | Sampling DateTime | |
-| sample_job_number | JOB Number | |
-| valid_sample_display_name | Sample Name | |
-| valid_holder_display_name | Holder Name | |
-| valid_test_display_name | Test Item | |
-| test_raw_data | Data | |
-| test_reported_data | Reported Data | |
-| test_unit_name | Unit | |
-| test_upper_limit_spec_1~4 | Upper Limit 1~4 | |
-| test_lower_limit_spec_1~4 | Lower Limit 1~4 | |
-| test_judgment | Judgment | NN: show 2-sigma exceedance from saved list; non-NN takes priority |
-| - | Action | Chart button |
-
-**Filters**: date range (calendar), request number (partial), JOB number (partial), sample name (multi-select dropdown), holder name (multi-select), test item (multi-select), judgment (multi-select)
-
-**Actions**:
-- Chart button: same as `tasks.result_verification` chart
-- CSV export (prompt: all data or filtered; save to Downloads; show "open folder" button)
+**Purpose**: View/search historical analysis data. CSV export available.
 
 ---
 
 ## [page] news
 
-**Purpose**: Post/view work-related announcements.
-
-**Content**:
-- Fields: checkbox, ID, posted date, title, content, target holder groups (tags), important flag, forced display period (if flagged), action (edit)
-- Features: file attachment (saved in `{app_data}`), link input
-- List actions: delete selected (with warning), email selected (HTML email via Outlook to all active users)
-
-**Filters**: Standard news/bulletin board filters.
+**Purpose**: Post/view work-related announcements. File attachment and Outlook email support.
 
 ---
 
@@ -329,23 +236,11 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Purpose**: Browse/manage documents attached during task circulation.
 
-**Content**: Attachments listed by task ID.
-
-**Filters**: holder group, date range, user.
-
-**Actions**: Bulk download by task, open read-only, download file.
-
 ---
 
 ## [page] log
 
 **Purpose**: Record/view equipment and reagent usage logs.
-
-**Content**:
-- Equipment log: select equipment; configurable columns per equipment (all string, variable). Config: columns, holder group code, manager, phone number. Example fields: ID, datetime, usage time (min), user, notes.
-- Reagent log: configurable per holder group. Config: ID, reagent name, expiry period (monthly), notes. Display: ID, reagent name, creator, storage expiry (calculated), last creation date, expiry period, status. Yellow if expiring within 1 month, red if expired.
-
-**Actions**: Add/edit log entries, add/delete equipment and reagents.
 
 ---
 
@@ -353,49 +248,76 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 
 **Purpose**: Manage JOB numbers for analysis.
 
-**Content**: ID, JOB number (single), start date, end date.
-
-**Actions**: Add, delete, edit.
-
 ---
 
 ## [page] settings
 
-**Purpose**: Edit application settings. (Admin only)
+**Purpose**: Edit application settings.
 
-**Content**:
-- settings.json edit form
-- users.json edit table (add/delete/edit users)
+### USERPROFILE Section (always visible above tabs)
+- Show current USERPROFILE path (read-only)
+- "Change" button -> folder selection dialog
+- Derived path preview:
+  - Sync root: `{USERPROFILE}\トクヤマグループ`
+  - Data path: `{USERPROFILE}\トクヤマグループ\環境分析課 - ドキュメント\app_data`
 
-**Configurable items**:
-- User settings
-- Per holder group:
-  - `tasks.analysis`: standard doc links, manual links, tool links, pre/post checklists (all variable count)
-  - `tasks.result_entry`: Lab-Aid link
-  - Other user-configurable items (implement as appropriate)
-- `{app_data}` path
+### Tab Structure
 
-**Actions**: "Save" -> write to file; "Cancel" -> discard changes.
+**User Management tab**: Add/delete/edit users
+
+**Home Settings tab**: Home page configuration
+
+**Task Settings tab** (sub-tabs):
+- **Analysis Item Settings**: Checklists and links per holder group
+- **Column Display Settings**: Column visibility, order, and display name for each table
+  - Analysis Targets table
+  - Result Verification table
+  - Result Entry table
+  - Result Entry table CSV export column config
+- **Tool Settings**: Lab-Aid / input tool (Excel) path configuration
+
+**Data Settings tab**: CSV column display configuration
+
+### Column Display Settings Details
+- Checkbox toggles column visibility
+- Checked columns auto-sort to top (newly checked items added at end of checked group)
+- Up/Down buttons to change display order
+- Display name freely editable
+- Columns with `locked` flag (e.g., `input_data`) cannot be unchecked
+
+### Tool Settings Details
+
+**Available variables** (with copy buttons):
+- `%USERPROFILE%` -> user profile path
+- `%SYNC_ROOT%` -> sync root path
+- `%DATA_PATH%` -> data path
+
+**Lab-Aid**: Application path or URL (supports `.appref-ms`, variable expansion)
+
+**Input Tool (Excel)**:
+- Excel file path (variable expansion)
+- Sheet name (defaults to active sheet if unspecified)
+- Start cell (defaults to A1 if unspecified)
+
+Real-time preview below path input fields:
+- Shows full path after variable expansion
+- Red text warning if file does not exist
 
 ---
 
 ## [dialog] logon
 
-**Purpose**: User authentication on startup.
-
-**Content**: ID, password fields.
-
-**Actions**: "Login" -> show main window on success; error message on failure; cancel/close -> exit app.
+**Purpose**: User authentication on startup. ID and password input.
 
 ---
 
-## [dialog] setup
+## [dialog] setup (USERPROFILE)
 
-**Purpose**: Set user-specific data paths (SharePoint sync folder).
+**Purpose**: Select user profile folder on first startup.
 
-**Content**: SharePoint root path input (folder picker), output folder input (folder picker).
+**Content**: Explanation message + folder selection dialog (OS native)
 
-**Actions**: Folder picker -> OS native dialog; "Save" -> write to settings.json; "Cancel" -> discard (exit app if first-time).
+**Behavior**: Save selected path to `~/.bunseki/settings.json`. SYNC_ROOT and DATA_PATH are derived automatically.
 
 ---
 
@@ -407,21 +329,10 @@ task_ticket -> analysis_targets -> analysis -> result_entry -> result_verificati
 - Icon-based navigation
 
 ### Task State Header (`tasks.{state}`)
-- State icons centered at top with left/right navigation buttons
-- Active state shows its display name
+- State icons centered at top
 - States are clickable links
 - Task name on left, user name on right
-- Non-task pages: greyed-out icons
-- Content may be vertically scrollable
-- "Next" and "Back" buttons at bottom center
-
-### Status Bar (main window bottom)
-- Shows current processing state (e.g., "Loading...", "Ready")
-
-### Error Dialog
-- Unexpected errors: `QMessageBox.critical` with stack trace
-- Error log: `{app_data}/bunseki/logs/app.log`
 
 ### Error Handling
-- SharePoint folder not found: red warning banner + setup button -> `setup` dialog -> reload data
-- Errors: red warning banner with error details + "contact admin" message + error log download button
+- Unexpected errors: `QMessageBox.critical` with stack trace
+- Error log: `{DATA_PATH}/bunseki/logs/app.log`
