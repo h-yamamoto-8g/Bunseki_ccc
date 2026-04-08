@@ -124,7 +124,7 @@ def _show_splash(qapp: QApplication) -> tuple[QSplashScreen | None, QElapsedTime
     base = pathlib.Path(__file__).resolve().parent
     splash_path = base / "resources" / "assets" / "splash.png"
     pixmap = QPixmap(str(splash_path))
-    splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+    splash = QSplashScreen(pixmap)
     splash.show()
     qapp.processEvents()
     return splash, timer
