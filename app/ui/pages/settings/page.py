@@ -20,12 +20,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 import app.config as _cfg
-from app.config import save_data_path, reload_paths, save_sync_root, reload_sync_root
+from app.config import save_user_profile, reload_user_profile
 from app.services.data_config_service import DataConfigService
 from app.services.data_service import DataService
 from app.services.hg_config_service import HgConfigService
 from app.services.user_service import UserService
-from app.ui.dialogs.setup_root_dialog import SetupRootDialog
 from app.ui.generated.ui_settingpage import Ui_SettingPage
 from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
@@ -67,121 +66,88 @@ class SettingsPage(QWidget):
         self.data_service = data_service
         self.ui = Ui_SettingPage()
         self.ui.setupUi(self)
-        self._build_sync_root_section()
-        self._build_data_path_section()
+        self._build_user_profile_section()
         self._setup_tabs()
         self.ui.tabs.setCurrentIndex(0)
 
-    # ── 同期環境設定セクション ─────────────────────────────────────────────────
+    # ── USERPROFILE 設定セクション ───────────────────────────────────────────────
 
-    def _build_sync_root_section(self) -> None:
-        """タブの上に同期環境パス表示・変更セクションを挿入する。"""
+    def _build_user_profile_section(self) -> None:
+        """タブの上に USERPROFILE 表示・変更セクションを挿入する。"""
         section = QWidget()
-        section.setObjectName("widget_sync_root_section")
+        section.setObjectName("widget_user_profile_section")
         section.setStyleSheet(
-            "#widget_sync_root_section { background: #ffffff; "
+            "#widget_user_profile_section { background: #ffffff; "
             "border: 1px solid #e5e7eb; border-radius: 8px; }"
         )
-        hl = QHBoxLayout(section)
-        hl.setContentsMargins(16, 10, 16, 10)
+        vl = QVBoxLayout(section)
+        vl.setContentsMargins(16, 10, 16, 10)
+        vl.setSpacing(6)
+
+        hl = QHBoxLayout()
         hl.setSpacing(12)
 
-        label = QLabel("同期環境")
+        label = QLabel("USERPROFILE")
         label.setStyleSheet("font-weight: bold; font-size: 13px; border: none;")
         hl.addWidget(label)
 
-        self.input_sync_root = QLineEdit(str(_cfg.SYNC_ROOT))
-        self.input_sync_root.setReadOnly(True)
-        self.input_sync_root.setStyleSheet(
+        self.input_user_profile = QLineEdit(str(_cfg.USER_PROFILE))
+        self.input_user_profile.setReadOnly(True)
+        self.input_user_profile.setStyleSheet(
             "background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; "
             "border-radius: 4px; padding: 4px 8px;"
         )
-        hl.addWidget(self.input_sync_root, 1)
+        hl.addWidget(self.input_user_profile, 1)
 
-        self.btn_change_sync = QPushButton("変更")
-        self.btn_change_sync.setStyleSheet(
+        self.btn_change_profile = QPushButton("変更")
+        self.btn_change_profile.setStyleSheet(
             "background: #3b82f6; color: white; border: none; "
             "border-radius: 6px; padding: 6px 16px; font-weight: 600;"
         )
-        self.btn_change_sync.clicked.connect(self._on_change_sync_root)
-        hl.addWidget(self.btn_change_sync)
+        self.btn_change_profile.clicked.connect(self._on_change_user_profile)
+        hl.addWidget(self.btn_change_profile)
+        vl.addLayout(hl)
 
-        # verticalLayout の先頭 (index 0) に挿入
+        # 導出パスのプレビュー
+        self._lbl_derived = QLabel()
+        self._lbl_derived.setStyleSheet(
+            "font-size: 11px; color: #6b7280; border: none;"
+        )
+        self._lbl_derived.setWordWrap(True)
+        self._update_derived_preview(str(_cfg.USER_PROFILE))
+        vl.addWidget(self._lbl_derived)
+
         self.ui.verticalLayout.insertWidget(0, section)
 
-    def _on_change_sync_root(self) -> None:
-        """フォルダ選択ダイアログで同期環境パスを変更する。"""
+    def _update_derived_preview(self, profile_path: str) -> None:
+        p = Path(profile_path)
+        sync = p / "トクヤマグループ"
+        data = p / "トクヤマグループ" / "環境分析課 - ドキュメント" / "app_data"
+        self._lbl_derived.setText(
+            f"同期環境: {sync}\n"
+            f"データ保存先: {data}"
+        )
+
+    def _on_change_user_profile(self) -> None:
+        """フォルダ選択ダイアログで USERPROFILE を変更する。"""
         from PySide6.QtWidgets import QFileDialog
-        start_dir = str(_cfg.SYNC_ROOT)
+        start_dir = str(_cfg.USER_PROFILE)
         folder = QFileDialog.getExistingDirectory(
-            self, "同期環境フォルダを選択", start_dir
+            self, "ユーザープロファイルフォルダを選択", start_dir
         )
         if not folder:
             return
         new_path = Path(folder)
         if not new_path.exists() or not new_path.is_dir():
             return
-        save_sync_root(new_path)
-        reload_sync_root(new_path)
-        self.input_sync_root.setText(str(new_path))
+        save_user_profile(new_path)
+        reload_user_profile(new_path)
+        self.input_user_profile.setText(str(new_path))
+        self._update_derived_preview(str(new_path))
         QMessageBox.information(
             self,
-            "同期環境を変更しました",
-            f"新しい同期環境:\n{new_path}\n\n"
-            "変更を完全に反映するにはアプリケーションを再起動してください。",
-        )
-
-    # ── data_path 設定セクション ───────────────────────────────────────────────
-
-    def _build_data_path_section(self) -> None:
-        """同期環境セクションの下に data_path 表示・変更セクションを挿入する。"""
-        section = QWidget()
-        section.setObjectName("widget_data_path_section")
-        section.setStyleSheet(
-            "#widget_data_path_section { background: #ffffff; "
-            "border: 1px solid #e5e7eb; border-radius: 8px; }"
-        )
-        hl = QHBoxLayout(section)
-        hl.setContentsMargins(16, 10, 16, 10)
-        hl.setSpacing(12)
-
-        label = QLabel("データ保存先")
-        label.setStyleSheet("font-weight: bold; font-size: 13px; border: none;")
-        hl.addWidget(label)
-
-        self.input_data_path = QLineEdit(str(_cfg.DATA_PATH))
-        self.input_data_path.setReadOnly(True)
-        self.input_data_path.setStyleSheet(
-            "background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; "
-            "border-radius: 4px; padding: 4px 8px;"
-        )
-        hl.addWidget(self.input_data_path, 1)
-
-        self.btn_change_path = QPushButton("変更")
-        self.btn_change_path.setStyleSheet(
-            "background: #3b82f6; color: white; border: none; "
-            "border-radius: 6px; padding: 6px 16px; font-weight: 600;"
-        )
-        self.btn_change_path.clicked.connect(self._on_change_data_path)
-        hl.addWidget(self.btn_change_path)
-
-        # 同期環境セクション(index 0)の次 (index 1) に挿入
-        self.ui.verticalLayout.insertWidget(1, section)
-
-    def _on_change_data_path(self) -> None:
-        """SetupRootDialog を開いてデータ保存先を変更する。"""
-        dlg = SetupRootDialog(current_path=str(_cfg.DATA_PATH), parent=self)
-        if dlg.exec() != dlg.DialogCode.Accepted:
-            return
-
-        new_path = dlg.selected_path()
-        reload_paths(new_path)
-        self.input_data_path.setText(str(new_path))
-
-        QMessageBox.information(
-            self,
-            "データ保存先を変更しました",
-            f"新しいデータ保存先:\n{new_path}\n\n"
+            "USERPROFILE を変更しました",
+            f"新しいプロファイル:\n{new_path}\n\n"
             "変更を完全に反映するにはアプリケーションを再起動してください。",
         )
 

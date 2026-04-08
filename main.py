@@ -649,56 +649,39 @@ class MainWindow(QMainWindow):
 
 
 
-def _ensure_sync_root(qapp: QApplication) -> bool:
-    """同期環境が有効か確認し、未設定ならフォルダ選択ダイアログで設定を促す。
+def _ensure_user_profile(qapp: QApplication) -> bool:
+    """USERPROFILE が有効か確認し、未設定ならフォルダ選択ダイアログで設定を促す。
 
     Returns:
         True: 有効なパスが設定済み。False: ユーザーがキャンセル。
     """
     from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from app.config import load_user_profile, save_user_profile, reload_user_profile
 
-    if load_sync_root() is not None:
+    if load_user_profile() is not None:
         return True
 
     # 未設定 → フォルダ選択ダイアログを表示
     QMessageBox.information(
         None,  # type: ignore[arg-type]
-        "同期環境の設定",
-        "SharePoint 同期フォルダのルート（例: トクヤマグループ）を選択してください。\n\n"
-        "このフォルダはドキュメントリンクを他のユーザーと共有するために使用されます。",
+        "USERPROFILE の設定",
+        "ユーザープロファイルフォルダを選択してください。\n\n"
+        "例: C:\\Users\\12414\n\n"
+        "このフォルダを基準に同期環境やデータ保存先が自動設定されます。",
     )
     folder = QFileDialog.getExistingDirectory(
         None,  # type: ignore[arg-type]
-        "同期環境フォルダを選択",
-        str(_cfg.SYNC_ROOT),
+        "ユーザープロファイルフォルダを選択",
+        str(pathlib.Path.home()),
     )
     if not folder:
         return False
     p = pathlib.Path(folder)
     if not p.exists() or not p.is_dir():
         return False
-    save_sync_root(p)
-    reload_sync_root(p)
+    save_user_profile(p)
+    reload_user_profile(p)
     return True
-
-
-def _ensure_data_path(qapp: QApplication) -> bool:
-    """DATA_PATH が有効か確認し、未設定または無効ならダイアログで設定を促す。
-
-    Returns:
-        True: 有効なパスが設定済み。False: ユーザーがキャンセル。
-    """
-    # ユーザーが明示的にパスを保存済み かつ 有効なら OK
-    if load_data_path() is not None:
-        return True
-
-    # 未設定 → 設定ダイアログを表示（フォールバックパスを初期値として提示）
-    dlg = SetupRootDialog(str(_cfg.DATA_PATH))
-    if dlg.exec() == QDialog.DialogCode.Accepted:
-        new_path = dlg.selected_path()
-        reload_paths(new_path)
-        return True
-    return False
 
 
 def _login(qapp: QApplication) -> bool:
@@ -737,10 +720,7 @@ def main() -> None:
     qapp.setStyle("Fusion")
     qapp.setStyleSheet(GLOBAL_QSS)
 
-    if not _ensure_sync_root(qapp):
-        sys.exit(0)
-
-    if not _ensure_data_path(qapp):
+    if not _ensure_user_profile(qapp):
         sys.exit(0)
 
     # 最低表示時間を保証 (dev 環境の QSplashScreen 用)
