@@ -130,16 +130,7 @@ class ResultEntryUI(QWidget):
         ab.setContentsMargins(0, 4, 0, 4)
         ab.setSpacing(8)
 
-        # 左側: データ更新
-        self._btn_data_update = QPushButton("データ更新")
-        self._btn_data_update.setIcon(get_icon(":/icons/data.svg", _ACCENT))
-        self._btn_data_update.setMinimumWidth(100)
-        self._btn_data_update.setFixedHeight(30)
-        self._btn_data_update.setStyleSheet(_BTN_SECONDARY)
-        self._btn_data_update.clicked.connect(self.data_update_requested)
-        ab.addWidget(self._btn_data_update)
-
-        # Lab-Aid起動
+        # 左端: Lab-Aid
         self._btn_labaid = QPushButton("Lab-Aid")
         self._btn_labaid.setFixedHeight(30)
         self._btn_labaid.setStyleSheet(_BTN_SECONDARY)
@@ -148,19 +139,7 @@ class ResultEntryUI(QWidget):
 
         ab.addStretch()
 
-        # 右側: 一時保存・入力ツールへ引継ぎ・データ照合
-        self._btn_save_temp = QPushButton("一時保存")
-        self._btn_save_temp.setFixedHeight(30)
-        self._btn_save_temp.setStyleSheet(_BTN_SECONDARY)
-        self._btn_save_temp.clicked.connect(self._on_save_temp)
-        ab.addWidget(self._btn_save_temp)
-
-        self._btn_transfer = QPushButton("入力ツールへ引継ぎ")
-        self._btn_transfer.setFixedHeight(30)
-        self._btn_transfer.setStyleSheet(_BTN_PRIMARY)
-        self._btn_transfer.clicked.connect(self._on_transfer)
-        ab.addWidget(self._btn_transfer)
-
+        # 中央: 分析結果の読み込み・入力ツールへ引継ぎ・データ更新・入力チェック
         self._btn_load_results = QPushButton("分析結果の読み込み")
         self._btn_load_results.setFixedHeight(30)
         self._btn_load_results.setStyleSheet(_BTN_SECONDARY)
@@ -168,11 +147,34 @@ class ResultEntryUI(QWidget):
         self._btn_load_results.clicked.connect(self.load_results_requested)
         ab.addWidget(self._btn_load_results)
 
-        self._btn_verify = QPushButton("データ照合")
+        self._btn_transfer = QPushButton("入力ツールへ引継ぎ")
+        self._btn_transfer.setFixedHeight(30)
+        self._btn_transfer.setStyleSheet(_BTN_PRIMARY)
+        self._btn_transfer.clicked.connect(self._on_transfer)
+        ab.addWidget(self._btn_transfer)
+
+        self._btn_data_update = QPushButton("データ更新")
+        self._btn_data_update.setIcon(get_icon(":/icons/data.svg", _ACCENT))
+        self._btn_data_update.setMinimumWidth(100)
+        self._btn_data_update.setFixedHeight(30)
+        self._btn_data_update.setStyleSheet(_BTN_SECONDARY)
+        self._btn_data_update.clicked.connect(self.data_update_requested)
+        ab.addWidget(self._btn_data_update)
+
+        self._btn_verify = QPushButton("入力チェック")
         self._btn_verify.setFixedHeight(30)
         self._btn_verify.setStyleSheet(_BTN_SECONDARY)
         self._btn_verify.clicked.connect(self.verify_requested)
         ab.addWidget(self._btn_verify)
+
+        ab.addStretch()
+
+        # 右端: 一時保存
+        self._btn_save_temp = QPushButton("一時保存")
+        self._btn_save_temp.setFixedHeight(30)
+        self._btn_save_temp.setStyleSheet(_BTN_SECONDARY)
+        self._btn_save_temp.clicked.connect(self._on_save_temp)
+        ab.addWidget(self._btn_save_temp)
 
         outer.addWidget(action_bar)
 
