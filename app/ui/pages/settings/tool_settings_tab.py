@@ -1,6 +1,8 @@
 """ツール設定タブ — Lab-Aid / 入力ツール のパスを設定する。"""
 from __future__ import annotations
 
+import os
+
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -25,6 +27,35 @@ _INPUT_STYLE = (
     "background: #f9fafb; border: 1px solid #e5e7eb; "
     "border-radius: 4px; padding: 6px 8px;"
 )
+_PREVIEW_STYLE = (
+    "font-size: 11px; color: #6b7280; border: none; padding: 2px 0 0 2px;"
+)
+_PREVIEW_ERROR_STYLE = (
+    "font-size: 11px; color: #ef4444; border: none; padding: 2px 0 0 2px;"
+)
+
+
+def _expand_path(raw: str) -> str:
+    """環境変数を展開してパスを返す。"""
+    return os.path.expandvars(raw.strip()) if raw.strip() else ""
+
+
+def _preview_text(raw: str) -> tuple[str, bool]:
+    """プレビュー用テキストと正常かどうかを返す。"""
+    raw = raw.strip()
+    if not raw:
+        return "", True
+    if raw.startswith(("http://", "https://")):
+        return f"URL: {raw}", True
+    expanded = _expand_path(raw)
+    if expanded != raw:
+        # 環境変数が含まれていた
+        if os.path.exists(expanded):
+            return f"展開先: {expanded}", True
+        return f"展開先: {expanded}  (ファイルが見つかりません)", False
+    if os.path.exists(raw):
+        return f"パス: {raw}", True
+    return f"パス: {raw}  (ファイルが見つかりません)", False
 
 
 class ToolSettingsTab(QWidget):
@@ -62,22 +93,34 @@ class ToolSettingsTab(QWidget):
         # ── Lab-Aid ───────────────────────────────────────────
         labaid_section = self._make_section(
             "Lab-Aid",
-            "Lab-Aid のアプリパスまたは URL を設定します。",
+            "Lab-Aid のアプリパスまたは URL を設定します。\n"
+            "%APPDATA% などの環境変数が使えます。",
         )
+        ll = labaid_section.layout()
         self._input_labaid = QLineEdit(
             self._service.get_tool_path("labaid_path")
         )
         self._input_labaid.setPlaceholderText(
-            r"例: C:\Users\...\Lab-Aid v5 Client.appref-ms  または  http://..."
+            r"例: %APPDATA%\Microsoft\Windows\Start Menu\Programs\Lab-Aid v5\Lab-Aid v5 Client.appref-ms"
         )
         self._input_labaid.setStyleSheet(_INPUT_STYLE)
-        labaid_section.layout().addWidget(self._input_labaid)
+        ll.addWidget(self._input_labaid)
+
+        self._preview_labaid = QLabel("")
+        self._preview_labaid.setStyleSheet(_PREVIEW_STYLE)
+        self._preview_labaid.setWordWrap(True)
+        ll.addWidget(self._preview_labaid)
+        self._input_labaid.textChanged.connect(
+            lambda text: self._update_preview(text, self._preview_labaid)
+        )
+        self._update_preview(self._input_labaid.text(), self._preview_labaid)
         outer.addWidget(labaid_section)
 
         # ── 入力ツール ────────────────────────────────────────
         tool_section = self._make_section(
             "入力ツール（Excel）",
-            "データを書き込む Excel ファイルのパスと、書き込み先のシート名・開始セルを設定します。",
+            "データを書き込む Excel ファイルのパスと、書き込み先のシート名・開始セルを設定します。\n"
+            "%USERPROFILE% などの環境変数が使えます。",
         )
         tl = tool_section.layout()
 
@@ -88,10 +131,19 @@ class ToolSettingsTab(QWidget):
             self._service.get_tool_path("input_tool_path")
         )
         self._input_tool.setPlaceholderText(
-            r"例: C:\Tools\入力ツール.xlsx"
+            r"例: %USERPROFILE%\Documents\入力ツール.xlsx"
         )
         self._input_tool.setStyleSheet(_INPUT_STYLE)
         tl.addWidget(self._input_tool)
+
+        self._preview_tool = QLabel("")
+        self._preview_tool.setStyleSheet(_PREVIEW_STYLE)
+        self._preview_tool.setWordWrap(True)
+        tl.addWidget(self._preview_tool)
+        self._input_tool.textChanged.connect(
+            lambda text: self._update_preview(text, self._preview_tool)
+        )
+        self._update_preview(self._input_tool.text(), self._preview_tool)
 
         row_widget = QWidget()
         row_widget.setStyleSheet("background: transparent;")
@@ -148,6 +200,12 @@ class ToolSettingsTab(QWidget):
         vl.addWidget(lbl_desc)
 
         return section
+
+    @staticmethod
+    def _update_preview(text: str, label: QLabel) -> None:
+        preview, ok = _preview_text(text)
+        label.setText(preview)
+        label.setStyleSheet(_PREVIEW_STYLE if ok else _PREVIEW_ERROR_STYLE)
 
     def _on_save(self) -> None:
         self._service.save_tool_path(

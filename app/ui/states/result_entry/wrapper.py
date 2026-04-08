@@ -127,7 +127,9 @@ class ResultEntryState(QWidget):
 
     def _on_transfer(self, all_data: list[dict]) -> None:
         """入力ツール(Excel)の指定シート・セルにデータを書き込んで開く。"""
-        excel_path = self._data_config.get_tool_path("input_tool_path").strip()
+        excel_path = os.path.expandvars(
+            self._data_config.get_tool_path("input_tool_path").strip()
+        )
         sheet_name = self._data_config.get_tool_path("input_tool_sheet").strip()
         start_cell = self._data_config.get_tool_path("input_tool_cell").strip()
 
@@ -229,7 +231,9 @@ class ResultEntryState(QWidget):
         self._open_file(excel_path)
 
     def _open_labaid(self) -> None:
-        path = self._data_config.get_tool_path("labaid_path").strip()
+        path = os.path.expandvars(
+            self._data_config.get_tool_path("labaid_path").strip()
+        )
         if not path:
             QMessageBox.information(self, "Lab-Aid", "Lab-Aidのパスが設定されていません。\n設定画面で設定してください。")
             return
