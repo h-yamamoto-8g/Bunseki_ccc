@@ -175,6 +175,7 @@ class _ColumnListEditor(QWidget):
         btn_down.clicked.connect(lambda _=False, idx=index: self._move(idx, 1))
         hl.addWidget(btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        locked = col.get("locked", False)
         cb = QCheckBox()
         cb.setChecked(col.get("visible", True))
         cb.setFixedSize(28, 28)
@@ -182,9 +183,12 @@ class _ColumnListEditor(QWidget):
             "QCheckBox { border-bottom: none; padding: 0; }"
             "QCheckBox::indicator { width: 24px; height: 24px; }"
         )
-        cb.toggled.connect(
-            lambda checked, idx=index: self._on_check_toggled(idx, checked)
-        )
+        if locked:
+            cb.setEnabled(False)
+        else:
+            cb.toggled.connect(
+                lambda checked, idx=index: self._on_check_toggled(idx, checked)
+            )
         hl.addWidget(cb, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         key_lbl = QLabel(col["key"])
@@ -249,14 +253,17 @@ class _ColumnListEditor(QWidget):
     def collect(self) -> list[dict]:
         """現在の設定を返す（表示順を保持）。"""
         self._sync_to_columns()
-        return [
-            {
+        result = []
+        for c in self._columns:
+            entry: dict = {
                 "key": c["key"],
                 "label": c.get("label", c["key"]),
                 "visible": c.get("visible", True),
             }
-            for c in self._columns
-        ]
+            if c.get("locked"):
+                entry["locked"] = True
+            result.append(entry)
+        return result
 
 
 class TaskColumnsTab(QWidget):

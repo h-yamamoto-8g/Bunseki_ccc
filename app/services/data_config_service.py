@@ -54,7 +54,7 @@ _RESULT_VERIFICATION_EXTRA = [
 ]
 
 _RESULT_ENTRY_EXTRA = [
-    {"key": "input_data", "label": "データ", "visible": True},
+    {"key": "input_data", "label": "データ", "visible": True, "locked": True},
 ]
 
 # CSV出力列のデフォルト設定
