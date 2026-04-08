@@ -3,6 +3,9 @@
 > Lessons learned from Bunseki_ccc development.
 > Reference for building similar apps with Claude Code CLI / claude.ai.
 
+**Version**: 1.2
+**Last Updated**: 2026-04-08
+
 ---
 
 ## 1. Project Overview
@@ -14,19 +17,38 @@
 
 ---
 
-## 2. app_data Architecture (Critical)
+## 2. USERPROFILE-Based Path Management (Critical)
 
-### 2.1 DATA_PATH Resolution Chain
+### 2.1 Path Resolution
 
-Resolved at startup in `app/config.py` `_resolve_data_path()`. Priority:
+All paths derive from a single USERPROFILE setting (user's home folder, e.g. `C:\Users\12414`).
 
-1. **User settings file** `~/.bunseki/settings.json` key `app_data_path`
-2. **Windows SharePoint default** (SharePoint sync path for the team)
-3. **Non-Windows fallback** `~/app_data` (not expected to exist -> forces setup dialog)
+**Settings file**: `~/.bunseki/settings.json`
 
-> Important: settings.json is stored in user's home (not SharePoint). Each machine can have different paths.
+```json
+{
+  "user_profile_path": "C:\\Users\\12414"
+}
+```
 
-### 2.2 app_data Directory Structure
+**Derived paths**:
+| Variable | Derivation |
+|----------|-----------|
+| `USER_PROFILE` | Saved path or `Path.home()` fallback |
+| `SYNC_ROOT` | `{USER_PROFILE}/トクヤマグループ` |
+| `DATA_PATH` | `{USER_PROFILE}/トクヤマグループ/環境分析課 - ドキュメント/app_data` |
+
+**Backward compatibility**: Legacy settings (`app_data_path`, `sync_root_path`) are used as fallback.
+
+### 2.2 Path Variables for Tool Settings
+
+Tool path inputs support these variables (expanded by `_expand_path()`):
+- `%USERPROFILE%` → user profile path
+- `%SYNC_ROOT%` → SharePoint sync root
+- `%DATA_PATH%` → app data path
+- Plus any OS environment variables via `os.path.expandvars()`
+
+### 2.3 app_data Directory Structure
 
 ```
 DATA_PATH/
@@ -45,7 +67,8 @@ DATA_PATH/
 └── bunseki/                          # App-specific data
     ├── config/
     │   ├── users.json                # User accounts (SHA-256 hashed)
-    │   └── hg_config.json            # Holder group checklist config
+    │   ├── hg_config.json            # Holder group checklist config
+    │   └── data_config.json          # Column settings, tool paths, CSV export config
     ├── tasks/tasks.json              # Task (workflow) data
     ├── data/anomalies.json
     ├── news/news.json
@@ -54,7 +77,7 @@ DATA_PATH/
     └── logs/
 ```
 
-### 2.3 Critical Bug: DATA_PATH Cached at Import Time
+### 2.4 Critical Bug: DATA_PATH Cached at Import Time
 
 All store modules cached `DATA_PATH` as module-level constants via `from app.config import DATA_PATH`. Calling `reload_paths()` did NOT update stores.
 
@@ -73,7 +96,7 @@ def _tasks_file():
 
 **Always use this pattern in new apps.**
 
-### 2.4 Attachment Paths Must Be Relative
+### 2.5 Attachment Paths Must Be Relative
 
 SharePoint sharing means local paths differ per user.
 
@@ -198,37 +221,60 @@ if getattr(sys, "frozen", False):
 
 ### 5.2 [Critical] Splash Screen Startup Order
 
-**Final solution**: Two-stage splash: PyInstaller Splash (during exe extraction) + QSplashScreen (after Python starts).
+**Final solution**: Two-stage splash: PyInstaller Splash (during exe extraction) + QSplashScreen (after Python starts). Do NOT use `WindowStaysOnTopHint` — splash should go behind other apps when user switches.
 
 **Required order**:
 ```
 1. Create QApplication (minimal imports only)
-2. Show QSplashScreen
+2. Show QSplashScreen (no WindowStaysOnTopHint)
 3. Heavy imports (matplotlib, app.* modules)
 4. Call processEvents() to keep splash rendering
 5. Close splash after minimum display time (1500ms)
 ```
 
-### 5.3 [Important] Blocking Ops Freeze Animations
+### 5.3 [Important] openpyxl Destroys Macros in .xlsm Files
+
+**Symptom**: Excel shows "file format is not correct" error after saving via openpyxl.
+**Cause**: `load_workbook()` default discards VBA macros.
+**Fix**: `load_workbook(path, keep_vba=True)`
+
+### 5.4 [Important] openpyxl.utils Import Path
+
+**Symptom**: `cannot import name 'coordinate_from_string' from 'openpyxl.utils'`
+**Fix**: Import from `openpyxl.utils.cell`, not `openpyxl.utils`:
+```python
+from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
+```
+
+### 5.5 [Important] pandas Converts Integers to Floats
+
+**Symptom**: Integer `0` displayed as `0.0` in tables.
+**Fix**: Check `float.is_integer()` at display time and cast to int:
+```python
+if isinstance(val, float) and val.is_integer():
+    return str(int(val))
+```
+
+### 5.6 [Important] Blocking Ops Freeze Animations
 
 **Symptom**: Loading spinner shows but doesn't animate.
 **Cause**: `subprocess.run()` blocks main thread, `QTimer` events don't process.
 **Fix**: Run in `QThread`, call `processEvents()` on main thread.
 
-### 5.4 [Important] Variable Name `app` Shadows Package `app`
+### 5.7 [Important] Variable Name `app` Shadows Package `app`
 
 **Fix**: Name QApplication variable `qapp`. Never use variable names matching package names.
 
-### 5.5 [Important] Data Loss on Circulation Rejection
+### 5.8 [Important] Data Loss on Circulation Rejection
 
 **Cause**: Two-step `update` creates intermediate inconsistency.
 **Fix**: Single `update_task_field()` call for atomic write.
 
-### 5.6 [Medium] Login Dialog Hidden Behind Windows
+### 5.9 [Medium] Login Dialog Hidden Behind Windows
 
 **Fix**: `WindowStaysOnTopHint` + `raise_()` + `activateWindow()` (all three required).
 
-### 5.7 [Medium] Setup Dialog Not Shown for Unconfigured Users
+### 5.10 [Medium] Setup Dialog Not Shown for Unconfigured Users
 
 **Fix**: Check `~/.bunseki/settings.json` existence/content, not just path existence.
 
@@ -261,9 +307,12 @@ Each state has `app/ui/states/{state_name}/` with `state.py` (UI) + `wrapper.py`
 
 ### 6.3 Config Management
 
-- Global config: module-level variables in `app/config.py`
-- User-local config: `~/.bunseki/settings.json`
-- App data: JSON files under `DATA_PATH/`
+| Config | Location | Purpose |
+|--------|----------|---------|
+| USERPROFILE | `~/.bunseki/settings.json` | Path base for all derived paths |
+| Column/tool settings | `{DATA_PATH}/bunseki/config/data_config.json` | Display columns, CSV export, tool paths |
+| Users | `{DATA_PATH}/bunseki/config/users.json` | Login authentication |
+| HG config | `{DATA_PATH}/bunseki/config/hg_config.json` | Checklists, links per holder group |
 
 ---
 
@@ -305,7 +354,7 @@ Each state has `app/ui/states/{state_name}/` with `state.py` (UI) + `wrapper.py`
 | UI | PySide6 >= 6.7 | Not PyQt. License difference. |
 | Data | pandas >= 2.0 | CSV read/aggregation |
 | Charts | matplotlib >= 3.7 | Backend: `qtagg` (add to hiddenimports) |
-| Reports | openpyxl >= 3.1 | Excel output |
+| Excel I/O | openpyxl >= 3.1 | Excel read/write; use `keep_vba=True` for .xlsm |
 | Build | PyInstaller | One-file mode (`--onefile`) |
 | Icon gen | cairosvg + Pillow | `tools/gen_icon.py`, `tools/gen_splash.py` |
 

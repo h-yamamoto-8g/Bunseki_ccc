@@ -8,8 +8,11 @@
 ## Project Overview
 
 Desktop tool (PySide6) for environmental wastewater analysis workflow support.
-Reads CSV/JSON from SharePoint-synced folders. Performs aggregation, threshold checks, visualization, and report output.
+Reads CSV/JSON from SharePoint-synced folders. Performs aggregation, threshold checks, visualization, and Excel integration via openpyxl.
 Does NOT perform analysis itself — automates surrounding tasks (preparation, recording, reporting).
+
+All paths derive from a single USERPROFILE setting (`~/.bunseki/settings.json`).
+Tool settings support `%USERPROFILE%`, `%SYNC_ROOT%`, `%DATA_PATH%` variables.
 
 Detailed specs: `docs/requirements.md`
 
@@ -23,7 +26,7 @@ Detailed specs: `docs/requirements.md`
 | UI Framework | PySide6 |
 | Data Processing | pandas |
 | Charts | matplotlib |
-| Reports | openpyxl |
+| Excel I/O | openpyxl |
 | Config | pydantic-settings |
 | Tests | pytest |
 | Package Manager | pip + requirements.txt (no poetry) |
