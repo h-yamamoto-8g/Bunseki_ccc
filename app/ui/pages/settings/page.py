@@ -30,7 +30,7 @@ from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
 from app.ui.pages.settings.home_tab import HomeTab
 from app.ui.pages.settings.task_columns_tab import TaskColumnsTab
-from app.ui.pages.settings.log_tab import LogTab
+from app.ui.pages.settings.app_tab import AppTab
 from app.ui.pages.settings.reviewer_tab import ReviewerTab
 from app.ui.pages.settings.tool_settings_tab import ToolSettingsTab
 from app.ui.pages.settings.users_tab import UsersTab
@@ -194,8 +194,14 @@ class SettingsPage(QWidget):
         self.data_tab = DataTab(self.data_config_service, csv_columns=csv_columns)
         self._embed(self.ui.tab_data, self.data_tab)
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
-        self.log_tab = LogTab()
-        self._embed(self.ui.tab_logs, self.log_tab)
+
+        # tab_logs → 「アプリ」タブとして使用
+        self.app_tab = AppTab()
+        self._embed(self.ui.tab_logs, self.app_tab)
+        self.ui.tabs.setTabText(
+            self.ui.tabs.indexOf(self.ui.tab_logs), "アプリ",
+        )
+
         self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
 
     @staticmethod

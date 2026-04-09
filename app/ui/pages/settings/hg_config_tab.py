@@ -606,7 +606,16 @@ class HgConfigTab(QWidget):
         self._analysis_service = AnalysisResultService()
         self._parser_config = ParserConfigWidget(self._analysis_service)
 
+        # メールテンプレート設定
+        from app.ui.pages.settings.mail_print_widget import (
+            MailSettingsWidget,
+            PrintSettingsWidget,
+        )
+        self._mail_settings = MailSettingsWidget()
+        self._print_settings = PrintSettingsWidget()
+
         status_widgets: dict[str, list[QWidget]] = {
+            "analysis_targets": [self._print_settings],
             "analysis": [
                 self._pre_docs_editor, self._pre_editor,
                 self._post_docs_editor, self._post_editor,
@@ -617,6 +626,7 @@ class HgConfigTab(QWidget):
                 self._anomaly_config,
                 self._spec_columns,
             ],
+            "submission": [self._mail_settings],
         }
 
         for status_id, status_name in STATUS_DEFS:
