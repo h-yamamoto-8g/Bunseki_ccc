@@ -32,7 +32,7 @@ from app.config import DATA_PATH
 # ── 実行フラグ ──────────────────────────────────────────────────────────────
 # True  : 実行する
 # False : スキップ（ツール未準備のため一時無効化）
-ENABLED: bool = False
+ENABLED: bool = True
 
 # ── 外部ツール設定 ──────────────────────────────────────────────────────────
 # Extractor（Lab-AidからCSVを出す）
