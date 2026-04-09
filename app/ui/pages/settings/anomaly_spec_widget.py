@@ -166,7 +166,8 @@ class SpecColumnsWidget(QWidget):
             ["基準値名", "上限列名", "下限列名", ""],
         )
         self._table.setStyleSheet(_TABLE_STYLE)
-        self._table.setMaximumHeight(220)
+        self._table.setMinimumHeight(150)
+        self._table.setMaximumHeight(300)
         self._table.verticalHeader().setVisible(False)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
