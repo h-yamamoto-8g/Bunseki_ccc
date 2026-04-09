@@ -217,6 +217,16 @@ class ResultEntryState(QWidget):
                     )
 
             wb.save(excel_path)
+        except PermissionError:
+            QMessageBox.warning(
+                self,
+                "Excel 書き込みエラー",
+                "ファイルへのアクセスが拒否されました。\n"
+                "Excel でファイルが開かれている場合は閉じてから\n"
+                "再度お試しください。\n\n"
+                f"{excel_path}",
+            )
+            return
         except Exception as e:
             QMessageBox.warning(self, "Excel 書き込みエラー", str(e))
             return
