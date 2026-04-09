@@ -148,6 +148,84 @@ class CodeEditorDialog(QDialog):
         return self._editor.toPlainText()
 
 
+class PromptPreviewDialog(QDialog):
+    """プロンプトのプレビューダイアログ。
+
+    マークダウン形式のプロンプトを読み取り専用で全画面表示する。
+    「コピーして閉じる」ボタンでクリップボードにコピーできる。
+
+    Args:
+        prompt: プレビュー表示するプロンプト文字列。
+        parent: 親ウィジェット。
+    """
+
+    def __init__(self, prompt: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._prompt = prompt
+        self.setWindowTitle("プロンプトプレビュー")
+        self.setModal(True)
+        self.resize(900, 700)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # ── ツールバー ────────────────────────────────────────────
+        toolbar = QWidget()
+        toolbar.setStyleSheet("background: #f8fafc; border-bottom: 1px solid #e2e8f0;")
+        toolbar.setFixedHeight(48)
+        tb = QHBoxLayout(toolbar)
+        tb.setContentsMargins(16, 0, 16, 0)
+        tb.setSpacing(12)
+
+        lbl = QLabel("プロンプトプレビュー")
+        lbl.setStyleSheet(
+            "color: #1e293b; font-size: 14px; font-weight: 600; border: none;"
+        )
+        tb.addWidget(lbl)
+
+        tb.addStretch()
+
+        btn_close = QPushButton("閉じる")
+        btn_close.setStyleSheet(
+            "QPushButton { background: transparent; color: #64748b;"
+            " border: 1px solid #cbd5e1; padding: 6px 20px;"
+            " border-radius: 5px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #f1f5f9; }"
+        )
+        btn_close.clicked.connect(self.reject)
+        tb.addWidget(btn_close)
+
+        self._btn_copy_close = QPushButton("コピーして閉じる")
+        self._btn_copy_close.setStyleSheet(
+            "QPushButton { background: #3b82f6; color: white;"
+            " border: none; padding: 6px 20px;"
+            " border-radius: 5px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #2563eb; }"
+        )
+        self._btn_copy_close.clicked.connect(self._on_copy_and_close)
+        tb.addWidget(self._btn_copy_close)
+
+        outer.addWidget(toolbar)
+
+        # ── プレビュー表示 ────────────────────────────────────────
+        self._preview = QPlainTextEdit()
+        self._preview.setReadOnly(True)
+        self._preview.setPlainText(prompt)
+        self._preview.setStyleSheet(
+            "QPlainTextEdit { background: #ffffff; color: #1e293b;"
+            " border: none; font-family: 'Consolas', 'Courier New', monospace;"
+            " font-size: 13px; padding: 24px; line-height: 1.6; }"
+        )
+        outer.addWidget(self._preview, 1)
+
+    def _on_copy_and_close(self) -> None:
+        """クリップボードにコピーして閉じる。"""
+        from PySide6.QtWidgets import QApplication
+        QApplication.clipboard().setText(self._prompt)
+        self.accept()
+
+
 _DEFAULT_CODE = '''def parse(file_path: str) -> list[dict[str, str]]:
     """分析結果ファイルを読み込み、辞書のリストを返す。
 
@@ -388,10 +466,14 @@ class ParserConfigWidget(QWidget):
         self._extra_prompt_editor.setMaximumHeight(120)
         outer.addWidget(self._extra_prompt_editor)
 
-        # コピーボタン
+        # コピー・プレビューボタン
         ai_btns = QHBoxLayout()
         ai_btns.setSpacing(8)
         ai_btns.addStretch()
+
+        self._btn_preview_prompt = QPushButton("プレビュー")
+        self._btn_preview_prompt.setStyleSheet(_BTN_SECONDARY)
+        ai_btns.addWidget(self._btn_preview_prompt)
 
         self._btn_copy_prompt = QPushButton("プロンプトをコピー")
         self._btn_copy_prompt.setStyleSheet(_BTN_PRIMARY)
@@ -480,6 +562,7 @@ class ParserConfigWidget(QWidget):
         self._btn_upload_code.clicked.connect(self._on_upload_code)
         self._btn_save_code.clicked.connect(self._on_save_code)
         self._btn_delete_code.clicked.connect(self._on_delete_code)
+        self._btn_preview_prompt.clicked.connect(self._on_preview_prompt)
         self._btn_copy_prompt.clicked.connect(self._on_copy_prompt)
         self._btn_select_test.clicked.connect(self._on_select_test_file)
         self._btn_run_test.clicked.connect(self._on_run_test)
@@ -533,6 +616,31 @@ class ParserConfigWidget(QWidget):
             self._mapping_table.setItem(row, 2, test_item)
 
     # ── コード操作ハンドラ ────────────────────────────────────────────────────
+
+    def _on_preview_prompt(self) -> None:
+        """プロンプトをプレビューダイアログで表示する。"""
+        format_text = self._format_editor.toPlainText().strip()
+        extra_text = self._extra_prompt_editor.toPlainText().strip()
+
+        if not format_text:
+            QMessageBox.warning(
+                self, "プレビュー",
+                "「出力形式の指示」を入力してください。",
+            )
+            return
+
+        prompt = self._build_prompt(format_text, extra_text)
+        dlg = PromptPreviewDialog(prompt, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            # 「コピーして閉じる」が押された場合の通知
+            self._btn_copy_prompt.setText("コピーしました")
+            self._btn_copy_prompt.setStyleSheet(
+                "QPushButton { background: #10b981; color: white; border: none;"
+                " padding: 6px 16px; border-radius: 5px; font-size: 12px;"
+                " font-weight: 600; }"
+            )
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(2000, self._reset_copy_button)
 
     def _on_copy_prompt(self) -> None:
         """制約情報 + ユーザー指示を結合してクリップボードにコピーする。"""
