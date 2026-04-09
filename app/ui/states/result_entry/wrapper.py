@@ -216,7 +216,17 @@ class ResultEntryState(QWidget):
                         value=val,
                     )
 
-            wb.save(excel_path)
+            # 読み取り専用属性を一時的に解除して保存
+            import os, stat
+            p = Path(excel_path)
+            was_readonly = not os.access(excel_path, os.W_OK)
+            if was_readonly:
+                p.chmod(p.stat().st_mode | stat.S_IWRITE)
+            try:
+                wb.save(excel_path)
+            finally:
+                if was_readonly:
+                    p.chmod(p.stat().st_mode & ~stat.S_IWRITE)
         except PermissionError:
             QMessageBox.warning(
                 self,
