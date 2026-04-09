@@ -171,6 +171,68 @@ _DEFAULT_CODE = '''def parse(file_path: str) -> list[dict[str, str]]:
     return results
 '''
 
+_PROMPT_SYSTEM = """\
+# 分析結果パーサーコードの生成依頼
+
+以下の制約に従って、分析結果ファイルを読み込む Python コードを生成してください。
+
+## 関数シグネチャ（厳守）
+
+```python
+def parse(file_path: str) -> list[dict[str, str]]:
+```
+
+- **関数名**: `parse`（変更不可）
+- **引数**: `file_path: str` — 分析結果ファイルの絶対パス（1つだけ）
+- **戻り値**: `list[dict[str, str]]` — 辞書のリスト。**すべてのキーと値は文字列型** (`str`)
+
+## 戻り値の形式
+
+```python
+[
+    {"sample_name": "DW1", "pH": "7.2", "COD": "15.3"},
+    {"sample_name": "DW2", "pH": "6.8", "COD": "12.1"},
+]
+```
+
+- 1レコード = 1サンプル（1行）
+- キー名は自由に設定可能（後でマッピング設定で紐づけます）
+- **値は必ず文字列にすること**（数値も `str()` で変換）
+- 空値は空文字 `""` とする
+
+## 使用可能なライブラリ
+
+| ライブラリ | 用途 |
+|-----------|------|
+| `csv` | CSV/TSV の読み込み |
+| `json` | JSON の読み込み |
+| `re` | 正規表現によるテキスト加工 |
+| `io` | StringIO 等 |
+| `datetime` | 日付の処理 |
+| `math` | 数学演算 |
+| `pathlib` | パス操作 |
+| `collections` | OrderedDict 等 |
+| `pandas` | DataFrame によるデータ処理 |
+| `pdfplumber` | PDF からのテキスト・テーブル抽出 |
+| `chardet` | ファイルエンコーディングの自動判定 |
+
+**上記以外のライブラリは使用禁止です。**
+
+## 禁止事項
+
+- `subprocess`, `os.system`, `shutil` など外部プロセスの起動
+- `eval`, `exec`, `compile`, `__import__` など動的コード実行
+- ファイルの書き込み（`open(..., 'w')` など）
+- ネットワークアクセス（`socket`, `urllib`, `requests` など）
+
+## コーディングルール
+
+- エンコーディングは `encoding="cp932"` または `encoding="utf-8"` を明示すること
+- ファイル内の不要な行（装置情報、空行、フッターなど）は適切にスキップすること
+- 数値に `<` や `>` が付いている場合、文字列のまま保持すること
+- エラーが起きそうな箇所には適切な例外処理を入れること
+- コード内にコメントで処理内容を説明すること"""
+
 
 class ParserConfigWidget(QWidget):
     """パーサー設定ウィジェット。
@@ -268,6 +330,75 @@ class ParserConfigWidget(QWidget):
         code_btns.addStretch()
         outer.addLayout(code_btns)
 
+        # ── AIプロンプト生成セクション ────────────────────────────
+        lbl_ai = QLabel("AIコード生成プロンプト")
+        lbl_ai.setStyleSheet(_SECTION_LABEL_STYLE)
+        outer.addWidget(lbl_ai)
+
+        ai_hint = QLabel(
+            "分析結果ファイルの内容を添えて、以下のプロンプトをAIに渡してください。"
+            " コピーボタンで制約情報とあなたの指示を結合してクリップボードにコピーします。"
+        )
+        ai_hint.setStyleSheet(_HINT_STYLE)
+        ai_hint.setWordWrap(True)
+        outer.addWidget(ai_hint)
+
+        # 出力形式の記述欄
+        lbl_format = QLabel("出力形式の指示（どのキーにどの値を入れたいか）")
+        lbl_format.setStyleSheet("font-size: 12px; color: #475569; font-weight: 500;")
+        outer.addWidget(lbl_format)
+
+        self._format_editor = QPlainTextEdit()
+        self._format_editor.setPlaceholderText(
+            '例:\n'
+            '以下の形式で整形してください:\n'
+            '- "sample_name": サンプル名（「試料名」列の値）\n'
+            '- "pH": pH値（「pH」列の数値）\n'
+            '- "COD": COD値（「COD (mg/L)」列の数値）\n'
+            '- "SS": SS値（「SS」列の数値）'
+        )
+        self._format_editor.setStyleSheet(
+            f"QPlainTextEdit {{ background: #f8fafc; color: {_TEXT};"
+            f" border: 1px solid {_BORDER}; border-radius: 6px;"
+            f" font-family: 'Consolas', 'Courier New', monospace;"
+            f" font-size: 12px; padding: 8px; }}"
+        )
+        self._format_editor.setMinimumHeight(80)
+        self._format_editor.setMaximumHeight(150)
+        outer.addWidget(self._format_editor)
+
+        # 追加指示欄
+        lbl_extra = QLabel("追加の指示（任意）")
+        lbl_extra.setStyleSheet("font-size: 12px; color: #475569; font-weight: 500;")
+        outer.addWidget(lbl_extra)
+
+        self._extra_prompt_editor = QPlainTextEdit()
+        self._extra_prompt_editor.setPlaceholderText(
+            "例:\n"
+            "・ヘッダーは3行目から始まります\n"
+            "・最初の10行は装置情報なので無視してください\n"
+            "・「<」が付いている値はそのまま文字列として残してください"
+        )
+        self._extra_prompt_editor.setStyleSheet(
+            f"QPlainTextEdit {{ background: #f8fafc; color: {_TEXT};"
+            f" border: 1px solid {_BORDER}; border-radius: 6px;"
+            f" font-size: 12px; padding: 8px; }}"
+        )
+        self._extra_prompt_editor.setMinimumHeight(60)
+        self._extra_prompt_editor.setMaximumHeight(120)
+        outer.addWidget(self._extra_prompt_editor)
+
+        # コピーボタン
+        ai_btns = QHBoxLayout()
+        ai_btns.setSpacing(8)
+        ai_btns.addStretch()
+
+        self._btn_copy_prompt = QPushButton("プロンプトをコピー")
+        self._btn_copy_prompt.setStyleSheet(_BTN_PRIMARY)
+        ai_btns.addWidget(self._btn_copy_prompt)
+
+        outer.addLayout(ai_btns)
+
         # ── テスト実行セクション ──────────────────────────────────
         lbl_test = QLabel("テスト実行")
         lbl_test.setStyleSheet(_SECTION_LABEL_STYLE)
@@ -349,6 +480,7 @@ class ParserConfigWidget(QWidget):
         self._btn_upload_code.clicked.connect(self._on_upload_code)
         self._btn_save_code.clicked.connect(self._on_save_code)
         self._btn_delete_code.clicked.connect(self._on_delete_code)
+        self._btn_copy_prompt.clicked.connect(self._on_copy_prompt)
         self._btn_select_test.clicked.connect(self._on_select_test_file)
         self._btn_run_test.clicked.connect(self._on_run_test)
         self._btn_save_mapping.clicked.connect(self._on_save_mapping)
@@ -401,6 +533,80 @@ class ParserConfigWidget(QWidget):
             self._mapping_table.setItem(row, 2, test_item)
 
     # ── コード操作ハンドラ ────────────────────────────────────────────────────
+
+    def _on_copy_prompt(self) -> None:
+        """制約情報 + ユーザー指示を結合してクリップボードにコピーする。"""
+        format_text = self._format_editor.toPlainText().strip()
+        extra_text = self._extra_prompt_editor.toPlainText().strip()
+
+        if not format_text:
+            QMessageBox.warning(
+                self, "プロンプト生成",
+                "「出力形式の指示」を入力してください。",
+            )
+            return
+
+        prompt = self._build_prompt(format_text, extra_text)
+
+        from PySide6.QtWidgets import QApplication
+        clipboard = QApplication.clipboard()
+        clipboard.setText(prompt)
+
+        # コピー通知（ボタンテキストを一時的に変更）
+        self._btn_copy_prompt.setText("コピーしました")
+        self._btn_copy_prompt.setStyleSheet(
+            "QPushButton { background: #10b981; color: white; border: none;"
+            " padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 600; }"
+        )
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(2000, self._reset_copy_button)
+
+    def _reset_copy_button(self) -> None:
+        """コピーボタンを元のスタイルに戻す。"""
+        self._btn_copy_prompt.setText("プロンプトをコピー")
+        self._btn_copy_prompt.setStyleSheet(_BTN_PRIMARY)
+
+    @staticmethod
+    def _build_prompt(format_text: str, extra_text: str) -> str:
+        """AIコード生成用のプロンプトを組み立てる。
+
+        Args:
+            format_text: 出力形式の指示（ユーザー入力）。
+            extra_text: 追加の指示（ユーザー入力）。
+
+        Returns:
+            マークダウン形式のプロンプト文字列。
+        """
+        sections = [
+            _PROMPT_SYSTEM,
+            "---",
+            "## 出力形式",
+            "",
+            format_text,
+        ]
+
+        if extra_text:
+            sections += [
+                "",
+                "---",
+                "## 追加の指示",
+                "",
+                extra_text,
+            ]
+
+        sections += [
+            "",
+            "---",
+            "## 分析結果ファイルの内容",
+            "",
+            "以下に分析結果ファイルの内容を貼り付けてください:",
+            "",
+            "```",
+            "(ここにファイルの内容を貼り付け)",
+            "```",
+        ]
+
+        return "\n".join(sections)
 
     def _on_open_fullscreen(self) -> None:
         """全画面ダイアログでコードを編集する。"""
