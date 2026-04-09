@@ -188,12 +188,21 @@ class ResultEntryState(QWidget):
                     out_row.append(str(source.get(col_key, "")))
             rows_out.append(out_row)
 
-        # Excel に書き込み
+        # 元ファイルの一時コピーにデータを書き込んで開く
+        # （元ファイルは変更しない）
         try:
+            import shutil
+            import tempfile
             from openpyxl import load_workbook
             from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
-            wb = load_workbook(excel_path, keep_vba=True)
+            src = Path(excel_path)
+            tmp_dir = Path(tempfile.gettempdir()) / "bunseki_transfer"
+            tmp_dir.mkdir(exist_ok=True)
+            tmp_path = tmp_dir / src.name
+            shutil.copy2(excel_path, tmp_path)
+
+            wb = load_workbook(str(tmp_path), keep_vba=True)
 
             if sheet_name and sheet_name in wb.sheetnames:
                 ws = wb[sheet_name]
@@ -216,27 +225,8 @@ class ResultEntryState(QWidget):
                         value=val,
                     )
 
-            # 読み取り専用属性を一時的に解除して保存
-            import os, stat
-            p = Path(excel_path)
-            was_readonly = not os.access(excel_path, os.W_OK)
-            if was_readonly:
-                p.chmod(p.stat().st_mode | stat.S_IWRITE)
-            try:
-                wb.save(excel_path)
-            finally:
-                if was_readonly:
-                    p.chmod(p.stat().st_mode & ~stat.S_IWRITE)
-        except PermissionError:
-            QMessageBox.warning(
-                self,
-                "Excel 書き込みエラー",
-                "ファイルへのアクセスが拒否されました。\n"
-                "Excel でファイルが開かれている場合は閉じてから\n"
-                "再度お試しください。\n\n"
-                f"{excel_path}",
-            )
-            return
+            wb.save(str(tmp_path))
+            excel_path = str(tmp_path)
         except Exception as e:
             QMessageBox.warning(self, "Excel 書き込みエラー", str(e))
             return
