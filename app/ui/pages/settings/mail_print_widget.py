@@ -198,6 +198,19 @@ class PrintSettingsWidget(QWidget):
         row2.addStretch()
         fl.addLayout(row2)
 
+        # 表裏
+        row_dup = QHBoxLayout()
+        row_dup.setSpacing(8)
+        lbl_dup = QLabel("表裏:")
+        lbl_dup.setFixedWidth(80)
+        lbl_dup.setStyleSheet("font-size: 12px; color: #475569;")
+        row_dup.addWidget(lbl_dup)
+        self._combo_duplex = QComboBox()
+        self._combo_duplex.addItems(home_settings_store.DUPLEX_OPTIONS)
+        row_dup.addWidget(self._combo_duplex)
+        row_dup.addStretch()
+        fl.addLayout(row_dup)
+
         # 余白
         row3 = QHBoxLayout()
         row3.setSpacing(8)
@@ -233,12 +246,16 @@ class PrintSettingsWidget(QWidget):
         idx_o = self._combo_orient.findText(cfg.get("orientation", "横 (Landscape)"))
         if idx_o >= 0:
             self._combo_orient.setCurrentIndex(idx_o)
+        idx_d = self._combo_duplex.findText(cfg.get("duplex", "片面"))
+        if idx_d >= 0:
+            self._combo_duplex.setCurrentIndex(idx_d)
         self._spin_margin.setValue(float(cfg.get("margin", 10.0)))
 
     def _on_save(self) -> None:
         home_settings_store.set_print_config({
             "paper_size": self._combo_paper.currentText(),
             "orientation": self._combo_orient.currentText(),
+            "duplex": self._combo_duplex.currentText(),
             "margin": self._spin_margin.value(),
         })
         QMessageBox.information(self, "保存完了", "印刷設定を保存しました。")

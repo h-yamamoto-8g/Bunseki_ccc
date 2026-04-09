@@ -106,10 +106,21 @@ class PrintPreviewDialog(QDialog):
         # 余白
         margin = float(cfg.get("margin", 10.0))
 
+        # 表裏
+        duplex_map = {
+            "片面": QPrinter.DuplexMode.DuplexNone,
+            "両面（長辺綴じ）": QPrinter.DuplexMode.DuplexLongSide,
+            "両面（短辺綴じ）": QPrinter.DuplexMode.DuplexShortSide,
+        }
+        duplex = duplex_map.get(
+            cfg.get("duplex", "片面"), QPrinter.DuplexMode.DuplexNone,
+        )
+
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setPageLayout(
             QPageLayout(page_size, orientation, QMarginsF(margin, margin, margin, margin))
         )
+        printer.setDuplex(duplex)
 
         dlg = QPrintDialog(printer, self)
         if dlg.exec() == QPrintDialog.DialogCode.Accepted:

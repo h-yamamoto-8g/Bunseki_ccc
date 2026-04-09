@@ -146,10 +146,12 @@ def get_date_format_strings() -> dict[str, str]:
 
 PAPER_SIZE_OPTIONS: list[str] = ["A4", "A3", "B4", "B5", "Letter"]
 ORIENTATION_OPTIONS: list[str] = ["横 (Landscape)", "縦 (Portrait)"]
+DUPLEX_OPTIONS: list[str] = ["片面", "両面（長辺綴じ）", "両面（短辺綴じ）"]
 
 DEFAULT_PRINT_CONFIG: dict[str, str | float] = {
     "paper_size": "A4",
     "orientation": "横 (Landscape)",
+    "duplex": "片面",
     "margin": 10.0,
 }
 
