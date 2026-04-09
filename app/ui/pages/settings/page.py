@@ -194,15 +194,14 @@ class SettingsPage(QWidget):
         self.data_tab = DataTab(self.data_config_service, csv_columns=csv_columns)
         self._embed(self.ui.tab_data, self.data_tab)
         self._embed(self.ui.tab_library, _placeholder("ライブラリ設定（実装予定）"))
+        self._embed(self.ui.tab_logs, _placeholder("ログ設定（実装予定）"))
 
-        # tab_logs → 「アプリ」タブとして使用
+        # tab_jobs → 「アプリ」タブとして使用
         self.app_tab = AppTab()
-        self._embed(self.ui.tab_logs, self.app_tab)
+        self._embed(self.ui.tab_jobs, self.app_tab)
         self.ui.tabs.setTabText(
-            self.ui.tabs.indexOf(self.ui.tab_logs), "アプリ",
+            self.ui.tabs.indexOf(self.ui.tab_jobs), "アプリ",
         )
-
-        self._embed(self.ui.tab_jobs, _placeholder("ジョブ設定（実装予定）"))
 
     @staticmethod
     def _build_task_settings(
