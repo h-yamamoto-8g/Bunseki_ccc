@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.analysis_result_service import AnalysisResultService
 from app.services.hg_config_service import HgConfigService
 from app.ui.widgets.icon_utils import get_icon
 
@@ -592,11 +593,17 @@ class HgConfigTab(QWidget):
 
         self._verify_editor = _ChecklistEditor("データ確認チェックリスト")
 
+        # パーサー設定
+        from app.ui.pages.settings.parser_config_widget import ParserConfigWidget
+        self._analysis_service = AnalysisResultService()
+        self._parser_config = ParserConfigWidget(self._analysis_service)
+
         status_widgets: dict[str, list[QWidget]] = {
             "analysis": [
                 self._pre_docs_editor, self._pre_editor,
                 self._post_docs_editor, self._post_editor,
             ],
+            "result_entry": [self._parser_config],
             "result_verification": [self._verify_editor],
         }
 
@@ -626,6 +633,7 @@ class HgConfigTab(QWidget):
         self._post_docs_editor.set_documents(cfg.get("post_documents", []))
         self._post_editor.set_items(cfg.get("post_checklist", []))
         self._verify_editor.set_items(cfg.get("verify_checklist", []))
+        self._parser_config.set_hg_code(hg_code)
 
     # ── 保存 ──────────────────────────────────────────────────────────────
 
@@ -644,6 +652,7 @@ class HgConfigTab(QWidget):
             pre_documents=self._pre_docs_editor.get_documents(),
             post_documents=self._post_docs_editor.get_documents(),
         )
+        self._parser_config.save()
         hg_name = self._combo.currentText()
         QMessageBox.information(
             self, "保存完了", f"「{hg_name}」の設定を保存しました。"

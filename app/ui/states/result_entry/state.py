@@ -122,12 +122,14 @@ class ResultEntryUI(QWidget):
     verify_requested = Signal()
 
     _INPUT_COL_KEY = "input_data"
+    _ANALYSIS_NAME_KEY = "_analysis_name"
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._column_config: list[dict] = []
         self._grouped_data: dict[str, list[dict]] = {}
         self._tables: dict[str, QTableWidget] = {}
+        self._analysis_match_data: dict[str, str] = {}  # {row_key: analysis_name}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -155,7 +157,6 @@ class ResultEntryUI(QWidget):
         self._btn_load_results = QPushButton("分析結果の読み込み")
         self._btn_load_results.setFixedHeight(30)
         self._btn_load_results.setStyleSheet(_BTN_SECONDARY)
-        self._btn_load_results.setEnabled(False)
         self._btn_load_results.clicked.connect(self.load_results_requested)
         ab.addWidget(self._btn_load_results)
 
@@ -387,6 +388,103 @@ class ResultEntryUI(QWidget):
                         item.setBackground(
                             QColor("#fee2e2") if is_mismatch else QColor("#ffffff")
                         )
+
+    def apply_analysis_values(
+        self, values: dict[str, str], sample_mapping: dict[str, str],
+    ) -> None:
+        """分析結果の値を input_data 列に書き込み、分析名を設定する。
+
+        Args:
+            values: ``{row_key: value}`` — input_data に書き込む値。
+            sample_mapping: ``{system_sample_name: analysis_name}`` — 照合結果。
+        """
+        vis_cols = self._visible_columns()
+        input_col_idx = self._get_input_col_idx(vis_cols)
+        if input_col_idx < 0:
+            return
+
+        for table in self._tables.values():
+            for r in range(table.rowCount()):
+                first_item = table.item(r, 0)
+                if not first_item:
+                    continue
+                row_key = first_item.data(Qt.ItemDataRole.UserRole) or ""
+                if row_key in values:
+                    item = table.item(r, input_col_idx)
+                    if item:
+                        item.setText(values[row_key])
+
+        # 照合マッピングを保存
+        for table in self._tables.values():
+            for r in range(table.rowCount()):
+                first_item = table.item(r, 0)
+                if not first_item:
+                    continue
+                row_key = first_item.data(Qt.ItemDataRole.UserRole) or ""
+                self._analysis_match_data[row_key] = ""
+
+        # sample_mapping からサンプル名 → 分析名を各行に反映
+        for row_data_list in self._grouped_data.values():
+            for row_data in row_data_list:
+                sys_name = str(row_data.get("valid_sample_display_name", ""))
+                ana_name = sample_mapping.get(sys_name, "")
+                row_key = (
+                    f"{row_data.get('sample_request_number', '')}_"
+                    f"{row_data.get('valid_holder_set_code', '')}_"
+                    f"{row_data.get('valid_test_set_code', '')}"
+                )
+                if ana_name:
+                    self._analysis_match_data[row_key] = ana_name
+
+        self._highlight_warnings()
+
+    def _highlight_warnings(self) -> None:
+        """分析名・input_data の未入力および重複を警告色で表示する。"""
+        vis_cols = self._visible_columns()
+        input_col_idx = self._get_input_col_idx(vis_cols)
+        if input_col_idx < 0:
+            return
+
+        # 重複検出: 同じ値が複数行にある場合
+        value_to_keys: dict[str, list[str]] = {}
+        for table in self._tables.values():
+            for r in range(table.rowCount()):
+                first_item = table.item(r, 0)
+                if not first_item:
+                    continue
+                row_key = first_item.data(Qt.ItemDataRole.UserRole) or ""
+                inp_item = table.item(r, input_col_idx)
+                val = inp_item.text() if inp_item else ""
+                if val:
+                    value_to_keys.setdefault(val, []).append(row_key)
+
+        duplicate_keys: set[str] = set()
+        for keys in value_to_keys.values():
+            if len(keys) > 1:
+                duplicate_keys.update(keys)
+
+        # 色適用
+        for table in self._tables.values():
+            for r in range(table.rowCount()):
+                first_item = table.item(r, 0)
+                if not first_item:
+                    continue
+                row_key = first_item.data(Qt.ItemDataRole.UserRole) or ""
+                inp_item = table.item(r, input_col_idx)
+                inp_val = inp_item.text() if inp_item else ""
+
+                if row_key in duplicate_keys:
+                    # 重複: 薄赤
+                    if inp_item:
+                        inp_item.setBackground(QColor("#fee2e2"))
+                elif not inp_val:
+                    # 未入力: 薄黄
+                    if inp_item:
+                        inp_item.setBackground(QColor("#fffbeb"))
+                else:
+                    # 正常: 黄色 (入力欄のデフォルト)
+                    if inp_item:
+                        inp_item.setBackground(QColor("#fffbeb"))
 
     def _on_save_temp(self) -> None:
         self.save_temp_requested.emit(self._collect_all_data())

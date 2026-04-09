@@ -7,13 +7,14 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QMessageBox, QFileDialog
 from PySide6.QtCore import Signal
 
 import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.data_config_service import DataConfigService
+from app.services.analysis_result_service import AnalysisResultService
 from app.services.data_update_service import run_all as _run_data_update
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import ResultEntryUI
@@ -33,6 +34,7 @@ class ResultEntryState(QWidget):
         self._task_service = task_service
         self._data_service = data_service
         self._data_config = DataConfigService()
+        self._analysis_service = AnalysisResultService()
         self._task: dict = {}
 
         self._ui = ResultEntryUI()
@@ -47,6 +49,7 @@ class ResultEntryState(QWidget):
         self._ui.save_temp_requested.connect(self._on_save_temp)
         self._ui.transfer_requested.connect(self._on_transfer)
         self._ui.verify_requested.connect(self._on_verify)
+        self._ui.load_results_requested.connect(self._on_load_results)
 
     def load_task(self, task: dict, readonly: bool = False) -> None:
         self._task = task
@@ -243,6 +246,168 @@ class ResultEntryState(QWidget):
             subprocess.Popen(["open", filepath])
         else:
             subprocess.Popen(["xdg-open", filepath])
+
+    def _on_load_results(self) -> None:
+        """分析結果ファイルを読み込み、照合ダイアログを表示する。"""
+        hg_code = self._task.get("holder_group_code", "")
+
+        # パーサー存在チェック
+        if not self._analysis_service.has_parser(hg_code):
+            QMessageBox.warning(
+                self, "分析結果の読み込み",
+                "この分析項目にはパーサーが設定されていません。\n"
+                "設定画面 > 分析項目設定 > 入力 でパーサーを登録してください。",
+            )
+            return
+
+        # マッピング設定チェック
+        parser_config = self._analysis_service.get_parser_config(hg_code)
+        sample_name_key = parser_config.get("sample_name_key", "")
+        key_mapping = parser_config.get("key_mapping", {})
+        if not sample_name_key:
+            QMessageBox.warning(
+                self, "分析結果の読み込み",
+                "サンプル名キーが設定されていません。\n"
+                "設定画面でマッピング設定を完了してください。",
+            )
+            return
+
+        # ファイル選択
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "分析結果ファイルを選択", "",
+            "Data Files (*.csv *.txt *.tsv *.pdf);;All Files (*)",
+        )
+        if not file_path:
+            return
+
+        # パーサー実行
+        parsed_data: list[dict[str, str]] = []
+        parse_error: str = ""
+
+        def _parse() -> None:
+            nonlocal parsed_data, parse_error
+            try:
+                parsed_data = self._analysis_service.load_and_parse(hg_code, file_path)
+            except Exception as e:
+                parse_error = str(e)
+
+        LoadingOverlay.run_with_overlay(_parse, msg="分析結果を読み込んでいます...")
+
+        if parse_error:
+            QMessageBox.warning(
+                self, "パーサーエラー",
+                f"分析結果の読み込みに失敗しました:\n\n{parse_error}",
+            )
+            return
+
+        if not parsed_data:
+            QMessageBox.information(
+                self, "分析結果の読み込み", "読み込んだデータは 0 件です。",
+            )
+            return
+
+        # テーブルの現在のデータを収集
+        all_data = self._ui._collect_all_data()
+
+        # 行データにCSVのコード値を補完
+        hg_code = self._task.get("holder_group_code", "")
+        jobs = self._task.get("job_numbers", [])
+        sd = self._task.get("state_data", {}).get("analysis_targets", {})
+        vsset_codes = sd.get("valid_sample_set_codes", [])
+
+        df = self._data_service.get_result_data(hg_code, jobs, vsset_codes)
+        code_map: dict[str, dict] = {}
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                key = (
+                    f"{row.get('sample_request_number', '')}_"
+                    f"{row.get('valid_holder_set_code', '')}_"
+                    f"{row.get('valid_test_set_code', '')}"
+                )
+                code_map[key] = row.to_dict()
+
+        # all_data にコード値を追加
+        table_rows: list[dict] = []
+        for row in all_data:
+            row_key = row.get("_row_key", "")
+            source = code_map.get(row_key, {})
+            enriched = dict(row)
+            enriched["valid_sample_display_name"] = str(
+                source.get("valid_sample_display_name", "")
+            )
+            enriched["valid_holder_set_code"] = str(
+                source.get("valid_holder_set_code", "")
+            )
+            enriched["valid_test_set_code"] = str(
+                source.get("valid_test_set_code", "")
+            )
+            enriched["valid_test_display_name"] = str(
+                source.get("valid_test_display_name", "")
+            )
+            table_rows.append(enriched)
+
+        # 照合ダイアログを表示
+        from app.ui.dialogs.analysis_match_dialog import AnalysisMatchDialog
+
+        dlg = AnalysisMatchDialog(
+            parsed_data=parsed_data,
+            sample_name_key=sample_name_key,
+            key_mapping=key_mapping,
+            table_rows=table_rows,
+            file_name=Path(file_path).name,
+            analysis_service=self._analysis_service,
+            parent=self,
+        )
+
+        if dlg.exec() == AnalysisMatchDialog.DialogCode.Accepted:
+            result_values = dlg.result_values
+            sample_mapping = dlg.sample_mapping
+
+            if result_values:
+                # テーブルに値を書き込み
+                self._ui.apply_analysis_values(result_values, sample_mapping)
+
+                # 分析結果ファイルを添付として保存
+                task_id = self._task.get("task_id", "")
+                if task_id:
+                    self._analysis_service.save_attachment(task_id, file_path)
+
+                # state_data に照合結果を保存
+                self._save_analysis_match(
+                    file_path, parsed_data, sample_mapping,
+                )
+
+                QMessageBox.information(
+                    self, "分析結果の読み込み",
+                    f"{len(result_values)} 件のデータを入力しました。",
+                )
+            else:
+                QMessageBox.information(
+                    self, "分析結果の読み込み",
+                    "適用されたデータはありません。",
+                )
+
+    def _save_analysis_match(
+        self,
+        file_path: str,
+        parsed_data: list[dict[str, str]],
+        sample_mapping: dict[str, str],
+    ) -> None:
+        """照合結果を state_data に保存する。"""
+        task = self._task_service.get_task(self._task["task_id"])
+        if not task:
+            return
+        sd = dict(task.get("state_data", {}))
+        entry = dict(sd.get("result_entry", {}))
+        entry["analysis_match"] = {
+            "file_name": Path(file_path).name,
+            "parsed_data": parsed_data,
+            "sample_mapping": sample_mapping,
+        }
+        sd["result_entry"] = entry
+        from app.core import task_store
+        task_store.update_task_field(self._task["task_id"], state_data=sd)
+        self._task = self._task_service.get_task(self._task["task_id"])
 
     def _on_verify(self) -> None:
         """入力データと bunseki.csv の data_raw_data を照合する。"""

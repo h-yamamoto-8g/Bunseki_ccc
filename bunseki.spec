@@ -25,6 +25,8 @@ a = Analysis(
         "PySide6.QtSvgWidgets",
         # pandas / openpyxl
         "openpyxl",
+        # PDF解析
+        "pdfplumber",
     ],
     hookspath=[],
     hooksconfig={},

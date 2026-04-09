@@ -15,6 +15,7 @@ from PySide6.QtCore import Signal
 import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
+from app.services.analysis_result_service import AnalysisResultService
 from app.services.circulation_mail_service import CirculationMailService
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import SubmissionUI
@@ -40,6 +41,7 @@ class SubmissionState(QWidget):
         super().__init__(parent)
         self._task_service = task_service
         self._data_service = data_service
+        self._analysis_service = AnalysisResultService()
         self._mail_service = CirculationMailService(data_service)
         self._task: dict = {}
 
@@ -147,6 +149,18 @@ class SubmissionState(QWidget):
             self._ui.clear_draft_comment()
 
         stored_paths = self._copy_attachments(task_id, attachments)
+
+        # 分析結果ファイルを自動添付
+        analysis_files = self._analysis_service.get_attachments(task_id)
+        for af in analysis_files:
+            try:
+                rel = str(af.relative_to(_cfg.DATA_PATH))
+            except ValueError:
+                rel = str(af)
+            # 既に含まれていなければ追加
+            existing_paths = {p.get("path", "") for p in stored_paths}
+            if rel not in existing_paths:
+                stored_paths.append({"path": rel, "added_by": "system"})
 
         LoadingOverlay.run_with_overlay(
             lambda: self._record_sigma_anomalies(task_id),
