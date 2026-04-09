@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -64,6 +65,88 @@ _TABLE_STYLE = (
 
 _SECTION_LABEL_STYLE = "font-weight: 600; font-size: 13px; color: #374151;"
 _HINT_STYLE = "font-size: 11px; color: #9ca3af;"
+
+_FULLSCREEN_EDITOR_STYLE = (
+    "QPlainTextEdit { background: #1e293b; color: #e2e8f0;"
+    " border: none; font-family: 'Consolas', 'Courier New', monospace;"
+    " font-size: 14px; padding: 16px; line-height: 1.6; }"
+)
+
+
+class CodeEditorDialog(QDialog):
+    """パーサーコードの全画面編集ダイアログ。
+
+    Args:
+        code: 初期コード文字列。
+        parent: 親ウィジェット。
+    """
+
+    def __init__(self, code: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("パーサーコード編集")
+        self.setModal(True)
+        self.showMaximized()
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # ── ツールバー ────────────────────────────────────────────
+        toolbar = QWidget()
+        toolbar.setStyleSheet("background: #0f172a;")
+        toolbar.setFixedHeight(48)
+        tb = QHBoxLayout(toolbar)
+        tb.setContentsMargins(16, 0, 16, 0)
+        tb.setSpacing(12)
+
+        lbl = QLabel("パーサーコード編集")
+        lbl.setStyleSheet(
+            "color: #e2e8f0; font-size: 14px; font-weight: 600;"
+        )
+        tb.addWidget(lbl)
+
+        hint = QLabel(
+            "parse(file_path: str) -> list[dict[str, str]] を定義してください"
+        )
+        hint.setStyleSheet("color: #64748b; font-size: 12px;")
+        tb.addWidget(hint)
+
+        tb.addStretch()
+
+        btn_cancel = QPushButton("キャンセル")
+        btn_cancel.setStyleSheet(
+            "QPushButton { background: transparent; color: #94a3b8;"
+            " border: 1px solid #334155; padding: 6px 20px;"
+            " border-radius: 5px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #1e293b; color: #e2e8f0; }"
+        )
+        btn_cancel.clicked.connect(self.reject)
+        tb.addWidget(btn_cancel)
+
+        btn_ok = QPushButton("適用して閉じる")
+        btn_ok.setStyleSheet(
+            "QPushButton { background: #3b82f6; color: white;"
+            " border: none; padding: 6px 20px;"
+            " border-radius: 5px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #2563eb; }"
+        )
+        btn_ok.clicked.connect(self.accept)
+        tb.addWidget(btn_ok)
+
+        outer.addWidget(toolbar)
+
+        # ── エディタ ──────────────────────────────────────────────
+        self._editor = QPlainTextEdit()
+        self._editor.setStyleSheet(_FULLSCREEN_EDITOR_STYLE)
+        self._editor.setTabStopDistance(32)
+        self._editor.setPlainText(code)
+        outer.addWidget(self._editor, 1)
+
+    @property
+    def code(self) -> str:
+        """編集後のコードを返す。"""
+        return self._editor.toPlainText()
+
 
 _DEFAULT_CODE = '''def parse(file_path: str) -> list[dict[str, str]]:
     """分析結果ファイルを読み込み、辞書のリストを返す。
@@ -166,6 +249,10 @@ class ParserConfigWidget(QWidget):
         code_btns = QHBoxLayout()
         code_btns.setSpacing(8)
 
+        self._btn_fullscreen = QPushButton("全画面で編集")
+        self._btn_fullscreen.setStyleSheet(_BTN_SECONDARY)
+        code_btns.addWidget(self._btn_fullscreen)
+
         self._btn_upload_code = QPushButton("ファイルから読み込み")
         self._btn_upload_code.setStyleSheet(_BTN_SECONDARY)
         code_btns.addWidget(self._btn_upload_code)
@@ -258,6 +345,7 @@ class ParserConfigWidget(QWidget):
         outer.addLayout(mapping_btns)
 
     def _connect_signals(self) -> None:
+        self._btn_fullscreen.clicked.connect(self._on_open_fullscreen)
         self._btn_upload_code.clicked.connect(self._on_upload_code)
         self._btn_save_code.clicked.connect(self._on_save_code)
         self._btn_delete_code.clicked.connect(self._on_delete_code)
@@ -313,6 +401,12 @@ class ParserConfigWidget(QWidget):
             self._mapping_table.setItem(row, 2, test_item)
 
     # ── コード操作ハンドラ ────────────────────────────────────────────────────
+
+    def _on_open_fullscreen(self) -> None:
+        """全画面ダイアログでコードを編集する。"""
+        dlg = CodeEditorDialog(self._code_editor.toPlainText(), parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._code_editor.setPlainText(dlg.code)
 
     def _on_upload_code(self) -> None:
         """ファイルからPythonコードを読み込む。"""
