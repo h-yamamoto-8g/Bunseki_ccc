@@ -180,3 +180,18 @@ def set_task_retention_days(days: int) -> None:
     data = _load()
     data["task_retention_days"] = days
     _save(data)
+
+
+# ── ログ保持 ──────────────────────────────────────────────────────────────────
+
+
+def get_log_retention_days() -> int:
+    """ログ保持期間（日数）を取得する。0 = 無制限。"""
+    return _load().get("log_retention_days", 0)
+
+
+def set_log_retention_days(days: int) -> None:
+    """ログ保持期間（日数）を保存する。0 = 無制限。"""
+    data = _load()
+    data["log_retention_days"] = days
+    _save(data)

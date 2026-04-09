@@ -206,7 +206,15 @@ def _check_open_write(node: ast.Call, errors: list[str]) -> None:
 # ── 実行エンジン ──────────────────────────────────────────────────────────────
 
 
-def execute_parser(code: str, file_path: str) -> list[dict[str, str]]:
+PARSER_TIMEOUT_SECONDS: int = 30
+
+
+def execute_parser(
+    code: str,
+    file_path: str,
+    *,
+    timeout: int | None = None,
+) -> list[dict[str, str]]:
     """パーサーコードを実行し、結果を返す。
 
     実行前に validate_parser_code() でバリデーションを通過していることを前提とする。
@@ -214,6 +222,7 @@ def execute_parser(code: str, file_path: str) -> list[dict[str, str]]:
     Args:
         code: パーサーの Python ソースコード文字列。
         file_path: 分析結果ファイルの絶対パス。
+        timeout: タイムアウト秒数。None ならデフォルト (30秒)。
 
     Returns:
         各辞書はサンプル名キーと分析項目キーを含む。
@@ -221,8 +230,14 @@ def execute_parser(code: str, file_path: str) -> list[dict[str, str]]:
     Raises:
         ValueError: parse() 関数が見つからない場合。
         TypeError: 戻り値の型が不正な場合。
+        TimeoutError: 実行がタイムアウトした場合。
         Exception: パーサーコードの実行中に発生した例外。
     """
+    import threading
+
+    if timeout is None:
+        timeout = PARSER_TIMEOUT_SECONDS
+
     namespace: dict[str, Any] = {}
     exec(code, namespace)  # noqa: S102 — バリデーション済みコードのみ実行
 
@@ -230,7 +245,33 @@ def execute_parser(code: str, file_path: str) -> list[dict[str, str]]:
     if not callable(parse_fn):
         raise ValueError("parse() 関数が見つかりません。")
 
-    result = parse_fn(file_path)
+    result_holder: list[Any] = []
+    error_holder: list[Exception] = []
+
+    def _run() -> None:
+        try:
+            result_holder.append(parse_fn(file_path))
+        except Exception as e:
+            error_holder.append(e)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+
+    if thread.is_alive():
+        logger.error("パーサー実行がタイムアウトしました (%d秒)", timeout)
+        raise TimeoutError(
+            f"パーサーの実行が {timeout} 秒以内に完了しませんでした。"
+            " コードに無限ループがないか確認してください。"
+        )
+
+    if error_holder:
+        raise error_holder[0]
+
+    if not result_holder:
+        raise RuntimeError("パーサーが結果を返しませんでした。")
+
+    result = result_holder[0]
     _validate_result(result)
     return result
 
