@@ -46,7 +46,9 @@ _FRAME_STYLE = (
 )
 _TITLE_STYLE = "font-size: 14px; font-weight: 700; color: #1f2937; border: none;"
 
-_PAGE_SIZE = 50
+def _get_page_size() -> int:
+    from app.core.home_settings_store import get_page_sizes
+    return get_page_sizes().get("library", 50)
 
 
 def _make_separator() -> QWidget:
@@ -70,7 +72,7 @@ class LibraryPage(QWidget):
         self._ds = data_service
         self._all_groups: list[dict] = []
         self._filtered_groups: list[dict] = []
-        self._display_limit: int = _PAGE_SIZE
+        self._display_limit: int = _get_page_size()
         self._row_path_map: dict[int, str] = {}
         self._build_ui()
 
@@ -244,7 +246,7 @@ class LibraryPage(QWidget):
         hl = QHBoxLayout(bar)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.addStretch()
-        self._btn_load_more = QPushButton(f"さらに {_PAGE_SIZE} 件読み込む")
+        self._btn_load_more = QPushButton(f"さらに {_get_page_size()} 件読み込む")
         self._btn_load_more.setVisible(False)
         self._btn_load_more.clicked.connect(self._on_load_more)
         hl.addWidget(self._btn_load_more)
@@ -393,7 +395,7 @@ class LibraryPage(QWidget):
                 filtered.append(group)
 
         self._filtered_groups = filtered
-        self._display_limit = _PAGE_SIZE
+        self._display_limit = _get_page_size()
         self._refresh_table()
 
     # ── テーブル更新 ──────────────────────────────────────────────────────────
@@ -544,7 +546,7 @@ class LibraryPage(QWidget):
         self._btn_load_all.setVisible(False)
 
     def _on_load_more(self) -> None:
-        self._display_limit += _PAGE_SIZE
+        self._display_limit += _get_page_size()
         self._refresh_table()
 
     def _on_load_all(self) -> None:

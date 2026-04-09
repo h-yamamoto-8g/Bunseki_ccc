@@ -61,7 +61,9 @@ _ACCENT = "#3b82f6"
 _DANGER = "#ef4444"
 _BORDER = "#e5e7eb"
 
-_PAGE_SIZE = 500
+def _get_page_size() -> int:
+    from app.core.home_settings_store import get_page_sizes
+    return get_page_sizes().get("data", 500)
 
 # ── 表示テーブル列定義 ────────────────────────────────────────────────────────
 _COLUMNS = [
@@ -86,7 +88,7 @@ class DataPage(QWidget):
         self._data_config = DataConfigService()
         self._visible_columns: list[tuple[str, str]] = []  # (label, key)
         self._all_df: pd.DataFrame | None = None   # 検索結果全件（表示制限なし）
-        self._display_limit: int = _PAGE_SIZE
+        self._display_limit: int = _get_page_size()
         self._load_column_config()
         self._build_ui()
 
@@ -288,7 +290,7 @@ class DataPage(QWidget):
             f"QPushButton:hover {{ background:{_BG}; }}"
         )
 
-        self.btn_load_more = QPushButton(f"さらに {_PAGE_SIZE} 件読み込む")
+        self.btn_load_more = QPushButton(f"さらに {_get_page_size()} 件読み込む")
         self.btn_load_more.setFixedHeight(30)
         self.btn_load_more.setStyleSheet(_btn_style)
         self.btn_load_more.clicked.connect(self._on_load_more)
@@ -349,13 +351,13 @@ class DataPage(QWidget):
         return filters
 
     def _on_search(self) -> None:
-        self._display_limit = _PAGE_SIZE
+        self._display_limit = _get_page_size()
         # limit=0 で全件取得してキャッシュ
         self._all_df = self._ds.get_data_page(**self._collect_filters(), limit=0)
         self._refresh_table()
 
     def _on_load_more(self) -> None:
-        self._display_limit += _PAGE_SIZE
+        self._display_limit += _get_page_size()
         self._refresh_table()
 
     def _on_load_all(self) -> None:

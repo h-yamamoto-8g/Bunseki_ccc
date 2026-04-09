@@ -133,6 +133,11 @@ class TasksPage(QWidget):
         self._current_view_state = ""
         self._ui.show_list_view()
         self._refresh_list()
+        # 保存済みフィルタを復元
+        from app.core.home_settings_store import get_last_task_filter
+        last_filter = get_last_task_filter()
+        if hasattr(self._ui, "filter_tabs"):
+            self._ui.filter_tabs._select(last_filter)
         self.task_context_cleared.emit()
 
     def start_new_task(self) -> None:
@@ -162,10 +167,26 @@ class TasksPage(QWidget):
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _refresh_list(self) -> None:
+        from app.core.home_settings_store import get_page_sizes, get_task_retention_days
+        from datetime import datetime, timedelta
+
         all_tasks = self._task_service.get_all_tasks()
         all_tasks.sort(key=lambda t: t.get("created_at", ""), reverse=True)
+
+        # タスク保持期間でフィルタ（0 = 無制限）
+        retention_days = get_task_retention_days()
+        if retention_days > 0:
+            cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
+            all_tasks = [
+                t for t in all_tasks
+                if t.get("status") != "終了"
+                or t.get("updated_at", "") >= cutoff
+            ]
+
         self._all_tasks_full = all_tasks
-        self._display_limit = 100
+        page_size = get_page_sizes().get("tasks", 100)
+        self._display_limit = page_size
+        self._page_size = page_size
         self._update_list_display()
 
     def _update_list_display(self) -> None:
@@ -180,6 +201,9 @@ class TasksPage(QWidget):
         tasks = getattr(self, "_all_tasks", [])
         filtered = self._task_service.filter_tasks(tasks, filter_key)
         self._ui.fill_table(filtered)
+        # フィルタ選択を記憶
+        from app.core.home_settings_store import set_last_task_filter
+        set_last_task_filter(filter_key)
 
     def _on_handover(self) -> None:
         if not self._current_task:
@@ -231,7 +255,7 @@ class TasksPage(QWidget):
         self._refresh_list()
 
     def _on_load_more(self) -> None:
-        self._display_limit += 100
+        self._display_limit += getattr(self, "_page_size", 100)
         self._update_list_display()
 
     def _on_setup_submitted(self, task: dict) -> None:
