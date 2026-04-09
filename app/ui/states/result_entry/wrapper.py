@@ -126,7 +126,7 @@ class ResultEntryState(QWidget):
         QMessageBox.information(self, "一時保存完了", "入力データを一時保存しました。")
 
     def _on_transfer(self, all_data: list[dict]) -> None:
-        """入力ツール(Excel)の指定シート・セルにデータを書き込んで開く。"""
+        """Excel COM経由で入力ツールを読み取り専用で開き、データをセルに書き込む。"""
         from app.ui.pages.settings.tool_settings_tab import _expand_path
         excel_path = _expand_path(
             self._data_config.get_tool_path("input_tool_path")
@@ -157,7 +157,6 @@ class ResultEntryState(QWidget):
         )
         visible_export = [c for c in export_cols if c.get("visible", True)]
         csv_headers = [c["key"] for c in visible_export]
-        csv_labels = [c["label"] for c in visible_export]
 
         # 元データからコード値を取得するためにキーマップを構築
         hg_code = self._task.get("holder_group_code", "")
@@ -188,54 +187,37 @@ class ResultEntryState(QWidget):
                     out_row.append(str(source.get(col_key, "")))
             rows_out.append(out_row)
 
-        # 元ファイルの一時コピーにデータを書き込んで開く
-        # （元ファイルは変更しない）
+        # Excel COM経由で読み取り専用で開き、データをセルに書き込む
         try:
-            import shutil
-            import tempfile
-            from openpyxl import load_workbook
+            import win32com.client as win32  # type: ignore
             from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
-            src = Path(excel_path)
-            tmp_dir = Path(tempfile.gettempdir()) / "bunseki_transfer"
-            tmp_dir.mkdir(exist_ok=True)
-            tmp_path = tmp_dir / src.name
-            shutil.copy2(excel_path, tmp_path)
-
-            wb = load_workbook(str(tmp_path), keep_vba=True)
-
-            if sheet_name and sheet_name in wb.sheetnames:
-                ws = wb[sheet_name]
-            elif sheet_name:
-                ws = wb.create_sheet(sheet_name)
-            else:
-                ws = wb.active
-
-            # 開始セルの解析（デフォルト A1）
             cell_ref = start_cell or "A1"
             col_letter, start_row = coordinate_from_string(cell_ref)
             start_col = column_index_from_string(col_letter)
 
-            # データ行を書き込み
+            xl = win32.Dispatch("Excel.Application")
+            xl.Visible = True
+            wb = xl.Workbooks.Open(str(Path(excel_path).resolve()), ReadOnly=True)
+
+            if sheet_name:
+                try:
+                    ws = wb.Sheets(sheet_name)
+                except Exception:
+                    ws = wb.ActiveSheet
+            else:
+                ws = wb.ActiveSheet
+
             for ri, data_row in enumerate(rows_out):
                 for ci, val in enumerate(data_row):
-                    ws.cell(
-                        row=start_row + ri,
-                        column=start_col + ci,
-                        value=val,
-                    )
+                    ws.Cells(start_row + ri, start_col + ci).Value = val
 
-            wb.save(str(tmp_path))
-            excel_path = str(tmp_path)
         except Exception as e:
             QMessageBox.warning(self, "Excel 書き込みエラー", str(e))
             return
 
         # 一時保存も同時に行う
         self._on_save_temp(all_data)
-
-        # Excel を開く
-        self._open_file(excel_path)
 
     def _open_labaid(self) -> None:
         from app.ui.pages.settings.tool_settings_tab import _expand_path
