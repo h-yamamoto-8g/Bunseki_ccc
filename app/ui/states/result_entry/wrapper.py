@@ -15,7 +15,7 @@ from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.data_config_service import DataConfigService
 from app.services.data_update_service import run_all as _run_data_update
-from app.ui.dialogs.loading_dialog import LoadingDialog, LoadingOverlay
+from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import ResultEntryUI
 
 
@@ -314,7 +314,6 @@ class ResultEntryState(QWidget):
             QMessageBox.information(self, "データ照合", "すべてのデータが一致しています。")
 
     def _on_data_update(self) -> None:
-        dlg = LoadingDialog(_run_data_update, parent=self)
-        dlg.exec()
-        if dlg.error():
-            QMessageBox.warning(self, "データ更新エラー", dlg.error())
+        err = LoadingOverlay.run_with_overlay(_run_data_update)
+        if err:
+            QMessageBox.warning(self, "データ更新エラー", err)
