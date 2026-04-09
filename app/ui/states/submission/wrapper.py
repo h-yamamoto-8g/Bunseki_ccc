@@ -16,6 +16,7 @@ import app.config as _cfg
 from app.services.task_service import TaskService
 from app.services.data_service import DataService
 from app.services.analysis_result_service import AnalysisResultService
+from app.services.hg_config_service import HgConfigService
 from app.services.circulation_mail_service import CirculationMailService
 from app.ui.dialogs.loading_dialog import LoadingOverlay
 from .state import SubmissionUI
@@ -42,6 +43,7 @@ class SubmissionState(QWidget):
         self._task_service = task_service
         self._data_service = data_service
         self._analysis_service = AnalysisResultService()
+        self._hg_config_service = HgConfigService()
         self._mail_service = CirculationMailService(data_service)
         self._task: dict = {}
 
@@ -73,7 +75,11 @@ class SubmissionState(QWidget):
         self._ui.set_current_user(_cfg.CURRENT_USER)
 
         sd = task.get("state_data", {}).get("submission", {})
-        self._ui.set_reviewers(sd.get("reviewers", []))
+        saved_reviewers = sd.get("reviewers", [])
+        if not saved_reviewers:
+            # デフォルト確認者を設定から取得
+            saved_reviewers = self._hg_config_service.get_default_reviewers()
+        self._ui.set_reviewers(saved_reviewers)
         comments = list(sd.get("comments", []))
         legacy_comment = str(sd.get("comment", "")).strip()
         if not comments and legacy_comment:

@@ -163,11 +163,23 @@ class DataLoader:
 
     # ── Anomaly detection ─────────────────────────────────────────────────────
 
-    def calculate_anomaly(self, row: pd.Series, holder_group_code: str) -> bool | None:
-        """
-        Returns True = anomaly, False = normal, None = cannot determine.
-        Uses mean ± 2σ over historical data for the same sample+test combination.
-        最低12件の履歴データが必要。
+    def calculate_anomaly(
+        self,
+        row: pd.Series,
+        holder_group_code: str,
+        *,
+        sigma: float = 2.0,
+        min_points: int = 12,
+        trend_years: int = 5,
+    ) -> bool | None:
+        """異常判定。True=異常, False=正常, None=判定不可。
+
+        Args:
+            row: 判定対象の行。
+            holder_group_code: ホルダグループコード。
+            sigma: σ倍率（デフォルト 2.0）。
+            min_points: 最低データ件数（デフォルト 12）。
+            trend_years: 過去データ期間（年）（デフォルト 5）。
         """
         if not row.get("trend_enabled"):
             return None
@@ -186,9 +198,11 @@ class DataLoader:
             & (df["valid_test_set_code"].str.upper() == vtest.upper())
             & (df["trend_enabled"] == True)
         )
-        nums = self._numeric_values(self._cutoff_5yr(df[hist_mask])["test_raw_data"])
+        nums = self._numeric_values(
+            self._cutoff_years(df[hist_mask], trend_years)["test_raw_data"]
+        )
 
-        if len(nums) < 12:
+        if len(nums) < min_points:
             return None
 
         mean = float(np.mean(nums))
@@ -196,11 +210,16 @@ class DataLoader:
         if std == 0:
             return False
 
-        return current < (mean - 2 * std) or current > (mean + 2 * std)
+        return current < (mean - sigma * std) or current > (mean + sigma * std)
 
     @staticmethod
-    def _cutoff_5yr(df: pd.DataFrame) -> pd.DataFrame:
-        """sample_sampling_date 列で最新日から過去5年のみに絞り込む。"""
+    def _cutoff_years(df: pd.DataFrame, years: int = 5) -> pd.DataFrame:
+        """sample_sampling_date 列で最新日から過去N年のみに絞り込む。
+
+        Args:
+            df: 対象 DataFrame。
+            years: 遡る年数。
+        """
         col = "sample_sampling_date"
         if col not in df.columns or df.empty:
             return df
@@ -212,11 +231,30 @@ class DataLoader:
             max_dt = datetime.strptime(max_raw, "%Y%m%d")
         except ValueError:
             return df
-        cutoff = (max_dt - timedelta(days=5 * 365)).strftime("%Y%m%d")
+        cutoff = (max_dt - timedelta(days=years * 365)).strftime("%Y%m%d")
         return df[df[col].astype(str).str[:8] >= cutoff]
 
-    def get_anomaly_bounds(self, holder_group_code: str, vsset_code: str, vtest_code: str) -> dict:
-        """Return mean, std, lower/upper bounds for trend graph overlay (過去5年)."""
+    # 後方互換エイリアス
+    def _cutoff_5yr(self, df: pd.DataFrame) -> pd.DataFrame:
+        return self._cutoff_years(df, 5)
+
+    def get_anomaly_bounds(
+        self,
+        holder_group_code: str,
+        vsset_code: str,
+        vtest_code: str,
+        *,
+        sigma: float = 2.0,
+        min_points: int = 12,
+        trend_years: int = 5,
+    ) -> dict:
+        """Return mean, std, lower/upper bounds for trend graph overlay.
+
+        Args:
+            sigma: σ倍率。
+            min_points: 最低データ件数。
+            trend_years: 過去データ期間（年）。
+        """
         df = self.df
         mask = (
             (df["holder_group_code"] == holder_group_code)
@@ -224,62 +262,93 @@ class DataLoader:
             & (df["valid_test_set_code"].str.upper() == vtest_code.upper())
             & (df["trend_enabled"] == True)
         )
-        nums = self._numeric_values(self._cutoff_5yr(df[mask])["test_raw_data"])
-        if len(nums) < 12:
+        nums = self._numeric_values(
+            self._cutoff_years(df[mask], trend_years)["test_raw_data"]
+        )
+        if len(nums) < min_points:
             return {}
         mean = float(np.mean(nums))
         std = float(np.std(nums, ddof=1))
         return {
             "mean": mean,
             "std": std,
-            "upper": mean + 2 * std,
-            "lower": mean - 2 * std,
+            "upper": mean + sigma * std,
+            "lower": mean - sigma * std,
         }
 
     @staticmethod
-    def check_spec_violation(row: pd.Series, raw_num: float) -> str | None:
-        """基準値超過チェック。超過していれば U{N} / L{N} を返す。
+    def check_spec_violation(
+        row: pd.Series,
+        raw_num: float,
+        spec_columns: list[dict[str, str]] | None = None,
+    ) -> str | None:
+        """基準値超過チェック。超過していれば基準値名を返す。
 
-        各 spec レベル 1-4 を個別にチェックし、超過している中で
-        最も厳しい（上限なら最小値、下限なら最大値）spec の番号を返す。
+        Args:
+            row: 判定対象の行。
+            raw_num: 判定対象の数値。
+            spec_columns: 基準値列の設定リスト。None ならデフォルト (spec_1〜4)。
+                ``[{"upper_column": str, "lower_column": str, "name": str}, ...]``
         """
-        upper_hit: tuple[int, float] | None = None
-        lower_hit: tuple[int, float] | None = None
+        if spec_columns is None:
+            spec_columns = [
+                {
+                    "upper_column": f"test_upper_limit_spec_{i}",
+                    "lower_column": f"test_lower_limit_spec_{i}",
+                    "name": f"基準値{i}",
+                }
+                for i in range(1, 5)
+            ]
 
-        for i in range(1, 5):
-            v_u = row.get(f"test_upper_limit_spec_{i}")
+        upper_hit: tuple[str, float] | None = None
+        lower_hit: tuple[str, float] | None = None
+
+        for spec in spec_columns:
+            name = spec.get("name", "")
+
+            v_u = row.get(spec.get("upper_column", ""))
             if v_u is not None and pd.notna(v_u):
                 try:
                     spec_val = float(v_u)
                 except (ValueError, TypeError):
-                    continue
-                if raw_num > spec_val:
-                    if upper_hit is None or spec_val < upper_hit[1]:
-                        upper_hit = (i, spec_val)
+                    pass
+                else:
+                    if raw_num > spec_val:
+                        if upper_hit is None or spec_val < upper_hit[1]:
+                            upper_hit = (name, spec_val)
 
-            v_l = row.get(f"test_lower_limit_spec_{i}")
+            v_l = row.get(spec.get("lower_column", ""))
             if v_l is not None and pd.notna(v_l):
                 try:
                     spec_val = float(v_l)
                 except (ValueError, TypeError):
-                    continue
-                if raw_num < spec_val:
-                    if lower_hit is None or spec_val > lower_hit[1]:
-                        lower_hit = (i, spec_val)
+                    pass
+                else:
+                    if raw_num < spec_val:
+                        if lower_hit is None or spec_val > lower_hit[1]:
+                            lower_hit = (name, spec_val)
 
-        # 上限・下限の両方で超過している場合、上限優先
         if upper_hit:
-            return f"U{upper_hit[0]}"
+            return f"U:{upper_hit[0]}"
         if lower_hit:
-            return f"L{lower_hit[0]}"
+            return f"L:{lower_hit[0]}"
         return None
 
     # ── Trend graph data ──────────────────────────────────────────────────────
 
     def get_trend_data(
-        self, holder_group_code: str, vsset_code: str, vtest_code: str
+        self,
+        holder_group_code: str,
+        vsset_code: str,
+        vtest_code: str,
+        *,
+        trend_years: int = 5,
     ) -> list[dict]:
-        """Return time-series data for trend graph — 過去5年分のみ (includes judgment)."""
+        """Return time-series data for trend graph.
+
+        Args:
+            trend_years: 過去データ期間（年）。
+        """
         df = self.df
         mask = (
             (df["holder_group_code"] == holder_group_code)
@@ -287,7 +356,7 @@ class DataLoader:
             & (df["valid_test_set_code"].str.upper() == vtest_code.upper())
             & (df["trend_enabled"] == True)
         )
-        hist = self._cutoff_5yr(df[mask]).copy()
+        hist = self._cutoff_years(df[mask], trend_years).copy()
         rows = []
         for _, row in hist.iterrows():
             n = self.extract_numeric(str(row.get("test_raw_data", "")))
@@ -305,11 +374,30 @@ class DataLoader:
         return rows
 
     def get_spec_limits(
-        self, holder_group_code: str, vsset_code: str, vtest_code: str
+        self,
+        holder_group_code: str,
+        vsset_code: str,
+        vtest_code: str,
+        *,
+        spec_columns: list[dict[str, str]] | None = None,
     ) -> dict:
         """Return spec limits (最上下限基準値) for trend graph overlay.
+
         最新行（sample_sampling_date が最大）の spec 列のみを使用する。
+
+        Args:
+            spec_columns: 基準値列の設定リスト。None ならデフォルト。
         """
+        if spec_columns is None:
+            spec_columns = [
+                {
+                    "upper_column": f"test_upper_limit_spec_{i}",
+                    "lower_column": f"test_lower_limit_spec_{i}",
+                    "name": f"基準値{i}",
+                }
+                for i in range(1, 5)
+            ]
+
         df = self.df
         mask = (
             (df["holder_group_code"] == holder_group_code)
@@ -319,13 +407,12 @@ class DataLoader:
         filtered = df[mask]
         if filtered.empty:
             return {}
-        # 最新行のみ
         latest = filtered.sort_values("sample_sampling_date", ascending=False).iloc[0]
         upper_vals: list[float] = []
         lower_vals: list[float] = []
-        for i in range(1, 5):
-            col_u = f"test_upper_limit_spec_{i}"
-            col_l = f"test_lower_limit_spec_{i}"
+        for spec in spec_columns:
+            col_u = spec.get("upper_column", "")
+            col_l = spec.get("lower_column", "")
             v_u = latest.get(col_u)
             v_l = latest.get(col_l)
             if v_u is not None and pd.notna(v_u) and isinstance(v_u, (int, float)):

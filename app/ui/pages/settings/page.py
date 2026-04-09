@@ -30,6 +30,7 @@ from app.ui.pages.settings.data_tab import DataTab
 from app.ui.pages.settings.hg_config_tab import HgConfigTab
 from app.ui.pages.settings.home_tab import HomeTab
 from app.ui.pages.settings.task_columns_tab import TaskColumnsTab
+from app.ui.pages.settings.reviewer_tab import ReviewerTab
 from app.ui.pages.settings.tool_settings_tab import ToolSettingsTab
 from app.ui.pages.settings.users_tab import UsersTab
 
@@ -177,8 +178,12 @@ class SettingsPage(QWidget):
             self.data_config_service, csv_columns=csv_columns,
         )
         self.tool_settings_tab = ToolSettingsTab(self.data_config_service)
+        self.reviewer_tab = ReviewerTab(
+            self.hg_config_service, self.data_service,
+        )
         task_container = self._build_task_settings(
-            self.hg_config_tab, self.task_columns_tab, self.tool_settings_tab,
+            self.hg_config_tab, self.task_columns_tab,
+            self.tool_settings_tab, self.reviewer_tab,
         )
         self._embed(self.ui.tab_tasks, task_container)
 
@@ -193,9 +198,12 @@ class SettingsPage(QWidget):
 
     @staticmethod
     def _build_task_settings(
-        hg_tab: QWidget, columns_tab: QWidget, tool_tab: QWidget,
+        hg_tab: QWidget,
+        columns_tab: QWidget,
+        tool_tab: QWidget,
+        reviewer_tab: QWidget,
     ) -> QWidget:
-        """分析項目設定・表示列設定・ツール設定をサブタブでまとめる。"""
+        """分析項目設定・表示列設定・ツール設定・確認者設定をサブタブでまとめる。"""
         container = QWidget()
         vl = QVBoxLayout(container)
         vl.setContentsMargins(0, 0, 0, 0)
@@ -203,6 +211,7 @@ class SettingsPage(QWidget):
         sub_tabs.addTab(hg_tab, "分析項目設定")
         sub_tabs.addTab(columns_tab, "表示列設定")
         sub_tabs.addTab(tool_tab, "ツール設定")
+        sub_tabs.addTab(reviewer_tab, "確認者設定")
         vl.addWidget(sub_tabs)
         return container
 

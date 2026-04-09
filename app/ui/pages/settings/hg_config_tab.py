@@ -593,6 +593,14 @@ class HgConfigTab(QWidget):
 
         self._verify_editor = _ChecklistEditor("データ確認チェックリスト")
 
+        # 異常検出・基準値列設定
+        from app.ui.pages.settings.anomaly_spec_widget import (
+            AnomalyConfigWidget,
+            SpecColumnsWidget,
+        )
+        self._anomaly_config = AnomalyConfigWidget()
+        self._spec_columns = SpecColumnsWidget()
+
         # パーサー設定
         from app.ui.pages.settings.parser_config_widget import ParserConfigWidget
         self._analysis_service = AnalysisResultService()
@@ -604,7 +612,11 @@ class HgConfigTab(QWidget):
                 self._post_docs_editor, self._post_editor,
             ],
             "result_entry": [self._parser_config],
-            "result_verification": [self._verify_editor],
+            "result_verification": [
+                self._verify_editor,
+                self._anomaly_config,
+                self._spec_columns,
+            ],
         }
 
         for status_id, status_name in STATUS_DEFS:
@@ -633,6 +645,8 @@ class HgConfigTab(QWidget):
         self._post_docs_editor.set_documents(cfg.get("post_documents", []))
         self._post_editor.set_items(cfg.get("post_checklist", []))
         self._verify_editor.set_items(cfg.get("verify_checklist", []))
+        self._anomaly_config.set_config(self._service.get_anomaly_config(hg_code))
+        self._spec_columns.set_columns(self._service.get_spec_columns(hg_code))
         self._parser_config.set_hg_code(hg_code)
 
     # ── 保存 ──────────────────────────────────────────────────────────────
@@ -652,6 +666,11 @@ class HgConfigTab(QWidget):
             pre_documents=self._pre_docs_editor.get_documents(),
             post_documents=self._post_docs_editor.get_documents(),
         )
+        ac = self._anomaly_config.get_config()
+        self._service.save_anomaly_config(
+            hg_code, ac["sigma"], ac["min_points"], ac["trend_years"],
+        )
+        self._service.save_spec_columns(hg_code, self._spec_columns.get_columns())
         self._parser_config.save()
         hg_name = self._combo.currentText()
         QMessageBox.information(
