@@ -85,7 +85,7 @@ class CodeEditorDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("パーサーコード編集")
         self.setModal(True)
-        self.showMaximized()
+        self.setWindowState(Qt.WindowState.WindowMaximized)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -164,7 +164,7 @@ class PromptPreviewDialog(QDialog):
         self._prompt = prompt
         self.setWindowTitle("プロンプトプレビュー")
         self.setModal(True)
-        self.resize(900, 700)
+        self.setWindowState(Qt.WindowState.WindowMaximized)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
