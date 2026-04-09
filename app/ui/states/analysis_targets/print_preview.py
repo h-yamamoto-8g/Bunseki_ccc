@@ -82,13 +82,33 @@ class PrintPreviewDialog(QDialog):
         )
 
     def _on_print(self) -> None:
+        from app.core.home_settings_store import get_print_config
+
+        cfg = get_print_config()
+
+        # 用紙サイズ
+        size_map = {
+            "A4": QPageSize.PageSizeId.A4,
+            "A3": QPageSize.PageSizeId.A3,
+            "B4": QPageSize.PageSizeId.JisB4,
+            "B5": QPageSize.PageSizeId.JisB5,
+            "Letter": QPageSize.PageSizeId.Letter,
+        }
+        page_size = QPageSize(size_map.get(cfg.get("paper_size", "A4"), QPageSize.PageSizeId.A4))
+
+        # 向き
+        orientation = (
+            QPageLayout.Orientation.Portrait
+            if "縦" in cfg.get("orientation", "")
+            else QPageLayout.Orientation.Landscape
+        )
+
+        # 余白
+        margin = float(cfg.get("margin", 10.0))
+
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setPageLayout(
-            QPageLayout(
-                QPageSize(QPageSize.PageSizeId.A4),
-                QPageLayout.Orientation.Landscape,
-                QMarginsF(10, 10, 10, 10),
-            )
+            QPageLayout(page_size, orientation, QMarginsF(margin, margin, margin, margin))
         )
 
         dlg = QPrintDialog(printer, self)

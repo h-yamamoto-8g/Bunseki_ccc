@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -149,6 +150,98 @@ class HomeTab(QWidget):
         sl_ret.addLayout(ret_row)
         root.addWidget(sec_ret)
 
+        # ── 日付フォーマット設定 ──────────────────────────────────
+        sec_date, sl_date = _make_section(
+            "日付表示フォーマット",
+            "アプリ全体の日付表示形式を設定します。",
+        )
+        date_row = QHBoxLayout()
+        date_row.setSpacing(8)
+        date_row.addWidget(QLabel("フォーマット:"))
+        self._combo_date_fmt = QComboBox()
+        for opt in home_settings_store.DATE_FORMAT_OPTIONS:
+            self._combo_date_fmt.addItem(opt["label"])
+        date_row.addWidget(self._combo_date_fmt)
+        date_row.addStretch()
+        btn_save_date = QPushButton("保存")
+        btn_save_date.setFixedHeight(30)
+        btn_save_date.setStyleSheet(_BTN_SAVE_STYLE)
+        btn_save_date.clicked.connect(self._on_save_date_format)
+        date_row.addWidget(btn_save_date)
+        sl_date.addLayout(date_row)
+        root.addWidget(sec_date)
+
+        # ── メールテンプレート設定 ────────────────────────────────
+        sec_mail, sl_mail = _make_section(
+            "メールテンプレート設定",
+            "回覧メールの件名プレフィックス・ヘッダー色・フッターを設定します。",
+        )
+        form_mail = QFormLayout()
+        form_mail.setSpacing(8)
+
+        self._edit_mail_prefix = QLineEdit()
+        self._edit_mail_prefix.setPlaceholderText("[Bunseki]")
+        form_mail.addRow("件名プレフィックス:", self._edit_mail_prefix)
+
+        self._edit_header_color = QLineEdit()
+        self._edit_header_color.setPlaceholderText("#1e3a5f")
+        self._edit_header_color.setMaximumWidth(120)
+        form_mail.addRow("ヘッダー色:", self._edit_header_color)
+
+        self._edit_complete_color = QLineEdit()
+        self._edit_complete_color.setPlaceholderText("#166534")
+        self._edit_complete_color.setMaximumWidth(120)
+        form_mail.addRow("完了ヘッダー色:", self._edit_complete_color)
+
+        self._edit_footer = QLineEdit()
+        self._edit_footer.setPlaceholderText("追加のフッターテキスト（任意）")
+        form_mail.addRow("フッターテキスト:", self._edit_footer)
+
+        sl_mail.addLayout(form_mail)
+        btn_row_mail = QHBoxLayout()
+        btn_row_mail.addStretch()
+        btn_save_mail = QPushButton("保存")
+        btn_save_mail.setFixedHeight(30)
+        btn_save_mail.setStyleSheet(_BTN_SAVE_STYLE)
+        btn_save_mail.clicked.connect(self._on_save_mail)
+        btn_row_mail.addWidget(btn_save_mail)
+        sl_mail.addLayout(btn_row_mail)
+        root.addWidget(sec_mail)
+
+        # ── 印刷設定 ─────────────────────────────────────────────
+        sec_print, sl_print = _make_section(
+            "印刷設定",
+            "印刷時の用紙サイズ・向き・余白を設定します。",
+        )
+        form_print = QFormLayout()
+        form_print.setSpacing(8)
+
+        self._combo_paper = QComboBox()
+        self._combo_paper.addItems(home_settings_store.PAPER_SIZE_OPTIONS)
+        form_print.addRow("用紙サイズ:", self._combo_paper)
+
+        self._combo_orient = QComboBox()
+        self._combo_orient.addItems(home_settings_store.ORIENTATION_OPTIONS)
+        form_print.addRow("向き:", self._combo_orient)
+
+        self._spin_margin = QDoubleSpinBox()
+        self._spin_margin.setRange(0, 50)
+        self._spin_margin.setSingleStep(1)
+        self._spin_margin.setDecimals(1)
+        self._spin_margin.setSuffix(" mm")
+        form_print.addRow("余白:", self._spin_margin)
+
+        sl_print.addLayout(form_print)
+        btn_row_print = QHBoxLayout()
+        btn_row_print.addStretch()
+        btn_save_print = QPushButton("保存")
+        btn_save_print.setFixedHeight(30)
+        btn_save_print.setStyleSheet(_BTN_SAVE_STYLE)
+        btn_save_print.clicked.connect(self._on_save_print)
+        btn_row_print.addWidget(btn_save_print)
+        sl_print.addLayout(btn_row_print)
+        root.addWidget(sec_print)
+
         root.addStretch()
 
     def _load(self) -> None:
@@ -161,6 +254,29 @@ class HomeTab(QWidget):
         self._spin_library.setValue(sizes.get("library", 50))
 
         self._spin_retention.setValue(home_settings_store.get_task_retention_days())
+
+        # 日付フォーマット
+        fmt_label = home_settings_store.get_date_format()
+        idx = self._combo_date_fmt.findText(fmt_label)
+        if idx >= 0:
+            self._combo_date_fmt.setCurrentIndex(idx)
+
+        # メールテンプレート
+        mail_cfg = home_settings_store.get_mail_config()
+        self._edit_mail_prefix.setText(mail_cfg.get("subject_prefix", "[Bunseki]"))
+        self._edit_header_color.setText(mail_cfg.get("header_color", "#1e3a5f"))
+        self._edit_complete_color.setText(mail_cfg.get("complete_color", "#166534"))
+        self._edit_footer.setText(mail_cfg.get("footer_text", ""))
+
+        # 印刷設定
+        pcfg = home_settings_store.get_print_config()
+        idx_p = self._combo_paper.findText(pcfg.get("paper_size", "A4"))
+        if idx_p >= 0:
+            self._combo_paper.setCurrentIndex(idx_p)
+        idx_o = self._combo_orient.findText(pcfg.get("orientation", "横 (Landscape)"))
+        if idx_o >= 0:
+            self._combo_orient.setCurrentIndex(idx_o)
+        self._spin_margin.setValue(float(pcfg.get("margin", 10.0)))
 
     def _on_save_calendar(self) -> None:
         url = self.edit_url.text().strip()
@@ -189,3 +305,27 @@ class HomeTab(QWidget):
             self, "保存完了",
             f"タスク保持期間を「{msg}」に保存しました。",
         )
+
+    def _on_save_date_format(self) -> None:
+        home_settings_store.set_date_format(self._combo_date_fmt.currentText())
+        QMessageBox.information(
+            self, "保存完了",
+            "日付フォーマットを保存しました。\n各画面に戻ると反映されます。",
+        )
+
+    def _on_save_mail(self) -> None:
+        home_settings_store.set_mail_config({
+            "subject_prefix": self._edit_mail_prefix.text().strip() or "[Bunseki]",
+            "header_color": self._edit_header_color.text().strip() or "#1e3a5f",
+            "complete_color": self._edit_complete_color.text().strip() or "#166534",
+            "footer_text": self._edit_footer.text().strip(),
+        })
+        QMessageBox.information(self, "保存完了", "メールテンプレート設定を保存しました。")
+
+    def _on_save_print(self) -> None:
+        home_settings_store.set_print_config({
+            "paper_size": self._combo_paper.currentText(),
+            "orientation": self._combo_orient.currentText(),
+            "margin": self._spin_margin.value(),
+        })
+        QMessageBox.information(self, "保存完了", "印刷設定を保存しました。")

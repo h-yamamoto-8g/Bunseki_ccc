@@ -192,8 +192,10 @@ class CirculationMailService:
         is_complete: bool = False,
     ) -> str:
         """メール件名を生成する。"""
+        from app.core.home_settings_store import get_mail_config
+        mail_cfg = get_mail_config()
         task_name = task.get("task_name", "")
-        prefix = "[Bunseki] "
+        prefix = f"{mail_cfg['subject_prefix']} "
         if anomalies:
             prefix += "⚠ 異常データあり - "
         if is_complete:
@@ -216,15 +218,18 @@ class CirculationMailService:
         created_by = task.get("created_by", "")
         now_str = datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
+        from app.core.home_settings_store import get_mail_config
+        mail_cfg = get_mail_config()
+
         if is_complete:
             action_label = "タスク完了通知"
-            header_bg = "#166534"
+            header_bg = mail_cfg.get("complete_color", "#166534")
         elif is_forward:
             action_label = "分析結果の確認依頼"
-            header_bg = "#1e3a5f"
+            header_bg = mail_cfg.get("header_color", "#1e3a5f")
         else:
             action_label = "分析結果の回覧"
-            header_bg = "#1e3a5f"
+            header_bg = mail_cfg.get("header_color", "#1e3a5f")
 
         # ── パーツ組み立て ──
         complete_badge = ""
@@ -304,6 +309,7 @@ class CirculationMailService:
             " border-top:1px solid #e2e8f0;'>"
             "<p style='margin:0; font-size:11px; color:#94a3b8;'>"
             f"このメールは Bunseki ver.{_cfg.APP_VERSION} から自動生成されました。"
+            f"{'<br>' + mail_cfg.get('footer_text', '') if mail_cfg.get('footer_text') else ''}"
             "</p></div></div></body></html>"
         )
 

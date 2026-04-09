@@ -501,15 +501,28 @@ class DataLoader:
 
     @staticmethod
     def _fmt_date(val, include_time: bool = False) -> str:
+        """日付値を設定されたフォーマットで表示用文字列に変換する。"""
         if val is None or (isinstance(val, float) and np.isnan(val)):
             return ""
         s = str(int(float(val)))
-        # YYYYMMDDHHMMSS or YYYYMM...
+
+        from app.core.home_settings_store import get_date_format_strings
+        fmt = get_date_format_strings()
+
         if len(s) >= 8:
-            base = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            y, m, d = s[:4], s[4:6], s[6:8]
             if include_time and len(s) >= 12:
-                base += f" {s[8:10]}:{s[10:12]}"
-            return base
+                template = fmt["datetime"]
+                hh, mm = s[8:10], s[10:12]
+                return (
+                    template.replace("YYYY", y).replace("MM", m)
+                    .replace("DD", d).replace("HH", hh).replace("mm", mm)
+                )
+            template = fmt["date"]
+            return template.replace("YYYY", y).replace("MM", m).replace("DD", d)
         if len(s) >= 6:
-            return f"{s[:4]}-{s[4:6]}"
+            y, m = s[:4], s[4:6]
+            # 月まで → 年-月 部分のみ
+            template = fmt["date"]
+            return template.replace("YYYY", y).replace("MM", m).split("DD")[0].rstrip("-/年月日 ")
         return s
